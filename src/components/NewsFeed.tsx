@@ -1,25 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NewsArticle } from '../types';
-import { ExternalLink, Clock, TrendingUp, Globe, ArrowLeft } from 'lucide-react';
+import { ExternalLink, Clock, TrendingUp, Globe, ArrowLeft, AlertCircle } from 'lucide-react';
 
 export default function NewsFeed() {
   const navigate = useNavigate();
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('finance');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
+      setError('');
       try {
         const response = await fetch(`/api/news?q=${query}`);
+        if (!response.ok) {
+          throw new Error('News service is temporarily unavailable.');
+        }
         const data = await response.json();
         if (data.articles) {
           setNews(data.articles);
         }
       } catch (error) {
         console.error("Error fetching news:", error);
+        setError(error instanceof Error ? error.message : 'Unable to load news.');
       } finally {
         setLoading(false);
       }
@@ -60,6 +66,13 @@ export default function NewsFeed() {
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-3 rounded-2xl border border-loss/40 bg-loss/10 px-4 py-3 text-xs font-bold text-loss">
+          <AlertCircle className="w-4 h-4" />
+          {error}
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -82,11 +95,11 @@ export default function NewsFeed() {
               )}
               <div className="p-5 flex-1 flex flex-col">
                 <div className="flex justify-between items-center mb-3 text-[10px] uppercase text-text-dim">
-                  <span className="flex items-center gap-1 text-accent"><Globe className="w-3 h-3" /> {article.source.name}</span>
+                  <span className="flex items-center gap-1 text-accent"><Globe className="w-3 h-3" /> {article.source?.name || 'ZENTRA'}</span>
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(article.publishedAt).toLocaleDateString()}</span>
                 </div>
                 <h3 className="font-bold text-sm mb-3 line-clamp-2 group-hover:text-accent transition-colors">{article.title}</h3>
-                <p className="text-[10px] text-text-dim line-clamp-3 mb-4 flex-1">{article.description}</p>
+                <p className="text-[10px] text-text-dim line-clamp-3 mb-4 flex-1">{article.description || 'No summary available for this article.'}</p>
                 <a 
                   href={article.url} 
                   target="_blank" 
@@ -98,6 +111,11 @@ export default function NewsFeed() {
               </div>
             </div>
           ))}
+          {news.length === 0 && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-3 bento-card text-center text-sm text-text-dim">
+              No news found for this category.
+            </div>
+          )}
         </div>
       )}
 
@@ -124,7 +142,7 @@ export default function NewsFeed() {
               </div>
               <div className="w-full bg-surface h-1.5 mt-2 rounded-full overflow-hidden">
                 <div className={`h-full transition-all duration-1000 ${
-                  item.sentiment === 'Bullish' ? 'bg-accent shadow-[0_0_10px_rgba(0,255,136,0.5)]' : 
+                  item.sentiment === 'Bullish' ? 'bg-accent shadow-[0_0_10px_rgba(124,255,26,0.5)]' : 
                   item.sentiment === 'Bearish' ? 'bg-loss shadow-[0_0_10px_rgba(255,77,77,0.5)]' : 'bg-yellow-400'
                 }`} style={{ width: `${item.score}%` }} />
               </div>

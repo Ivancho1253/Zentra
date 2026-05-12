@@ -1,417 +1,392 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Shield,
-  Zap,
-  BarChart3,
-  Wallet,
   ArrowRight,
-  Globe,
-  Cpu,
+  BarChart3,
+  BellRing,
+  Brain,
+  CheckCircle2,
+  Database,
+  Gauge,
   LineChart,
-  ChevronRight,
-  Activity
+  Lock,
+  Menu,
+  Radar,
+  Rocket,
+  Shield,
+  Sparkles,
+  Star,
+  TrendingUp,
+  Wallet,
+  X,
+  Twitter,
 } from 'lucide-react';
 
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSelector from './LanguageSelector';
 
+const heroImage = '/landing-hero-terminal.png';
+const intelligenceImage = '/landing-intelligence.png';
+const communityImage = '/landing-community.png';
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.3,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: { duration: 0.5, ease: 'easeOut' },
-    },
-  };
-
-  const landingFeatures = [
-    { icon: Wallet, title: t('smartWalletTrackingTitle'), desc: t('smartWalletTrackingDesc') },
-    { icon: Zap, title: t('instantExecutionTitle'), desc: t('instantExecutionDesc') },
-    { icon: Shield, title: t('institutionalSecurityTitle'), desc: t('institutionalSecurityDesc') }
-  ];
-
-  const [tiltHero, setTiltHero] = useState({ x: 0, y: 0 });
-  const [tiltTerminal, setTiltTerminal] = useState({ x: 0, y: 0 });
-  const heroRef = useRef<HTMLDivElement | null>(null);
-  const terminalRef = useRef<HTMLDivElement | null>(null);
-
-  // Parallax on scroll for subtle background motion
-  const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY || window.pageYOffset || 0);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const handleScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleTilt = (e: React.MouseEvent, ref: React.RefObject<HTMLDivElement>, setter: (v: { x: number; y: number }) => void) => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const x = e.clientX - (rect.left + rect.width / 2);
-    const y = e.clientY - (rect.top + rect.height / 2);
-    const rotateY = (x / rect.width) * 8; // degrees
-    const rotateX = -(y / rect.height) * 8;
-    setter({ x: rotateX, y: rotateY });
-  };
+  const navItems = [
+    { href: '#features', label: t('navFeatures') },
+    { href: '#howitworks', label: t('navHow') },
+    { href: '#results', label: t('navProof') },
+    { href: '#contact', label: t('navContact') },
+  ];
 
-  const resetTilt = (setter: (v: { x: number; y: number }) => void) => {
-    setter({ x: 0, y: 0 });
-  };
+  const stats = [
+    { label: t('statMarkets'), value: '50K+' },
+    { label: t('statSignals'), value: '1.2M' },
+    { label: t('statLatency'), value: '<1s' },
+    { label: t('statCoverage'), value: '24/7' },
+  ];
+
+  const featureCards = [
+    { icon: Wallet, title: t('featurePortfolioTitle'), desc: t('featurePortfolioDesc'), accent: 'text-lime-300' },
+    { icon: Radar, title: t('featureSignalsTitle'), desc: t('featureSignalsDesc'), accent: 'text-lime-300' },
+    { icon: BellRing, title: t('featureWatchlistTitle'), desc: t('featureWatchlistDesc'), accent: 'text-green-300' },
+    { icon: Gauge, title: t('featureFlowTitle'), desc: t('featureFlowDesc'), accent: 'text-lime-300' },
+  ];
+
+  const steps = [
+    { icon: Lock, title: t('stepOneTitle'), desc: t('stepOneDesc') },
+    { icon: Database, title: t('stepTwoTitle'), desc: t('stepTwoDesc') },
+    { icon: Brain, title: t('stepThreeTitle'), desc: t('stepThreeDesc') },
+    { icon: Rocket, title: t('stepFourTitle'), desc: t('stepFourDesc') },
+  ];
+
+  const testimonials = [
+    { quote: t('quoteOne'), role: t('roleOne'), avatar: 'AM' },
+    { quote: t('quoteTwo'), role: t('roleTwo'), avatar: 'SK' },
+    { quote: t('quoteThree'), role: t('roleThree'), avatar: 'JL' },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-accent/30 selection:text-accent overflow-x-hidden">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-  <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full animate-pulse" style={{ transform: `translateY(${scrollY * 0.06}px) scale(${1 + Math.sin(scrollY * 0.001) * 0.02})`, transition: 'transform 0.35s ease-out' }} />
-  <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s', transform: `translateY(${scrollY * -0.05}px) scale(${1 + Math.cos(scrollY * 0.001) * 0.02})`, transition: 'transform 0.35s ease-out' }} />
-  <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-purple-500/5 blur-[100px] rounded-full" style={{ transform: `translateY(${scrollY * 0.08}px) scale(${1 + Math.sin(scrollY * 0.0015) * 0.025})`, transition: 'transform 0.35s ease-out' }} />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
-        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
-      </div>
+    <div className="min-h-screen bg-[#030307] text-white overflow-x-hidden font-sans">
+      <motion.nav
+        initial={{ y: -80, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.55, ease: 'easeOut' }}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled ? 'bg-[#030307]/85 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-5 md:px-6 py-4 flex items-center justify-between">
+          <a href="#" className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-black/30 border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(124,255,26,0.25)] overflow-hidden">
+              <img src="/logo.png" alt="ZENTRA Logo" className="w-9 h-9 object-contain" referrerPolicy="no-referrer" />
+            </div>
+            <span className="flex flex-col leading-none">
+              <span className="text-lg md:text-xl font-black tracking-tight">ZENTRA</span>
+              <span className="text-[9px] uppercase tracking-[0.22em] text-lime-200/75">{t('brandTagline')}</span>
+            </span>
+          </a>
 
-      {/* Navigation */}
-      <nav className="relative z-50 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="MarketLens Logo" className="w-10 h-10 object-contain" referrerPolicy="no-referrer" />
-          <span className="text-xl font-black tracking-tighter uppercase">Market<span className="text-accent">Lens</span></span>
-        </div>
-        <div className="hidden md:flex items-center gap-10">
-          <div className="flex items-center gap-10 text-xs md:text-sm uppercase font-bold tracking-widest text-text-dim">
-            <a href="#features" className="hover:text-accent transition-colors">{t('features')}</a>
-            <a href="#intelligence" className="hover:text-accent transition-colors">{t('intelligence')}</a>
-            <a href="#terminal" className="hover:text-accent transition-colors">{t('terminal')}</a>
+          <div className="hidden md:flex items-center gap-8">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="text-sm text-white/55 hover:text-white transition-colors">
+                {item.label}
+              </a>
+            ))}
           </div>
-          <LanguageSelector />
+
+          <div className="hidden md:flex items-center gap-3">
+            <LanguageSelector />
+            <button
+              onClick={() => navigate('/auth')}
+              className="px-5 py-2.5 bg-white text-black rounded-full text-sm font-bold hover:bg-lime-200 transition-colors"
+            >
+              {t('launchApp')}
+            </button>
+          </div>
+
+          <button className="md:hidden p-2" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
+            {menuOpen ? <X /> : <Menu />}
+          </button>
         </div>
-        <button onClick={() => navigate('/auth')} className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-white hover:text-black transition-all">
-          {t('launchApp')}
-        </button>
-      </nav>
+      </motion.nav>
 
-      {/* Hero Section */}
-      <section className="relative z-10 pt-20 pb-32 px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto text-center">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-[10px] uppercase font-black tracking-[0.2em]">
-              <Activity className="w-3 h-3 animate-pulse" />
-              Next-Gen Market Intelligence
-            </motion.div>
-
-            <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl font-black tracking-tighter uppercase leading-[0.9]">
-              {t('heroTitle').split('.').map((part, i) => (
-                <React.Fragment key={i}>
-                  {i === 0 ? part + '.' : <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-blue-400 to-purple-500">{part}</span>}
-                  {i === 0 && <br />}
-                </React.Fragment>
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: '100%' }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: '100%' }}
+            className="fixed inset-0 z-40 bg-[#030307] md:hidden"
+          >
+            <div className="flex flex-col items-center justify-center h-full gap-7 px-8">
+              <LanguageSelector />
+              {navItems.map((item) => (
+                <a key={item.href} href={item.href} onClick={() => setMenuOpen(false)} className="text-2xl font-black">
+                  {item.label}
+                </a>
               ))}
-            </motion.h1>
-
-            <motion.p variants={itemVariants} className="max-w-2xl mx-auto text-text-dim text-lg md:text-xl font-medium leading-relaxed">
-              {t('heroSub')}
-            </motion.p>
-
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-              <button onClick={() => navigate('/auth')} className="group relative px-10 py-5 bg-accent text-bg rounded-2xl text-sm uppercase font-black tracking-widest overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_20px_40px_-10px_rgba(0,255,136,0.3)]">
-                <span className="relative z-10 flex items-center gap-2">
-                  {t('getStarted')} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              <button onClick={() => navigate('/auth')} className="mt-4 px-8 py-4 bg-white text-black rounded-full text-lg font-bold">
+                {t('launchApp')}
               </button>
-            </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <section className="relative min-h-[92vh] px-5 md:px-6 pt-28 pb-16 flex items-end overflow-hidden">
+        <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-75" />
+        <div className="absolute inset-0 bg-lime-400/18 mix-blend-color" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,#030307_0%,rgba(3,3,7,0.86)_32%,rgba(3,3,7,0.38)_70%,#030307_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,3,7,0.5)_0%,rgba(3,3,7,0.08)_42%,#030307_100%)]" />
+
+        <div className="relative z-10 max-w-7xl mx-auto w-full">
+          <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75 }} className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-md mb-6">
+              <span className="w-2 h-2 rounded-full bg-lime-300 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-[0.22em] text-lime-100">{t('liveMarkets')}</span>
+            </div>
+
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95]">
+              {t('heroTitleA')}{' '}
+              <span className="block bg-gradient-to-r from-lime-200 via-lime-200 to-green-300 bg-clip-text text-transparent">
+                {t('heroTitleB')}
+              </span>
+            </h1>
+
+            <p className="mt-7 text-base md:text-xl text-white/68 max-w-2xl leading-relaxed">{t('heroSub')}</p>
+
+            <div className="mt-9 flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => navigate('/auth')}
+                className="group inline-flex items-center justify-center gap-3 px-8 py-4 bg-lime-300 text-black rounded-full font-black hover:bg-lime-200 transition-all shadow-[0_18px_60px_rgba(124,255,26,0.28)]"
+              >
+                {t('startTrading')}
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <div className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-sm text-white/75">
+                <Shield className="w-4 h-4 text-lime-200" />
+                {t('trustedBy')}
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.7 }}
+            className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl"
+          >
+            {stats.map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-white/12 bg-black/25 backdrop-blur-xl p-4">
+                <div className="text-2xl md:text-3xl font-black">{stat.value}</div>
+                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/45 font-bold">{stat.label}</div>
+              </div>
+            ))}
           </motion.div>
         </div>
+      </section>
 
-        {/* Hero Visual (simplified & balanced) */}
-        <div className="mt-24 max-w-6xl mx-auto relative group">
-          <div
-            ref={heroRef}
-            onMouseMove={(e) => handleTilt(e, heroRef, setTiltHero)}
-            onMouseLeave={() => resetTilt(setTiltHero)}
-            style={{ transform: `perspective(1000px) rotateX(${tiltHero.x}deg) rotateY(${tiltHero.y}deg)` }}
-            className="transform-gpu"
-          >
-            <div className="absolute inset-0 bg-accent/20 blur-[100px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+      <section id="features" className="relative px-5 md:px-6 py-24 md:py-32">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="lg:col-span-5"
+            >
+              <div className="text-sm font-black uppercase tracking-[0.25em] text-lime-300 mb-4">{t('featuresKicker')}</div>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">{t('featuresTitle')}</h2>
+              <p className="mt-6 text-white/58 text-lg leading-relaxed">{t('featuresSub')}</p>
 
-            <motion.div className="relative bg-gradient-to-b from-[#061013] to-[#050505] border border-white/6 rounded-[2rem] overflow-hidden shadow-[0_30px_60px_-20px_rgba(0,0,0,0.75)] backdrop-blur-sm" animate={{ y: [0, -6, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}>
-              <div className="flex items-center gap-2 px-6 py-4 border-b border-white/5 bg-white/5">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/50" />
-                </div>
-                <div className="ml-4 px-4 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-text-dim">
-                  marketlens.app/terminal/dashboard
-                </div>
+              <div className="mt-8 flex flex-wrap gap-3">
+                {['Portfolio', 'Signals', 'Watchlist', 'News', 'Charts'].map((item) => (
+                  <span key={item} className="px-4 py-2 rounded-full border border-white/12 bg-white/5 text-xs font-bold text-white/70">
+                    {item}
+                  </span>
+                ))}
               </div>
+            </motion.div>
 
-              <div className="p-6 sm:p-8 grid grid-cols-12 gap-4 sm:gap-6">
-                <div className="col-span-12 md:col-span-8 space-y-6">
-                  <div className="h-64 bg-gradient-to-t from-[#062018]/40 to-transparent rounded-2xl border border-white/6 relative overflow-hidden shadow-inner">
-                    <div className="absolute inset-0 bg-gradient-to-t from-accent/20 to-transparent" />
-
-                    <motion.div initial={{ opacity: 0, y: 20, rotate: -6 }} whileInView={{ opacity: 1, y: 0, rotate: -2 }} whileHover={{ y: -8, rotate: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="absolute top-6 right-6 w-44 md:w-56 p-3 rounded-xl bg-[#071013] border border-white/6 shadow-lg">
-                      <div className="text-[10px] text-text-dim uppercase font-bold mb-2">AI Insights</div>
-                      <div className="text-sm font-black">Pattern signal • +82%</div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 30, rotate: 6 }}
-                      whileInView={{ opacity: 1, y: 0, rotate: 2 }}
-                      whileHover={{ y: -6, rotate: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.9 }}
-                      className="absolute top-6 left-6 w-36 md:w-48 p-3 rounded-xl bg-[#081018] border border-white/6 shadow-lg"
-                      style={{ transform: `translateY(${scrollY * 0.02}px)` }}
-                    >
-                      <div className="text-[10px] text-text-dim uppercase font-bold mb-1">Live Orders</div>
-                      <div className="text-sm font-black">2.4k trades/s</div>
-                    </motion.div>
-
-                    <div className="absolute top-4 left-4 flex gap-2">
-                      <div className="px-2 py-1 rounded bg-accent/20 text-[8px] font-bold text-accent uppercase">Live Feed</div>
-                      <div className="px-2 py-1 rounded bg-white/5 text-[8px] font-bold text-text-dim uppercase">Volatility: High</div>
-                    </div>
-
-                    <div className="absolute bottom-0 left-0 right-0 h-1/2 flex items-end px-4 pb-4 gap-3">
-                      {[40, 70, 45, 90, 65, 80, 55, 75, 95, 60, 85, 50, 65, 40].map((h, i) => (
-                        <motion.div key={i} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 1 + (i * 0.05), duration: 0.5 }} className="flex-1 bg-accent/60 rounded-t-lg transition-all" />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-                    {[
-                      { label: t('marketCap'), val: '$2.4T' },
-                      { label: t('volume'), val: '$84B' },
-                      { label: t('dominance'), val: '42%' }
-                    ].map((stat, i) => (
-                      <div key={i} className="bg-gradient-to-br from-[#07110a] to-[#041010] rounded-lg p-4 flex-1 border border-white/6 shadow-md">
-                        <div className="text-[9px] text-text-dim uppercase font-bold mb-1">{stat.label}</div>
-                        <div className="text-xl md:text-2xl font-black text-accent">{stat.val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="col-span-12 md:col-span-4 space-y-4">
-                  {[
-                    { name: 'BTC/USD', price: '64,231', change: '+2.4%' },
-                    { name: 'ETH/USD', price: '3,452', change: '+1.8%' },
-                    { name: 'SOL/USD', price: '142.5', change: '-0.5%' },
-                    { name: 'AAPL', price: '182.4', change: '+0.2%' }
-                  ].map((asset, i) => (
-                    <div key={i} className="p-4 bg-gradient-to-br from-[#070707] to-[#050506] rounded-2xl border border-white/6 flex justify-between items-center shadow">
-                      <div>
-                        <div className="text-[11px] font-black">{asset.name}</div>
-                        <div className="text-[9px] text-text-dim">{asset.price}</div>
-                      </div>
-                      <div className={`text-[10px] font-bold ${asset.change.startsWith('+') ? 'text-accent' : 'text-loss'}`}>
-                        {asset.change}
-                      </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.65 }}
+              className="lg:col-span-7"
+            >
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/12 bg-white/[0.03] shadow-[0_30px_120px_rgba(0,0,0,0.45)]">
+                <img src={intelligenceImage} alt="" className="w-full aspect-[16/10] object-cover" />
+                <div className="absolute inset-0 bg-lime-400/16 mix-blend-color" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#030307]/85 via-transparent to-transparent" />
+                <div className="absolute bottom-5 left-5 right-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {featureCards.map((feature) => (
+                    <div key={feature.title} className="rounded-2xl border border-white/12 bg-black/35 backdrop-blur-xl p-4">
+                      <feature.icon className={`w-5 h-5 ${feature.accent}`} />
+                      <div className="mt-3 text-sm font-black leading-tight">{feature.title}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
 
-      {/* Value Section */}
-      <section id="features" className="relative z-10 py-32 px-6 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <div className="text-accent text-[10px] font-black uppercase tracking-[0.3em]">{t('coreIntelligence')}</div>
-              <h2 className="text-5xl font-black tracking-tighter uppercase leading-[0.9]" dangerouslySetInnerHTML={{ __html: t('dominateMarketText') }} />
-              <p className="text-text-dim text-lg font-medium leading-relaxed">{t('stopJuggling')}</p>
-
-              <div className="space-y-6">
-                {landingFeatures.map((feature, i) => {
-                  const Icon = feature.icon;
-                  return (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-bg transition-all duration-500">
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h4 className="font-black uppercase tracking-tight mb-1">{feature.title}</h4>
-                        <p className="text-sm text-text-dim leading-relaxed">{feature.desc}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-6 pt-12">
-                <div className="bento-card !bg-white/5 border-white/10 p-8 space-y-4 hover:border-accent/50 transition-all">
-                  <BarChart3 className="w-8 h-8 text-accent" />
-                  <h3 className="font-black uppercase tracking-tight">{t('advAnalyticsTitle')}</h3>
-                  <p className="text-xs text-text-dim leading-relaxed">{t('advAnalyticsDesc')}</p>
-                </div>
-                <div className="bento-card !bg-white/5 border-white/10 p-8 space-y-4 hover:border-accent/50 transition-all">
-                  <Globe className="w-8 h-8 text-blue-400" />
-                  <h3 className="font-black uppercase tracking-tight">{t('globalCoverageTitle')}</h3>
-                  <p className="text-xs text-text-dim leading-relaxed">{t('globalCoverageDesc')}</p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="bento-card !bg-white/5 border-white/10 p-8 space-y-4 hover:border-accent/50 transition-all">
-                  <Cpu className="w-8 h-8 text-purple-400" />
-                  <h3 className="font-black uppercase tracking-tight">{t('aiInsightsTitle')}</h3>
-                  <p className="text-xs text-text-dim leading-relaxed">{t('aiInsightsDesc')}</p>
-                </div>
-                <div className="bento-card !bg-white/5 border-white/10 p-8 space-y-4 hover:border-accent/50 transition-all">
-                  <LineChart className="w-8 h-8 text-orange-400" />
-                  <h3 className="font-black uppercase tracking-tight">{t('realtimeDataTitle')}</h3>
-                  <p className="text-xs text-text-dim leading-relaxed">{t('realtimeDataDesc')}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Intelligence Section */}
-      <section id="intelligence" className="relative z-10 py-32 px-6 border-t border-white/5 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-accent/5 rounded-full blur-[120px]" />
-
-        <div className="max-w-7xl mx-auto relative z-10 text-center mb-16">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <h2 className="text-5xl font-black tracking-tighter uppercase">{t('predictiveInsights').split(' ')[0]} <span className="text-accent">{t('predictiveInsights').split(' ')[1]}</span></h2>
-            <p className="text-text-dim max-w-2xl mx-auto mt-4">{t('predictiveDesc')}</p>
-          </motion.div>
-        </div>
-
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { title: t('sentimentTitle'), desc: t('sentimentDesc') },
-              { title: t('whaleAlertsTitle'), desc: t('whaleAlertsDesc') },
-              { title: t('patternRecognitionTitle'), desc: t('patternRecognitionDesc') }
-            ].map((item, i) => (
-              <div key={i} className="bento-card group hover:border-accent/30 transition-all">
-                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent mb-6 group-hover:scale-110 transition-transform">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <h3 className="font-black uppercase tracking-tight mb-3">{item.title}</h3>
-                <p className="text-xs text-text-dim leading-relaxed">{item.desc}</p>
-              </div>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {featureCards.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.06 }}
+                className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 hover:bg-white/[0.07] transition-colors"
+              >
+                <feature.icon className={`w-6 h-6 ${feature.accent}`} />
+                <h3 className="mt-5 text-lg font-black">{feature.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/55">{feature.desc}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Terminal Section */}
-      <section id="terminal" className="relative z-10 py-32 px-6 bg-white/[0.02]">
+      <section id="howitworks" className="relative px-5 md:px-6 py-24 bg-white/[0.025]">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="order-2 lg:order-1 relative">
-              <div className="absolute inset-0 bg-accent/20 blur-[100px] rounded-full" />
+          <div className="max-w-3xl mb-12">
+            <div className="text-sm font-black uppercase tracking-[0.25em] text-lime-300 mb-4">{t('howKicker')}</div>
+            <h2 className="text-4xl md:text-6xl font-black tracking-tight">{t('howTitle')}</h2>
+          </div>
 
-              <div
-                ref={terminalRef}
-                onMouseMove={(e) => handleTilt(e, terminalRef, setTiltTerminal)}
-                onMouseLeave={() => resetTilt(setTiltTerminal)}
-                style={{ transform: `perspective(800px) rotateX(${tiltTerminal.x}deg) rotateY(${tiltTerminal.y}deg)` }}
-                className="relative bg-gradient-to-b from-[#061013] to-[#050505] border border-white/6 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md transform-gpu"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.08 }}
+                className="relative rounded-2xl border border-white/10 bg-[#08080d] p-6 min-h-56"
               >
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                    <div className="text-[10px] font-black uppercase">{t('terminal')}</div>
-                    <div className="text-[8px] text-accent uppercase font-bold">Live</div>
+                <div className="flex items-center justify-between">
+                  <step.icon className="w-7 h-7 text-lime-300" />
+                  <span className="text-5xl font-black text-white/[0.06]">0{index + 1}</span>
+                </div>
+                <h3 className="mt-10 text-2xl font-black">{step.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/55">{step.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="results" className="relative px-5 md:px-6 py-24 md:py-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.65 }}
+              className="lg:col-span-6"
+            >
+              <div className="relative rounded-[2rem] overflow-hidden border border-white/12 bg-white/[0.03]">
+                <img src={communityImage} alt="" className="w-full aspect-[16/11] object-cover" />
+                <div className="absolute inset-0 bg-lime-400/16 mix-blend-color" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#030307]/80 via-transparent to-transparent" />
+                <div className="absolute left-5 bottom-5 right-5 flex items-center justify-between gap-4 rounded-2xl border border-white/12 bg-black/35 backdrop-blur-xl p-4">
+                  <div>
+                    <div className="text-3xl font-black">92%</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-bold">Retention Signal</div>
                   </div>
-                  <div className="space-y-1">
-                    {[...Array(8)].map((_, i) => (
-                      <div key={i} className="flex justify-between text-[9px] font-mono">
-                        <span className="text-loss">64,231.{i}</span>
-                        <span className="text-text-dim">0.452 BTC</span>
-                      </div>
-                    ))}
-
-                    <motion.div className="py-2 text-center text-xl md:text-2xl font-extrabold my-2 rounded-full bg-accent text-bg shadow-[0_8px_24px_-8px_rgba(0,255,136,0.18)]" animate={{ scale: [1, 1.02, 1] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>64,230.50</motion.div>
-
-                    {[...Array(8)].map((_, i) => (
-                      <div key={i} className="flex justify-between text-[9px] font-mono">
-                        <span className="text-accent">64,229.{i}</span>
-                        <span className="text-text-dim">1.234 BTC</span>
-                      </div>
+                  <div className="flex gap-1">
+                    {[...Array(5)].map((_, index) => (
+                      <Star key={index} className="w-4 h-4 fill-lime-300 text-lime-300" />
                     ))}
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="order-1 lg:order-2 space-y-8">
-              <div className="text-accent text-[10px] font-black uppercase tracking-[0.3em]">{t('terminal')}</div>
-              <h2 className="text-5xl font-black tracking-tighter uppercase leading-[0.9]">{t('professionalExecution').split(' ')[0]} <span className="text-accent">{t('professionalExecution').split(' ')[1]}</span></h2>
-              <p className="text-text-dim text-lg font-medium leading-relaxed">A high-performance trading interface designed for speed. Low-latency order execution and deep liquidity integration.</p>
-              <ul className="space-y-4">
-                {['Direct Market Access', 'Advanced Order Types', 'Multi-Exchange Routing', 'Custom Workspace Layouts'].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
-                    <Zap className="w-4 h-4 text-accent" />
-                    {item}
-                  </li>
+            <div className="lg:col-span-6">
+              <div className="text-sm font-black uppercase tracking-[0.25em] text-green-300 mb-4">{t('proofKicker')}</div>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">{t('proofTitle')}</h2>
+              <p className="mt-6 text-white/58 text-lg leading-relaxed">{t('proofSub')}</p>
+
+              <div className="mt-8 space-y-4">
+                {testimonials.map((testimonial) => (
+                  <div key={testimonial.role} className="rounded-2xl border border-white/10 bg-white/[0.045] p-5">
+                    <p className="text-white/82 leading-relaxed">{testimonial.quote}</p>
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-lime-300 to-lime-300 text-black flex items-center justify-center text-xs font-black">
+                        {testimonial.avatar}
+                      </div>
+                      <div className="text-sm font-bold text-white/55">{testimonial.role}</div>
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="relative z-10 py-40 px-6">
-        <div className="max-w-4xl mx-auto text-center space-y-12">
-          <h2 className="text-6xl md:text-7xl font-black tracking-tighter uppercase leading-[0.9]">Ready to upgrade your <span className="text-accent">trading</span>?</h2>
-          <p className="text-text-dim text-xl font-medium">Join thousands of high-performance traders using MarketLens to stay ahead of the curve.</p>
-          <div className="pt-8">
-            <button onClick={() => navigate('/auth')} className="group relative px-12 py-6 bg-white text-black rounded-2xl text-sm uppercase font-black tracking-widest overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_20px_40px_-10px_rgba(255,255,255,0.2)]">
-              <span className="relative z-10 flex items-center gap-2">Launch Platform <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
-            </button>
-          </div>
-          <div className="pt-12 flex items-center justify-center gap-8 opacity-30 grayscale">
-            <div className="text-[10px] font-black uppercase tracking-widest">Trusted by</div>
-            <div className="flex gap-8">
-              <span className="font-black italic">QUANTUM</span>
-              <span className="font-black italic">NEXUS</span>
-              <span className="font-black italic">VELOCITY</span>
+      <section className="relative px-5 md:px-6 pb-24">
+        <div className="max-w-7xl mx-auto">
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/12 bg-gradient-to-br from-lime-300/18 via-lime-300/12 to-green-400/16 p-8 md:p-14">
+            <div className="relative z-10 max-w-3xl">
+              <CheckCircle2 className="w-10 h-10 text-lime-200 mb-6" />
+              <h2 className="text-4xl md:text-6xl font-black tracking-tight">{t('ctaTitle')}</h2>
+              <p className="mt-5 text-white/68 text-lg leading-relaxed">{t('ctaSub')}</p>
+              <button
+                onClick={() => navigate('/auth')}
+                className="mt-8 inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white text-black font-black hover:bg-lime-200 transition-colors"
+              >
+                {t('ctaButton')}
+                <ArrowRight className="w-5 h-5" />
+              </button>
             </div>
+            <LineChart className="absolute right-8 bottom-8 w-44 h-44 text-white/[0.06]" />
+            <TrendingUp className="absolute right-32 top-10 w-24 h-24 text-lime-200/10" />
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 py-12 px-6 border-t border-white/5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2 opacity-60">
-            <img src="/logo.png" alt="MarketLens Logo" className="w-6 h-6 object-contain" referrerPolicy="no-referrer" />
-            <span className="text-sm font-black tracking-tighter uppercase">MarketLens</span>
+      <footer id="contact" className="relative py-10 px-5 md:px-6 border-t border-white/10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="ZENTRA Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
+            </div>
+            <span className="font-black">ZENTRA</span>
           </div>
-            <div className="text-[10px] text-text-dim uppercase font-bold tracking-widest">DEV BY KENTO IV</div>
-          <div className="flex gap-6 text-[10px] uppercase font-bold tracking-widest text-text-dim">
-              <a href="#" className="hover:text-accent transition-colors">Privacy</a>
-              <a href="#" className="hover:text-accent transition-colors">Terms</a>
-              <a href="https://x.com/0xKento_" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">Contact</a>
+
+          <div className="flex items-center gap-6 text-sm text-white/45">
+            <a href="#" className="hover:text-white transition-colors">{t('privacy')}</a>
+            <a href="#" className="hover:text-white transition-colors">{t('terms')}</a>
+            <a
+              href="https://x.com/0xKento_"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 hover:text-lime-300 transition-colors"
+            >
+              <Twitter className="w-4 h-4" />
+              dev by Kento
+            </a>
           </div>
+
+          <div className="text-sm text-white/35">© 2026 ZENTRA.</div>
         </div>
       </footer>
     </div>

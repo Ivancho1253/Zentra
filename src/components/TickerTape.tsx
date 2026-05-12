@@ -5,8 +5,8 @@ import { Link } from 'react-router-dom';
 interface TickerAsset {
   symbol: string;
   name: string;
-  price: string;
-  change: string;
+  price: string | number;
+  change: string | number;
   type: 'stock' | 'crypto';
 }
 
@@ -17,9 +17,10 @@ export default function TickerTape() {
     const fetchHot = async () => {
       try {
         const res = await fetch('/api/market/hot');
+        if (!res.ok) return;
         const data = await res.json();
         if (data.data) {
-          setAssets(data.data);
+          setAssets(data.data.filter((asset: Partial<TickerAsset>) => asset.symbol));
         }
       } catch (e) {
         console.error("Failed to fetch ticker data", e);
@@ -45,21 +46,23 @@ export default function TickerTape() {
       <div className="flex animate-ticker whitespace-nowrap pl-32">
         {tickerItems.map((asset, idx) => {
           const isPositive = parseFloat(asset.change) >= 0;
+          const price = Number(asset.price);
+          const change = Number(asset.change);
           return (
             <Link
               key={`${asset.symbol}-${idx}`}
-              to={`/explorer/${asset.type === 'crypto' ? 'cryptos' : 'stocks'}/${asset.symbol}`}
+              to={`/market/${asset.type === 'crypto' ? 'cryptos' : 'stocks'}/${asset.symbol}`}
               className="flex items-center gap-4 px-8 border-r border-border-accent/50 hover:bg-accent/5 transition-colors group"
             >
               <span className="text-[10px] font-black text-text-main group-hover:text-accent transition-colors">
                 {asset.symbol}
               </span>
               <span className="text-[10px] font-medium text-text-dim">
-                ${parseFloat(asset.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {Number.isFinite(price) ? `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
               </span>
               <div className={`flex items-center gap-1 text-[10px] font-bold ${isPositive ? 'text-accent' : 'text-loss'}`}>
                 {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {isPositive ? '+' : ''}{asset.change}%
+                {Number.isFinite(change) ? `${isPositive ? '+' : ''}${asset.change}%` : 'N/A'}
               </div>
             </Link>
           );

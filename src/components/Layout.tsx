@@ -39,22 +39,25 @@ export default function Layout({ user, profile }: LayoutProps) {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/portfolio', icon: Wallet, label: 'Portfolio' },
-    { path: '/explorer', icon: Compass, label: 'Explorar' },
+    { path: '/market', icon: Compass, label: 'Market' },
     { path: '/news', icon: Newspaper, label: 'Market News' },
   ];
 
   return (
     <div className="flex h-screen bg-bg text-text-main font-sans">
       {/* Sidebar */}
-      <aside className="w-60 border-r border-border-accent flex flex-col p-6 gap-8">
+      <aside className="hidden md:flex w-60 border-r border-border-accent flex-col p-6 gap-8">
         <div className="flex items-center gap-2">
           <img 
             src="/logo.png" 
-            alt="MarketLens Logo" 
+            alt="ZENTRA Logo" 
             className="w-8 h-8 object-contain" 
             referrerPolicy="no-referrer" 
           />
-          <span className="font-bold tracking-tighter text-lg uppercase">MARKET<span className="text-accent">LENS</span></span>
+          <span className="flex flex-col leading-none">
+            <span className="font-bold tracking-tighter text-lg uppercase">ZENTRA</span>
+            <span className="text-[8px] uppercase tracking-[0.18em] text-accent">Know before it moves</span>
+          </span>
         </div>
 
         <nav className="flex-1">
@@ -106,11 +109,15 @@ export default function Layout({ user, profile }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col">
+      <main className="flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
         <TickerTape />
-        <header className="h-16 border-b border-border-accent flex items-center justify-between px-8 bg-bg/50 backdrop-blur-md sticky top-0 z-10">
-          <div className="bg-surface border border-border-accent px-4 py-2 rounded-full w-80 text-xs text-text-dim">
+        <header className="h-16 border-b border-border-accent flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/50 backdrop-blur-md sticky top-0 z-10">
+          <div className="hidden sm:block bg-surface border border-border-accent px-4 py-2 rounded-full w-80 max-w-full text-xs text-text-dim">
             Buscar activos (ej: AAPL, BTC, SOL)...
+          </div>
+          <div className="sm:hidden flex items-center gap-2">
+            <img src="/logo.png" alt="ZENTRA Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
+            <span className="font-bold tracking-tighter uppercase">ZENTRA</span>
           </div>
           <div className="flex items-center gap-4 text-xs">
             <button 
@@ -126,10 +133,25 @@ export default function Layout({ user, profile }: LayoutProps) {
             </span>
           </div>
         </header>
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto w-full">
           <Outlet />
         </div>
       </main>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-4 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={cn(
+              "flex flex-col items-center gap-1 px-2 py-3 text-[10px] font-bold",
+              location.pathname === item.path ? "text-accent" : "text-text-dim"
+            )}
+          >
+            <item.icon className="w-4 h-4" />
+            {item.label.replace('Market ', '')}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }

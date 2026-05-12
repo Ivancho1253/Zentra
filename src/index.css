@@ -19,11 +19,11 @@
   --border-accent: #1e1e22;
   --text-dim: #71717a;
   --text-main: #fafafa;
-  --accent: #00ff88;
-  --accent-soft: rgba(0, 255, 136, 0.1);
+  --accent: #7CFF1A;
+  --accent-soft: rgba(124, 255, 26, 0.12);
   --nav-active: #18181b;
   --ticker-bg: #09090b;
-  --card-glow: rgba(0, 255, 136, 0.15);
+  --card-glow: rgba(124, 255, 26, 0.18);
 }
 
 :root.light {
@@ -32,11 +32,11 @@
   --border-accent: #e2e8f0;
   --text-dim: #64748b;
   --text-main: #0f172a;
-  --accent: #10b981;
-  --accent-soft: rgba(16, 185, 129, 0.1);
+  --accent: #4ADE1E;
+  --accent-soft: rgba(74, 222, 30, 0.12);
   --nav-active: #f8fafc;
   --ticker-bg: #ffffff;
-  --card-glow: rgba(16, 185, 129, 0.1);
+  --card-glow: rgba(74, 222, 30, 0.12);
 }
 
 @layer base {

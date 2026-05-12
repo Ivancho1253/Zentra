@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSelector from './LanguageSelector';
@@ -15,11 +15,22 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  React.useEffect(() => {
+    getRedirectResult(auth).catch((err: any) => {
+      setError(err.message);
+    });
+  }, []);
+
   const handleGoogleSignIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (err: any) {
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        const provider = new GoogleAuthProvider();
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       setError(err.message);
     }
   };
@@ -42,7 +53,7 @@ export default function Auth() {
     <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 font-sans relative overflow-hidden">
       {/* Background Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/5 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-lime-500/5 blur-[120px] rounded-full" />
 
       {/* Language Selector Top Right */}
       <div className="absolute top-6 right-6 z-50">
@@ -63,15 +74,15 @@ export default function Auth() {
           <div className="flex justify-center mb-2">
             <motion.img 
               src="/logo.png" 
-              alt="MarketLens Logo" 
-              className="w-20 h-20 object-contain drop-shadow-[0_0_14px_rgba(0,255,136,0.35)]" 
+              alt="ZENTRA Logo" 
+              className="w-20 h-20 object-contain drop-shadow-[0_0_14px_rgba(124,255,26,0.35)]" 
               referrerPolicy="no-referrer"
               whileHover={{ scale: 1.05 }}
               transition={{ type: 'spring', stiffness: 200 }}
             />
           </div>
-          <h1 className="text-3xl font-black tracking-tighter uppercase">MARKET<span className="text-accent">LENS</span></h1>
-          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">Institutional Grade Portfolio Analysis</p>
+          <h1 className="text-3xl font-black tracking-tighter uppercase">ZENTRA</h1>
+          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">Know before it moves</p>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bento-card !bg-white/5 border-white/10 backdrop-blur-xl">
@@ -111,7 +122,7 @@ export default function Auth() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-accent to-green-500 text-bg py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-[1.01] active:scale-95 transition-all shadow-[0_14px_30px_-10px_rgba(0,255,136,0.28)]"
+              className="w-full bg-gradient-to-r from-accent to-lime-500 text-bg py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-[1.01] active:scale-95 transition-all shadow-[0_14px_30px_-10px_rgba(124,255,26,0.28)]"
             >
               {isLogin ? t('signIn') : t('register')}
             </button>

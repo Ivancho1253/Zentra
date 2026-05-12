@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Info, Activity, BarChart3, Star } from 'lucide-react';
+import { ArrowLeft, Globe, Star } from 'lucide-react';
 import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import CompanyLogo from './CompanyLogo';
@@ -16,28 +16,29 @@ export default function AssetDetail() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const normalizedSymbol = (symbol || '').toUpperCase();
 
   useEffect(() => {
-    if (!auth.currentUser || !symbol) return;
+    if (!auth.currentUser || !normalizedSymbol) return;
 
-    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', symbol);
+    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', normalizedSymbol);
     const unsubscribe = onSnapshot(favRef, (doc) => {
       setIsFavorite(doc.exists());
     });
 
     return () => unsubscribe();
-  }, [symbol]);
+  }, [normalizedSymbol]);
 
   const toggleFavorite = async () => {
-    if (!auth.currentUser || !symbol) return;
+    if (!auth.currentUser || !normalizedSymbol) return;
 
-    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', symbol);
+    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', normalizedSymbol);
     if (isFavorite) {
       await deleteDoc(favRef);
     } else {
       await setDoc(favRef, {
-        symbol,
-        name: symbol, // In detail view we might not have the full name easily without fetching
+        symbol: normalizedSymbol,
+        name: normalizedSymbol, // In detail view we might not have the full name easily without fetching
         type: type === 'cryptos' ? 'crypto' : 'stock',
         addedAt: new Date().toISOString()
       });
@@ -45,62 +46,57 @@ export default function AssetDetail() {
   };
 
   useEffect(() => {
+    if (!normalizedSymbol) return;
     const isLight = document.documentElement.classList.contains('light');
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.onload = () => {
+    const widgetSymbol = type === 'cryptos' ? `BINANCE:${normalizedSymbol}USDT` : `NASDAQ:${normalizedSymbol}`;
+    const renderWidget = (themeIsLight: boolean) => {
       if (containerRef.current && window.TradingView) {
+        containerRef.current.innerHTML = '';
         new window.TradingView.widget({
           autosize: true,
-          symbol: type === 'cryptos' ? `BINANCE:${symbol}USDT` : `NASDAQ:${symbol}`,
+          symbol: widgetSymbol,
           interval: 'D',
           timezone: 'Etc/UTC',
-          theme: isLight ? 'light' : 'dark',
+          theme: themeIsLight ? 'light' : 'dark',
           style: '1',
           locale: 'en',
-          toolbar_bg: isLight ? '#f8fafc' : '#f1f3f6',
+          toolbar_bg: themeIsLight ? '#f8fafc' : '#050505',
           enable_publishing: false,
           allow_symbol_change: true,
           container_id: 'tradingview_widget',
-          backgroundColor: isLight ? '#ffffff' : '#050505',
-          gridColor: isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
+          backgroundColor: themeIsLight ? '#ffffff' : '#050505',
+          gridColor: themeIsLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
           hide_side_toolbar: false,
         });
       }
     };
-    document.head.appendChild(script);
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://s3.tradingview.com/tv.js"]');
+    if (window.TradingView) {
+      renderWidget(isLight);
+    } else if (existingScript) {
+      existingScript.addEventListener('load', () => renderWidget(isLight), { once: true });
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.async = true;
+      script.onload = () => renderWidget(isLight);
+      document.head.appendChild(script);
+    }
 
     // Listen for theme changes to re-render widget
     const observer = new MutationObserver(() => {
       const currentIsLight = document.documentElement.classList.contains('light');
-      if (window.TradingView && containerRef.current) {
-        // Re-initialize widget
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: type === 'cryptos' ? `BINANCE:${symbol}USDT` : `NASDAQ:${symbol}`,
-          interval: 'D',
-          timezone: 'Etc/UTC',
-          theme: currentIsLight ? 'light' : 'dark',
-          style: '1',
-          locale: 'en',
-          toolbar_bg: currentIsLight ? '#f8fafc' : '#f1f3f6',
-          enable_publishing: false,
-          allow_symbol_change: true,
-          container_id: 'tradingview_widget',
-          backgroundColor: currentIsLight ? '#ffffff' : '#050505',
-          gridColor: currentIsLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
-          hide_side_toolbar: false,
-        });
-      }
+      renderWidget(currentIsLight);
     });
 
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
     return () => {
       observer.disconnect();
+      if (containerRef.current) containerRef.current.innerHTML = '';
     };
-  }, [symbol, type]);
+  }, [normalizedSymbol, type]);
 
   return (
     <div className="space-y-6">
@@ -113,14 +109,14 @@ export default function AssetDetail() {
         </button>
         <div className="flex items-center gap-4">
           <CompanyLogo 
-            symbol={symbol || ''} 
-            name={symbol || ''} 
+            symbol={normalizedSymbol} 
+            name={normalizedSymbol} 
             type={type === 'cryptos' ? 'crypto' : 'stock'}
             className="w-14 h-14"
             imgClassName="w-10 h-10"
           />
           <div>
-            <h1 className="text-3xl font-black tracking-tighter uppercase">{symbol} <span className="text-text-dim font-normal text-xl">/ USD</span></h1>
+            <h1 className="text-3xl font-black tracking-tighter uppercase">{normalizedSymbol} <span className="text-text-dim font-normal text-xl">/ USD</span></h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-text-dim uppercase font-bold tracking-widest">{type === 'stocks' ? 'Equity' : 'Digital Asset'}</span>
               <span className="w-1 h-1 bg-text-dim rounded-full" />
@@ -221,7 +217,7 @@ export default function AssetDetail() {
               <span className="text-[10px] font-bold uppercase">AI Insight</span>
             </div>
             <p className="text-[10px] text-text-dim leading-relaxed italic">
-              "MarketLens AI detects strong accumulation patterns in {symbol}. Institutional flow has increased by 12% in the last 48 hours."
+              "ZENTRA detects elevated market interest in {normalizedSymbol}. Review price action, volume and risk before opening a position."
             </p>
           </div>
         </div>

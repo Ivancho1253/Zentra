@@ -6,23 +6,80 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const fallbackStocks = [
+  { symbol: "AAPL", name: "Apple Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "182.40", change: "0.22" },
+  { symbol: "MSFT", name: "Microsoft Corporation", currency: "USD", exchange: "NASDAQ", type: "stock", price: "415.80", change: "0.64" },
+  { symbol: "NVDA", name: "NVIDIA Corporation", currency: "USD", exchange: "NASDAQ", type: "stock", price: "908.10", change: "2.18" },
+  { symbol: "AMZN", name: "Amazon.com Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "188.70", change: "-0.31" },
+  { symbol: "META", name: "Meta Platforms Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "502.30", change: "1.08" },
+  { symbol: "TSLA", name: "Tesla Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "174.60", change: "-1.42" },
+];
+
+const fallbackCryptos = [
+  { symbol: "BTC", name: "Bitcoin", price: "67234.00", change: "2.40", exchange: "Crypto", type: "crypto", currency: "USD" },
+  { symbol: "ETH", name: "Ethereum", price: "3456.00", change: "1.80", exchange: "Crypto", type: "crypto", currency: "USD" },
+  { symbol: "SOL", name: "Solana", price: "142.50", change: "-0.50", exchange: "Crypto", type: "crypto", currency: "USD" },
+  { symbol: "BNB", name: "BNB", price: "588.20", change: "0.72", exchange: "Crypto", type: "crypto", currency: "USD" },
+  { symbol: "XRP", name: "XRP", price: "0.54", change: "-0.18", exchange: "Crypto", type: "crypto", currency: "USD" },
+  { symbol: "ADA", name: "Cardano", price: "0.45", change: "0.35", exchange: "Crypto", type: "crypto", currency: "USD" },
+];
+
+const fallbackNews = [
+  {
+    title: "Markets digest rate outlook as technology shares lead the session",
+    description: "Investors balanced earnings momentum with macro data while large-cap technology names remained in focus.",
+    url: "https://www.reuters.com/markets/",
+    urlToImage: "",
+    publishedAt: new Date().toISOString(),
+    source: { name: "ZENTRA Brief" },
+  },
+  {
+    title: "Crypto liquidity improves as Bitcoin and Ethereum hold key ranges",
+    description: "Digital asset traders watched volatility and institutional flows across major tokens.",
+    url: "https://www.coindesk.com/markets/",
+    urlToImage: "",
+    publishedAt: new Date().toISOString(),
+    source: { name: "ZENTRA Brief" },
+  },
+  {
+    title: "Portfolio managers rotate between defensive sectors and AI leaders",
+    description: "Market breadth remains a central signal as investors rebalance risk exposure.",
+    url: "https://www.marketwatch.com/markets",
+    urlToImage: "",
+    publishedAt: new Date().toISOString(),
+    source: { name: "ZENTRA Brief" },
+  },
+];
+
+const getStringParam = (value: unknown, fallback = "") => {
+  const first = Array.isArray(value) ? value[0] : value;
+  return typeof first === "string" ? first.trim() : fallback;
+};
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   app.use(express.json());
 
   // API Proxy for Twelve Data
   app.get("/api/market/price", async (req, res) => {
-    const { symbol } = req.query;
+    const symbol = getStringParam(req.query.symbol).toUpperCase();
     const apiKey = process.env.TWELVE_DATA_API_KEY;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol is required" });
+    }
     
     if (!apiKey) {
       return res.status(500).json({ error: "Twelve Data API key missing" });
     }
 
     try {
-      const response = await axios.get(`https://api.twelvedata.com/price?symbol=${symbol}&apikey=${apiKey}`);
+      const response = await axios.get("https://api.twelvedata.com/price", {
+        params: { symbol, apikey: apiKey },
+        timeout: 10000,
+      });
       res.json(response.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch price" });
@@ -30,15 +87,23 @@ async function startServer() {
   });
 
   app.get("/api/market/time_series", async (req, res) => {
-    const { symbol, interval } = req.query;
+    const symbol = getStringParam(req.query.symbol).toUpperCase();
+    const interval = getStringParam(req.query.interval, "1h");
     const apiKey = process.env.TWELVE_DATA_API_KEY;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol is required" });
+    }
 
     if (!apiKey) {
       return res.status(500).json({ error: "Twelve Data API key missing" });
     }
 
     try {
-      const response = await axios.get(`https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval || '1h'}&apikey=${apiKey}`);
+      const response = await axios.get("https://api.twelvedata.com/time_series", {
+        params: { symbol, interval, apikey: apiKey },
+        timeout: 10000,
+      });
       res.json(response.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch time series" });
@@ -46,11 +111,15 @@ async function startServer() {
   });
 
   app.get("/api/market/logo", async (req, res) => {
-    const { symbol } = req.query;
+    const symbol = getStringParam(req.query.symbol).toUpperCase();
     const apiKey = process.env.TWELVE_DATA_API_KEY;
+    if (!symbol) return res.status(400).json({ error: "Symbol is required" });
     if (!apiKey) return res.status(500).json({ error: "API key missing" });
     try {
-      const response = await axios.get(`https://api.twelvedata.com/logo?symbol=${symbol}&apikey=${apiKey}`);
+      const response = await axios.get("https://api.twelvedata.com/logo", {
+        params: { symbol, apikey: apiKey },
+        timeout: 10000,
+      });
       res.json(response.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch logo" });
@@ -108,17 +177,19 @@ async function startServer() {
     'DOT', 'TRX', 'LINK', 'MATIC', 'WBTC', 'SHIB', 'DAI', 'LTC', 'BCH', 'UNI',
     'LEO', 'NEAR', 'ATOM', 'OKB', 'IMX', 'XLM', 'KAS', 'ETC', 'FIL', 'LDO',
     'HBAR', 'APT', 'TIA', 'OP', 'ARB', 'VET', 'MKR', 'RUNE', 'INJ', 'STX',
-    'GRT', 'THETA', 'SUI', 'BEAM', 'SEI', 'EGLD', 'ALGO', 'FLOW', 'QNT', 'SAND'
+    'GRT', 'THETA', 'SUI', 'BEAM', 'SEI', 'EGLD', 'ALGO', 'FLOW', 'QNT', 'SAND',
+    'MANA', 'ENS', 'LIDO', 'CRV', 'PEPE', 'FLOKI', 'BONK', 'WIF', 'AI', 'PIXEL',
+    'BLUR', 'SAFE', 'PENDLE', 'ORDI', 'SATS', 'JUP', 'ONDO', 'RENDER', 'AEVO', 'FARTCOIN'
   ];
 
   app.get("/api/market/stocks", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "API key missing" });
+    if (!apiKey) return res.json({ data: fallbackStocks, fallback: true });
     try {
       // Fetch NASDAQ and NYSE stocks to cover S&P 500
       const [nasdaqRes, nyseRes] = await Promise.all([
-        axios.get(`https://api.twelvedata.com/stocks?exchange=NASDAQ&apikey=${apiKey}`),
-        axios.get(`https://api.twelvedata.com/stocks?exchange=NYSE&apikey=${apiKey}`)
+        axios.get("https://api.twelvedata.com/stocks", { params: { exchange: "NASDAQ", apikey: apiKey }, timeout: 12000 }),
+        axios.get("https://api.twelvedata.com/stocks", { params: { exchange: "NYSE", apikey: apiKey }, timeout: 12000 })
       ]);
 
       const allStocks = [...(nasdaqRes.data.data || []), ...(nyseRes.data.data || [])];
@@ -129,76 +200,142 @@ async function startServer() {
       // Sort to match our priority list order
       sp500Stocks.sort((a, b) => SP500_SYMBOLS.indexOf(a.symbol) - SP500_SYMBOLS.indexOf(b.symbol));
 
-      res.json({ data: sp500Stocks });
+      res.json({ data: sp500Stocks.length > 0 ? sp500Stocks : fallbackStocks, fallback: sp500Stocks.length === 0 });
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch stocks" });
+      res.json({ data: fallbackStocks, fallback: true, error: "Failed to fetch live stocks" });
     }
   });
 
   app.get("/api/market/cryptos", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "API key missing" });
+    if (!apiKey) return res.json({ data: fallbackCryptos, fallback: true });
     try {
-      const response = await axios.get(`https://api.twelvedata.com/cryptocurrencies?apikey=${apiKey}`);
+      const response = await axios.get("https://api.twelvedata.com/cryptocurrencies", {
+        params: { apikey: apiKey },
+        timeout: 12000,
+      });
       const allCryptos = response.data.data || [];
       
-      // Filter for top symbols
-      const topCryptos = allCryptos.filter(crypto => TOP_CRYPTO_SYMBOLS.includes(crypto.symbol));
+      // Filtro mejorado: captura BTC/USD, BTC, o cualquier variante
+      const topCryptos = allCryptos.filter(crypto => 
+        TOP_CRYPTO_SYMBOLS.some(topSymbol => 
+          crypto.symbol === topSymbol || 
+          crypto.symbol.startsWith(topSymbol + '/') ||
+          crypto.symbol.split('/')[0] === topSymbol
+        )
+      );
       
-      // Sort to match our priority list order
-      topCryptos.sort((a, b) => TOP_CRYPTO_SYMBOLS.indexOf(a.symbol) - TOP_CRYPTO_SYMBOLS.indexOf(b.symbol));
+      // Eliminar duplicados (si hay BTC/USD y BTC, quedarse con uno)
+      const seen = new Set();
+      const uniqueCryptos = topCryptos.filter(c => {
+        const base = c.symbol.split('/')[0];
+        if (seen.has(base)) return false;
+        seen.add(base);
+        return true;
+      });
 
-      res.json({ data: topCryptos });
+      // Obtener precios en tiempo real para cada cripto
+      const cryptosWithPrices = await Promise.all(
+        uniqueCryptos.slice(0, 50).map(async (crypto) => {
+          try {
+            const baseSymbol = crypto.symbol.split('/')[0];
+            const priceResponse = await axios.get("https://api.twelvedata.com/price", {
+              params: { symbol: `${baseSymbol}/USD`, apikey: apiKey },
+              timeout: 8000,
+            });
+            const priceData = priceResponse.data;
+            
+            return {
+              symbol: baseSymbol,
+              name: crypto.name || baseSymbol,
+              price: priceData.price || null,
+              change: priceData.change || null,
+              exchange: 'Crypto',
+              type: 'crypto',
+              currency: 'USD'
+            };
+          } catch (priceError) {
+            console.error(`Failed to fetch price for ${crypto.symbol}:`, priceError);
+            return {
+              symbol: crypto.symbol.split('/')[0],
+              name: crypto.name || crypto.symbol,
+              price: null,
+              change: null,
+              exchange: 'Crypto',
+              type: 'crypto',
+              currency: 'USD'
+            };
+          }
+        })
+      );
+
+      res.json({ data: cryptosWithPrices.length > 0 ? cryptosWithPrices : fallbackCryptos, fallback: cryptosWithPrices.length === 0 });
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch cryptos" });
+      console.error("Error fetching cryptos:", error);
+      res.json({ data: fallbackCryptos, fallback: true, error: "Failed to fetch live cryptos" });
     }
   });
 
   app.get("/api/market/hot", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "API key missing" });
+    const fallbackHot = [
+      { symbol: "NVDA", name: "NVIDIA Corporation", price: "908.10", change: "2.18", type: "stock" },
+      { symbol: "SMCI", name: "Super Micro Computer Inc.", price: "32.80", change: "-2.13", type: "stock" },
+      { symbol: "AMD", name: "Advanced Micro Devices Inc.", price: "148.20", change: "1.05", type: "stock" },
+      { symbol: "META", name: "Meta Platforms Inc.", price: "502.30", change: "1.08", type: "stock" },
+      { symbol: "TSLA", name: "Tesla Inc.", price: "174.60", change: "-1.42", type: "stock" },
+      ...fallbackCryptos.slice(0, 3),
+    ];
+    if (!apiKey) return res.json({ data: fallbackHot, fallback: true });
     
     try {
       // For a real app, we'd calculate 7d performance. 
       // Since Twelve Data doesn't have a simple "top gainers" endpoint for all assets,
       // we'll pick some trending ones and mock the performance for the UI.
-      const hotSymbols = ['NVDA', 'SMCI', 'AMD', 'SOL', 'AVAX', 'META', 'TSLA', 'BTC'];
+      const hotSymbols = ['NVDA', 'SMCI', 'AMD', 'META', 'TSLA', 'BTC/USD', 'SOL/USD', 'AVAX/USD'];
       
-      const response = await axios.get(`https://api.twelvedata.com/quote?symbol=${hotSymbols.join(',')}&apikey=${apiKey}`);
+      const response = await axios.get("https://api.twelvedata.com/quote", {
+        params: { symbol: hotSymbols.join(","), apikey: apiKey },
+        timeout: 12000,
+      });
       
       // Twelve Data returns an object if multiple symbols, or single object if one
       const data = response.data;
       const results = hotSymbols.map(s => {
         const quote = data[s] || data;
+        const displaySymbol = s.split("/")[0];
         return {
-          symbol: s,
-          name: quote.name || s,
-          price: quote.close || quote.price,
-          change: quote.percent_change || (Math.random() * 15 + 5).toFixed(2), // Mocking high growth if missing
-          type: s === 'SOL' || s === 'AVAX' || s === 'BTC' ? 'crypto' : 'stock'
+          symbol: displaySymbol,
+          name: quote.name || fallbackHot.find((asset) => asset.symbol === displaySymbol)?.name || displaySymbol,
+          price: quote.close || quote.price || fallbackHot.find((asset) => asset.symbol === displaySymbol)?.price || "0",
+          change: quote.percent_change || fallbackHot.find((asset) => asset.symbol === displaySymbol)?.change || "0",
+          type: s.includes("/") ? 'crypto' : 'stock'
         };
       });
 
       res.json({ data: results });
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch hot assets" });
+      res.json({ data: fallbackHot, fallback: true, error: "Failed to fetch live hot assets" });
     }
   });
 
   // API Proxy for NewsAPI
   app.get("/api/news", async (req, res) => {
-    const { q } = req.query;
+    const q = getStringParam(req.query.q, "finance");
     const apiKey = process.env.NEWS_API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({ error: "NewsAPI key missing" });
+      return res.json({ articles: fallbackNews, fallback: true });
     }
 
     try {
-      const response = await axios.get(`https://newsapi.org/v2/everything?q=${q || 'finance'}&sortBy=publishedAt&apiKey=${apiKey}`);
+      const response = await axios.get("https://newsapi.org/v2/everything", {
+        params: { q, sortBy: "publishedAt", language: "en", apiKey },
+        timeout: 12000,
+      });
       res.json(response.data);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch news" });
+      res.json({ articles: fallbackNews, fallback: true, error: "Failed to fetch live news" });
     }
   });
 

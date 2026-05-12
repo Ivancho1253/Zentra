@@ -1,18 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import Portfolio from './components/Portfolio';
-import NewsFeed from './components/NewsFeed';
-import MarketExplorer from './components/MarketExplorer';
-import AssetDetail from './components/AssetDetail';
-import Auth from './components/Auth';
 import { UserProfile } from './types';
-import LandingPage from './components/LandingPage';
 import { LanguageProvider } from './contexts/LanguageContext';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Portfolio = lazy(() => import('./components/Portfolio'));
+const NewsFeed = lazy(() => import('./components/NewsFeed'));
+const MarketExplorer = lazy(() => import('./components/MarketExplorer'));
+const AssetDetail = lazy(() => import('./components/AssetDetail'));
+const Auth = lazy(() => import('./components/Auth'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
+
+function AppLoader({ label = 'Loading ZENTRA...' }: { label?: string }) {
+  return (
+    <div className="flex flex-col h-screen items-center justify-center bg-bg gap-6">
+      <img
+        src="/logo.png"
+        alt="ZENTRA Logo"
+        className="w-20 h-20 object-contain animate-pulse"
+        referrerPolicy="no-referrer"
+      />
+      <div className="text-accent text-xs uppercase tracking-[0.3em] font-bold">{label}</div>
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -48,40 +63,32 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center bg-bg gap-6">
-        <img 
-          src="/logo.png" 
-          alt="MarketLens Logo" 
-          className="w-20 h-20 object-contain animate-pulse" 
-          referrerPolicy="no-referrer" 
-        />
-        <div className="text-accent text-xs uppercase tracking-[0.3em] font-bold">MARKETLENS INITIALIZING...</div>
-      </div>
-    );
+    return <AppLoader label="ZENTRA initializing..." />;
   }
 
   return (
     <LanguageProvider>
       <Router>
-        <Routes>
-          {!user ? (
-            <>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </>
-          ) : (
-            <Route element={<Layout user={user} profile={profile} />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/explorer" element={<MarketExplorer />} />
-              <Route path="/explorer/:type/:symbol" element={<AssetDetail />} />
-              <Route path="/news" element={<NewsFeed />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Route>
-          )}
-        </Routes>
+        <Suspense fallback={<AppLoader />}>
+          <Routes>
+            {!user ? (
+              <>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </>
+            ) : (
+              <Route element={<Layout user={user} profile={profile} />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/portfolio" element={<Portfolio />} />
+                <Route path="/market" element={<MarketExplorer />} />
+                <Route path="/market/:type/:symbol" element={<AssetDetail />} />
+                <Route path="/news" element={<NewsFeed />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Route>
+            )}
+          </Routes>
+        </Suspense>
       </Router>
     </LanguageProvider>
   );
