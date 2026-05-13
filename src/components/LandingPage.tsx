@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -35,6 +35,11 @@ export default function LandingPage() {
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { scrollYProgress } = useScroll();
+  const heroImageY = useTransform(scrollYProgress, [0, 0.28], ['0%', '18%']);
+  const heroCopyY = useTransform(scrollYProgress, [0, 0.22], ['0px', '-54px']);
+  const heroCopyOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0.72]);
+  const glowY = useTransform(scrollYProgress, [0, 1], ['0%', '42%']);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -50,10 +55,10 @@ export default function LandingPage() {
   ];
 
   const stats = [
-    { label: t('statMarkets'), value: '50K+' },
-    { label: t('statSignals'), value: '1.2M' },
-    { label: t('statLatency'), value: '<1s' },
-    { label: t('statCoverage'), value: '24/7' },
+    { label: t('statMarkets'), value: '50K+', icon: LineChart, detail: 'Stocks + crypto' },
+    { label: t('statSignals'), value: '1.2M', icon: Radar, detail: 'AI market events' },
+    { label: t('statLatency'), value: '<1s', icon: Gauge, detail: 'Signal refresh' },
+    { label: t('statCoverage'), value: '24/7', icon: Shield, detail: 'Always watching' },
   ];
 
   const featureCards = [
@@ -78,6 +83,15 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#030307] text-white overflow-x-hidden font-sans">
+      <motion.div
+        className="fixed left-0 top-0 h-1 origin-left bg-gradient-to-r from-lime-300 via-lime-400 to-green-400 z-[70] shadow-[0_0_24px_rgba(124,255,26,0.55)]"
+        style={{ scaleX: scrollYProgress }}
+      />
+      <motion.div
+        aria-hidden="true"
+        className="fixed right-[-10rem] top-32 w-80 h-80 rounded-full bg-lime-400/10 blur-[100px] pointer-events-none z-0"
+        style={{ y: glowY }}
+      />
       <motion.nav
         initial={{ y: -80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -145,13 +159,19 @@ export default function LandingPage() {
       </AnimatePresence>
 
       <section className="relative min-h-[92vh] px-5 md:px-6 pt-28 pb-16 flex items-end overflow-hidden">
-        <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-75" />
+        <motion.img src={heroImage} alt="" className="absolute inset-0 w-full h-[112%] object-cover opacity-75" style={{ y: heroImageY }} />
         <div className="absolute inset-0 bg-lime-400/18 mix-blend-color" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,#030307_0%,rgba(3,3,7,0.86)_32%,rgba(3,3,7,0.38)_70%,#030307_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,3,7,0.5)_0%,rgba(3,3,7,0.08)_42%,#030307_100%)]" />
 
         <div className="relative z-10 max-w-7xl mx-auto w-full">
-          <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75 }} className="max-w-3xl">
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.75 }}
+            className="max-w-3xl"
+            style={{ y: heroCopyY, opacity: heroCopyOpacity }}
+          >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-md mb-6">
               <span className="w-2 h-2 rounded-full bg-lime-300 animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-[0.22em] text-lime-100">{t('liveMarkets')}</span>
@@ -182,16 +202,47 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: [0, 10, 0] }}
+            transition={{ delay: 0.9, duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute right-0 bottom-1 hidden lg:flex items-center gap-3 text-[10px] uppercase tracking-[0.26em] text-lime-200/70"
+          >
+            <span>Scroll</span>
+            <span className="h-10 w-px bg-gradient-to-b from-lime-300 to-transparent" />
+          </motion.div>
+
+          <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.7 }}
-            className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl"
+            className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl"
           >
-            {stats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-white/12 bg-black/25 backdrop-blur-xl p-4">
-                <div className="text-2xl md:text-3xl font-black">{stat.value}</div>
-                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/45 font-bold">{stat.label}</div>
-              </div>
+            {stats.map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.42 + index * 0.08, duration: 0.55 }}
+                whileHover={{ y: -6, scale: 1.02 }}
+                className="group relative overflow-hidden rounded-3xl border border-lime-300/18 bg-black/45 p-5 backdrop-blur-xl shadow-[0_18px_70px_rgba(0,0,0,0.28)]"
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(124,255,26,0.28),transparent_38%)] opacity-60 transition-opacity group-hover:opacity-100" />
+                <div className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-lime-300/80 to-transparent" />
+                <div className="absolute bottom-0 left-0 h-1 w-0 bg-lime-300 transition-all duration-500 group-hover:w-full" />
+
+                <div className="relative z-10 flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-[0_0_18px_rgba(124,255,26,0.22)]">
+                      {stat.value}
+                    </div>
+                    <div className="mt-2 text-[10px] uppercase tracking-[0.24em] text-lime-200 font-black">{stat.label}</div>
+                    <div className="mt-3 text-xs font-semibold text-white/45">{stat.detail}</div>
+                  </div>
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-lime-300/20 bg-lime-300/10 text-lime-200 shadow-[0_0_26px_rgba(124,255,26,0.12)]">
+                    <stat.icon className="h-5 w-5" />
+                  </div>
+                </div>
+              </motion.div>
             ))}
           </motion.div>
         </div>
@@ -344,21 +395,61 @@ export default function LandingPage() {
 
       <section className="relative px-5 md:px-6 pb-24">
         <div className="max-w-7xl mx-auto">
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/12 bg-gradient-to-br from-lime-300/18 via-lime-300/12 to-green-400/16 p-8 md:p-14">
-            <div className="relative z-10 max-w-3xl">
-              <CheckCircle2 className="w-10 h-10 text-lime-200 mb-6" />
-              <h2 className="text-4xl md:text-6xl font-black tracking-tight">{t('ctaTitle')}</h2>
-              <p className="mt-5 text-white/68 text-lg leading-relaxed">{t('ctaSub')}</p>
-              <button
-                onClick={() => navigate('/auth')}
-                className="mt-8 inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white text-black font-black hover:bg-lime-200 transition-colors"
+          <div className="relative overflow-hidden rounded-[2rem] border border-lime-300/25 bg-[#071006] p-1 shadow-[0_30px_120px_rgba(124,255,26,0.16)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_20%,rgba(124,255,26,0.28),transparent_32%),radial-gradient(circle_at_86%_18%,rgba(124,255,26,0.16),transparent_28%),linear-gradient(135deg,rgba(124,255,26,0.16),rgba(3,3,7,0)_45%)]" />
+            <div className="absolute inset-0 opacity-[0.08]" style={{
+              backgroundImage: 'linear-gradient(rgba(124,255,26,0.45) 1px, transparent 1px), linear-gradient(90deg, rgba(124,255,26,0.45) 1px, transparent 1px)',
+              backgroundSize: '34px 34px'
+            }} />
+
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/35 px-7 py-8 md:px-14 md:py-12">
+              <motion.div
+                aria-hidden="true"
+                animate={{ y: [0, -10, 0], rotate: [0, 2, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute right-8 top-8 hidden lg:block"
               >
-                {t('ctaButton')}
-                <ArrowRight className="w-5 h-5" />
-              </button>
+                <div className="relative w-48 h-48 rounded-full border border-lime-300/15 bg-lime-300/5 blur-0">
+                  <img src="/logo.png" alt="" className="absolute inset-8 w-32 h-32 object-contain opacity-80 drop-shadow-[0_0_35px_rgba(124,255,26,0.55)]" />
+                </div>
+              </motion.div>
+
+              <LineChart className="absolute right-10 bottom-6 w-48 h-48 text-lime-300/[0.07]" />
+              <TrendingUp className="absolute right-44 top-14 w-24 h-24 text-lime-200/10 hidden md:block" />
+
+              <div className="relative z-10 max-w-4xl">
+                <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-lime-300/25 bg-lime-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-lime-200">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {t('brandTagline')}
+                </div>
+
+                <h2 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95]">
+                  {t('ctaTitle')}
+                </h2>
+                <p className="mt-6 text-white/70 text-lg md:text-xl leading-relaxed max-w-2xl">{t('ctaSub')}</p>
+
+                <div className="mt-8 grid grid-cols-3 gap-3 max-w-xl">
+                  {[
+                    ['24/7', 'Market scan'],
+                    ['<1s', 'Fast reads'],
+                    ['50K+', 'Assets'],
+                  ].map(([value, label]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 backdrop-blur">
+                      <div className="text-xl md:text-2xl font-black text-lime-200">{value}</div>
+                      <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/40 font-bold">{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => navigate('/auth')}
+                  className="group mt-9 inline-flex items-center gap-3 rounded-full bg-lime-300 px-8 py-4 text-black font-black shadow-[0_18px_60px_rgba(124,255,26,0.32)] transition-all hover:-translate-y-0.5 hover:bg-lime-200 hover:shadow-[0_24px_80px_rgba(124,255,26,0.42)]"
+                >
+                  {t('ctaButton')}
+                  <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                </button>
+              </div>
             </div>
-            <LineChart className="absolute right-8 bottom-8 w-44 h-44 text-white/[0.06]" />
-            <TrendingUp className="absolute right-32 top-10 w-24 h-24 text-lime-200/10" />
           </div>
         </div>
       </section>
