@@ -6,14 +6,112 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const fallbackStocks = [
-  { symbol: "AAPL", name: "Apple Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "182.40", change: "0.22" },
-  { symbol: "MSFT", name: "Microsoft Corporation", currency: "USD", exchange: "NASDAQ", type: "stock", price: "415.80", change: "0.64" },
-  { symbol: "NVDA", name: "NVIDIA Corporation", currency: "USD", exchange: "NASDAQ", type: "stock", price: "908.10", change: "2.18" },
-  { symbol: "AMZN", name: "Amazon.com Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "188.70", change: "-0.31" },
-  { symbol: "META", name: "Meta Platforms Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "502.30", change: "1.08" },
-  { symbol: "TSLA", name: "Tesla Inc.", currency: "USD", exchange: "NASDAQ", type: "stock", price: "174.60", change: "-1.42" },
-];
+const NASDAQ100_STOCKS = [
+  { symbol: "NVDA", name: "NVIDIA Corporation", price: "220.78", change: "0.61" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", price: "387.35", change: "-0.33" },
+  { symbol: "GOOG", name: "Alphabet Inc.", price: "383.82", change: "-0.76" },
+  { symbol: "AAPL", name: "Apple Inc.", price: "294.80", change: "0.72" },
+  { symbol: "MSFT", name: "Microsoft Corporation", price: "407.77", change: "-1.18" },
+  { symbol: "AMZN", name: "Amazon.com, Inc.", price: "265.82", change: "-1.18" },
+  { symbol: "AVGO", name: "Broadcom Inc.", price: "419.30", change: "-2.13" },
+  { symbol: "TSLA", name: "Tesla, Inc.", price: "433.45", change: "-2.60" },
+  { symbol: "META", name: "Meta Platforms, Inc.", price: "603.00", change: "0.69" },
+  { symbol: "WMT", name: "Walmart Inc.", price: "130.35", change: "2.16" },
+  { symbol: "MU", name: "Micron Technology, Inc.", price: "766.58", change: "-3.61" },
+  { symbol: "AMD", name: "Advanced Micro Devices, Inc.", price: "448.29", change: "-2.29" },
+  { symbol: "INTC", name: "Intel Corporation", price: "120.61", change: "-6.82" },
+  { symbol: "ASML", name: "ASML Holding N.V.", price: "1520.94", change: "-2.87" },
+  { symbol: "COST", name: "Costco Wholesale Corporation", price: "1021.88", change: "2.24" },
+  { symbol: "CSCO", name: "Cisco Systems, Inc.", price: "99.29", change: "0.58" },
+  { symbol: "NFLX", name: "Netflix, Inc.", price: "87.66", change: "2.59" },
+  { symbol: "LRCX", name: "Lam Research Corporation", price: "289.24", change: "-2.30" },
+  { symbol: "AMAT", name: "Applied Materials, Inc.", price: "431.20", change: "-2.80" },
+  { symbol: "PLTR", name: "Palantir Technologies Inc.", price: "136.00", change: "-0.65" },
+  { symbol: "TXN", name: "Texas Instruments Incorporated", price: "295.17", change: "-0.87" },
+  { symbol: "KLAC", name: "KLA Corporation", price: "1811.35", change: "-1.83" },
+  { symbol: "LIN", name: "Linde plc", price: "503.87", change: "-0.11" },
+  { symbol: "QCOM", name: "QUALCOMM Incorporated", price: "210.31", change: "-11.46" },
+  { symbol: "ARM", name: "Arm Holdings plc", price: "207.92", change: "-2.22" },
+  { symbol: "TMUS", name: "T-Mobile US, Inc.", price: "193.30", change: "1.28" },
+  { symbol: "PEP", name: "PepsiCo, Inc.", price: "151.85", change: "1.63" },
+  { symbol: "ADI", name: "Analog Devices, Inc.", price: "419.65", change: "-0.73" },
+  { symbol: "AMGN", name: "Amgen Inc.", price: "336.29", change: "2.03" },
+  { symbol: "STX", name: "Seagate Technology Holdings plc", price: "808.80", change: "-3.02" },
+  { symbol: "PANW", name: "Palo Alto Networks, Inc.", price: "215.60", change: "0.91" },
+  { symbol: "WDC", name: "Western Digital Corporation", price: "488.74", change: "-5.25" },
+  { symbol: "GILD", name: "Gilead Sciences, Inc.", price: "134.94", change: "1.06" },
+  { symbol: "APP", name: "AppLovin Corporation", price: "490.69", change: "2.56" },
+  { symbol: "ISRG", name: "Intuitive Surgical, Inc.", price: "431.87", change: "2.81" },
+  { symbol: "MRVL", name: "Marvell Technology, Inc.", price: "164.50", change: "-3.71" },
+  { symbol: "CRWD", name: "CrowdStrike Holdings, Inc.", price: "546.18", change: "0.72" },
+  { symbol: "HON", name: "Honeywell International Inc.", price: "218.54", change: "-0.26" },
+  { symbol: "PDD", name: "PDD Holdings Inc.", price: "95.73", change: "-3.11" },
+  { symbol: "SHOP", name: "Shopify Inc.", price: "99.84", change: "-2.63" },
+  { symbol: "BKNG", name: "Booking Holdings Inc.", price: "160.56", change: "1.75" },
+  { symbol: "SBUX", name: "Starbucks Corporation", price: "106.58", change: "0.79" },
+  { symbol: "VRTX", name: "Vertex Pharmaceuticals Incorporated", price: "448.29", change: "3.01" },
+  { symbol: "INTU", name: "Intuit Inc.", price: "387.74", change: "-1.41" },
+  { symbol: "CEG", name: "Constellation Energy Corporation", price: "293.60", change: "-2.03" },
+  { symbol: "CDNS", name: "Cadence Design Systems, Inc.", price: "358.04", change: "-1.69" },
+  { symbol: "SNPS", name: "Synopsys, Inc.", price: "513.21", change: "-0.58" },
+  { symbol: "ADBE", name: "Adobe Inc.", price: "240.83", change: "-2.16" },
+  { symbol: "MAR", name: "Marriott International, Inc.", price: "350.23", change: "-0.87" },
+  { symbol: "CMCSA", name: "Comcast Corporation", price: "24.90", change: "-0.52" },
+  { symbol: "ADP", name: "Automatic Data Processing, Inc.", price: "213.81", change: "1.01" },
+  { symbol: "MNST", name: "Monster Beverage Corporation", price: "85.87", change: "-0.62" },
+  { symbol: "FTNT", name: "Fortinet, Inc.", price: "113.87", change: "-1.36" },
+  { symbol: "CSX", name: "CSX Corporation", price: "44.53", change: "-0.47" },
+  { symbol: "ABNB", name: "Airbnb, Inc.", price: "135.48", change: "-1.15" },
+  { symbol: "MELI", name: "MercadoLibre, Inc.", price: "1578.78", change: "1.38" },
+  { symbol: "MDLZ", name: "Mondelez International, Inc.", price: "61.70", change: "0.47" },
+  { symbol: "MPWR", name: "Monolithic Power Systems, Inc.", price: "1599.52", change: "-3.71" },
+  { symbol: "ORLY", name: "O'Reilly Automotive, Inc.", price: "91.84", change: "0.54" },
+  { symbol: "NXPI", name: "NXP Semiconductors N.V.", price: "294.23", change: "-3.84" },
+  { symbol: "REGN", name: "Regeneron Pharmaceuticals, Inc.", price: "723.41", change: "1.49" },
+  { symbol: "AEP", name: "American Electric Power Company, Inc.", price: "131.94", change: "0.95" },
+  { symbol: "DDOG", name: "Datadog, Inc.", price: "199.94", change: "-1.18" },
+  { symbol: "ROST", name: "Ross Stores, Inc.", price: "217.67", change: "1.45" },
+  { symbol: "WBD", name: "Warner Bros. Discovery, Inc.", price: "27.20", change: "-0.15" },
+  { symbol: "DASH", name: "DoorDash, Inc.", price: "155.19", change: "-1.36" },
+  { symbol: "CTAS", name: "Cintas Corporation", price: "165.42", change: "0.46" },
+  { symbol: "BKR", name: "Baker Hughes Company", price: "65.24", change: "0.99" },
+  { symbol: "MSTR", name: "Strategy Inc", price: "184.42", change: "-5.88" },
+  { symbol: "PCAR", name: "PACCAR Inc", price: "113.03", change: "0.06" },
+  { symbol: "FANG", name: "Diamondback Energy, Inc.", price: "198.15", change: "1.02" },
+  { symbol: "MCHP", name: "Microchip Technology Incorporated", price: "97.70", change: "-1.34" },
+  { symbol: "EA", name: "Electronic Arts Inc.", price: "200.19", change: "-0.01" },
+  { symbol: "XEL", name: "Xcel Energy Inc.", price: "79.90", change: "-0.87" },
+  { symbol: "FAST", name: "Fastenal Company", price: "43.32", change: "0.05" },
+  { symbol: "ADSK", name: "Autodesk, Inc.", price: "234.87", change: "-0.51" },
+  { symbol: "FER", name: "Ferrovial N.V.", price: "68.91", change: "-1.63" },
+  { symbol: "EXC", name: "Exelon Corporation", price: "44.98", change: "1.79" },
+  { symbol: "IDXX", name: "IDEXX Laboratories, Inc.", price: "533.92", change: "0.36" },
+  { symbol: "TTWO", name: "Take-Two Interactive Software, Inc.", price: "225.99", change: "2.04" },
+  { symbol: "CCEP", name: "Coca-Cola Europacific Partners PLC", price: "92.92", change: "-0.57" },
+  { symbol: "PYPL", name: "PayPal Holdings, Inc.", price: "45.44", change: "0.82" },
+  { symbol: "ODFL", name: "Old Dominion Freight Line, Inc.", price: "191.12", change: "-2.05" },
+  { symbol: "KDP", name: "Keurig Dr Pepper Inc.", price: "29.17", change: "1.60" },
+  { symbol: "ALNY", name: "Alnylam Pharmaceuticals, Inc.", price: "292.03", change: "2.52" },
+  { symbol: "TRI", name: "Thomson Reuters Corporation", price: "87.27", change: "-2.19" },
+  { symbol: "PAYX", name: "Paychex, Inc.", price: "93.71", change: "-0.18" },
+  { symbol: "ROP", name: "Roper Technologies, Inc.", price: "323.94", change: "-1.48" },
+  { symbol: "CPRT", name: "Copart, Inc.", price: "33.44", change: "0.51" },
+  { symbol: "AXON", name: "Axon Enterprise, Inc.", price: "393.66", change: "-0.18" },
+  { symbol: "WDAY", name: "Workday, Inc.", price: "118.62", change: "-2.31" },
+  { symbol: "GEHC", name: "GE HealthCare Technologies Inc.", price: "62.29", change: "0.96" },
+  { symbol: "KHC", name: "The Kraft Heinz Company", price: "23.37", change: "0.47" },
+  { symbol: "INSM", name: "Insmed Incorporated", price: "116.00", change: "11.66" },
+  { symbol: "DXCM", name: "DexCom, Inc.", price: "61.14", change: "3.05" },
+  { symbol: "ZS", name: "Zscaler, Inc.", price: "146.17", change: "-1.81" },
+  { symbol: "CTSH", name: "Cognizant Technology Solutions Corporation", price: "47.73", change: "-3.09" },
+  { symbol: "VRSK", name: "Verisk Analytics, Inc.", price: "166.32", change: "-1.33" },
+  { symbol: "TEAM", name: "Atlassian Corporation", price: "85.00", change: "-2.65" },
+  { symbol: "CHTR", name: "Charter Communications, Inc.", price: "147.92", change: "0.09" },
+  { symbol: "CSGP", name: "CoStar Group, Inc.", price: "33.05", change: "0.39" },
+].map((stock) => ({ ...stock, currency: "USD", exchange: "NASDAQ", type: "stock" }));
+
+const fallbackStocks = NASDAQ100_STOCKS;
+const NASDAQ100_SYMBOLS = NASDAQ100_STOCKS.map((stock) => stock.symbol);
 
 const fallbackCryptos = [
   { symbol: "BTC", name: "Bitcoin", price: "67234.00", change: "2.40", exchange: "Crypto", type: "crypto", currency: "USD" },
@@ -54,6 +152,20 @@ const fallbackNews = [
 const getStringParam = (value: unknown, fallback = "") => {
   const first = Array.isArray(value) ? value[0] : value;
   return typeof first === "string" ? first.trim() : fallback;
+};
+
+const getQuoteFromResponse = (data: any, symbol: string) => {
+  return data?.[symbol] || data?.[symbol.replace("/", ":")] || data;
+};
+
+const enrichWithQuote = (asset: any, quote: any) => {
+  const price = quote?.close ?? quote?.price ?? quote?.previous_close ?? asset?.price ?? null;
+  const change = quote?.percent_change ?? quote?.change_percent ?? quote?.change ?? asset?.change ?? null;
+  return {
+    ...asset,
+    price,
+    change,
+  };
 };
 
 async function startServer() {
@@ -186,7 +298,7 @@ async function startServer() {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
     if (!apiKey) return res.json({ data: fallbackStocks, fallback: true });
     try {
-      // Fetch NASDAQ and NYSE stocks to cover S&P 500
+      // Fetch stock metadata and keep the NASDAQ-100 universe.
       const [nasdaqRes, nyseRes] = await Promise.all([
         axios.get("https://api.twelvedata.com/stocks", { params: { exchange: "NASDAQ", apikey: apiKey }, timeout: 12000 }),
         axios.get("https://api.twelvedata.com/stocks", { params: { exchange: "NYSE", apikey: apiKey }, timeout: 12000 })
@@ -194,13 +306,33 @@ async function startServer() {
 
       const allStocks = [...(nasdaqRes.data.data || []), ...(nyseRes.data.data || [])];
       
-      // Filter for S&P 500 symbols
-      const sp500Stocks = allStocks.filter(stock => SP500_SYMBOLS.includes(stock.symbol));
+      const nasdaq100Stocks = allStocks.filter(stock => NASDAQ100_SYMBOLS.includes(stock.symbol));
       
-      // Sort to match our priority list order
-      sp500Stocks.sort((a, b) => SP500_SYMBOLS.indexOf(a.symbol) - SP500_SYMBOLS.indexOf(b.symbol));
+      nasdaq100Stocks.sort((a, b) => NASDAQ100_SYMBOLS.indexOf(a.symbol) - NASDAQ100_SYMBOLS.indexOf(b.symbol));
 
-      res.json({ data: sp500Stocks.length > 0 ? sp500Stocks : fallbackStocks, fallback: sp500Stocks.length === 0 });
+      const selectedStocks = nasdaq100Stocks.length > 0
+        ? NASDAQ100_STOCKS.map((fallbackStock) => {
+            const liveStock = nasdaq100Stocks.find((stock) => stock.symbol === fallbackStock.symbol);
+            return liveStock ? { ...fallbackStock, ...liveStock } : fallbackStock;
+          })
+        : fallbackStocks;
+      const quoteSymbols = selectedStocks.map((stock) => stock.symbol).join(",");
+      const quoteRes = await axios.get("https://api.twelvedata.com/quote", {
+        params: { symbol: quoteSymbols, apikey: apiKey },
+        timeout: 12000,
+      });
+
+      if (quoteRes.data?.status === "error") {
+        throw new Error(quoteRes.data?.message || "Quote service unavailable");
+      }
+
+      const enrichedStocks = selectedStocks.map((stock) => {
+        const quote = getQuoteFromResponse(quoteRes.data, stock.symbol);
+        return enrichWithQuote({ ...stock, type: "stock" }, quote);
+      });
+
+      const pricedStocks = enrichedStocks.filter((stock) => stock.price !== null && stock.change !== null);
+      res.json({ data: pricedStocks.length > 0 ? enrichedStocks : fallbackStocks, fallback: pricedStocks.length === 0 || nasdaq100Stocks.length === 0 });
     } catch (error) {
       res.json({ data: fallbackStocks, fallback: true, error: "Failed to fetch live stocks" });
     }
@@ -234,22 +366,27 @@ async function startServer() {
         return true;
       });
 
-      // Obtener precios en tiempo real para cada cripto
+      // Obtener cotizaciones en tiempo real para cada cripto.
       const cryptosWithPrices = await Promise.all(
         uniqueCryptos.slice(0, 50).map(async (crypto) => {
+          const baseSymbol = crypto.symbol.split('/')[0];
+          const fallbackCrypto = fallbackCryptos.find((item) => item.symbol === baseSymbol);
           try {
-            const baseSymbol = crypto.symbol.split('/')[0];
-            const priceResponse = await axios.get("https://api.twelvedata.com/price", {
+            const quoteResponse = await axios.get("https://api.twelvedata.com/quote", {
               params: { symbol: `${baseSymbol}/USD`, apikey: apiKey },
               timeout: 8000,
             });
-            const priceData = priceResponse.data;
+            const quoteData = quoteResponse.data;
+
+            if (quoteData?.status === "error") {
+              throw new Error(quoteData?.message || "Quote service unavailable");
+            }
             
             return {
               symbol: baseSymbol,
               name: crypto.name || baseSymbol,
-              price: priceData.price || null,
-              change: priceData.change || null,
+              price: quoteData.close ?? quoteData.price ?? fallbackCrypto?.price ?? null,
+              change: quoteData.percent_change ?? quoteData.change_percent ?? fallbackCrypto?.change ?? null,
               exchange: 'Crypto',
               type: 'crypto',
               currency: 'USD'
@@ -257,10 +394,10 @@ async function startServer() {
           } catch (priceError) {
             console.error(`Failed to fetch price for ${crypto.symbol}:`, priceError);
             return {
-              symbol: crypto.symbol.split('/')[0],
-              name: crypto.name || crypto.symbol,
-              price: null,
-              change: null,
+              symbol: baseSymbol,
+              name: crypto.name || baseSymbol,
+              price: fallbackCrypto?.price ?? null,
+              change: fallbackCrypto?.change ?? null,
               exchange: 'Crypto',
               type: 'crypto',
               currency: 'USD'
@@ -269,7 +406,8 @@ async function startServer() {
         })
       );
 
-      res.json({ data: cryptosWithPrices.length > 0 ? cryptosWithPrices : fallbackCryptos, fallback: cryptosWithPrices.length === 0 });
+      const pricedCryptos = cryptosWithPrices.filter((crypto) => crypto.price !== null && crypto.change !== null);
+      res.json({ data: pricedCryptos.length >= 6 ? cryptosWithPrices : fallbackCryptos, fallback: pricedCryptos.length < 6 });
     } catch (error) {
       console.error("Error fetching cryptos:", error);
       res.json({ data: fallbackCryptos, fallback: true, error: "Failed to fetch live cryptos" });

@@ -27,22 +27,60 @@
 }
 
 :root.light {
-  --bg: #f1f5f9;
+  --bg: #f5f8f1;
   --surface: #ffffff;
-  --border-accent: #e2e8f0;
-  --text-dim: #64748b;
-  --text-main: #0f172a;
-  --accent: #4ADE1E;
-  --accent-soft: rgba(74, 222, 30, 0.12);
-  --nav-active: #f8fafc;
+  --border-accent: #dce7d4;
+  --text-dim: #5f6f56;
+  --text-main: #111a0d;
+  --accent: #56E01B;
+  --accent-soft: rgba(86, 224, 27, 0.14);
+  --nav-active: #e9f8df;
   --ticker-bg: #ffffff;
-  --card-glow: rgba(74, 222, 30, 0.12);
+  --card-glow: rgba(55, 166, 18, 0.16);
 }
 
 @layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #4a4a4a #09090b;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #09090b;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #303033, #5a5a5f);
+    border: 2px solid #09090b;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #4a4a4f, #7cff1a);
+  }
+
   body {
     @apply bg-bg text-text-main font-sans transition-colors duration-300 antialiased;
   }
+}
+
+.light * {
+  scrollbar-color: #94a383 #edf5e8;
+}
+
+.light *::-webkit-scrollbar-track {
+  background: #edf5e8;
+}
+
+.light *::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #aebca5, #56e01b);
+  border-color: #edf5e8;
 }
 
 .bento-card {
@@ -57,7 +95,7 @@
 }
 
 .light .bento-card {
-  @apply shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-slate-200;
+  @apply shadow-[0_12px_38px_rgba(20,40,15,0.07)] border-[#dce7d4];
 }
 
 .bento-card:hover {
@@ -100,4 +138,79 @@
 
 .data-value {
   @apply font-mono tracking-tighter;
+}
+
+.app-page {
+  @apply space-y-6 md:space-y-8;
+}
+
+.app-hero {
+  @apply relative overflow-hidden rounded-[2rem] border border-accent/20 bg-surface p-5 md:p-7;
+  background:
+    linear-gradient(135deg, rgba(124, 255, 26, 0.16), rgba(124, 255, 26, 0.03) 35%, rgba(5, 5, 5, 0) 70%),
+    var(--surface);
+}
+
+.light .app-hero {
+  background:
+    linear-gradient(135deg, rgba(86, 224, 27, 0.2), rgba(86, 224, 27, 0.07) 38%, rgba(255, 255, 255, 0.92) 72%),
+    var(--surface);
+  box-shadow: 0 24px 70px -42px rgba(34, 111, 12, 0.45);
+}
+
+.app-hero::before {
+  content: '';
+  @apply absolute inset-0 pointer-events-none opacity-40;
+  background-image:
+    linear-gradient(rgba(124,255,26,0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,255,26,0.09) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: linear-gradient(90deg, black, transparent 80%);
+}
+
+.panel-card {
+  @apply relative overflow-hidden rounded-3xl border border-border-accent bg-surface transition-all duration-500;
+}
+
+.light .panel-card {
+  box-shadow: 0 16px 48px -34px rgba(20, 40, 15, 0.45);
+}
+
+.panel-card:hover {
+  @apply border-accent/35 shadow-[0_22px_70px_-26px_rgba(124,255,26,0.4)];
+}
+
+.quiet-chip {
+  @apply inline-flex items-center gap-2 rounded-full border border-border-accent bg-bg/45 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-text-dim;
+}
+
+.accent-chip {
+  @apply inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-accent;
+}
+
+.light .quiet-chip {
+  @apply bg-white/70;
+}
+
+.light .accent-chip {
+  color: #257d08;
+  background: rgba(86, 224, 27, 0.14);
+  border-color: rgba(37, 125, 8, 0.18);
+}
+
+.light .stat-up {
+  color: #257d08;
+  background: rgba(86, 224, 27, 0.16);
+  border-color: rgba(37, 125, 8, 0.18);
+}
+
+.scanline {
+  background: linear-gradient(90deg, transparent, rgba(124, 255, 26, 0.75), transparent);
+  animation: scanline 3.8s ease-in-out infinite;
+}
+
+@keyframes scanline {
+  0%, 100% { transform: translateX(-100%); opacity: 0; }
+  18%, 70% { opacity: 1; }
+  100% { transform: translateX(100%); }
 }

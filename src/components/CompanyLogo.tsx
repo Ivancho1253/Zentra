@@ -15,6 +15,41 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
   const [attemptIndex, setAttemptIndex] = useState(0);
   const cleanSymbol = symbol.split('/')[0].toUpperCase();
 
+  const getLogoSources = () => {
+    const companyDomains: Record<string, string[]> = {
+      AAPL: ['apple.com'],
+      MSFT: ['microsoft.com'],
+      NVDA: ['nvidia.com'],
+      AMZN: ['amazon.com'],
+      META: ['facebook.com', 'about.meta.com', 'meta.com'],
+      GOOGL: ['abc.xyz', 'google.com'],
+      GOOG: ['abc.xyz', 'google.com'],
+      TSLA: ['tesla.com'],
+      NFLX: ['netflix.com'],
+      AMD: ['amd.com'],
+      INTC: ['intel.com'],
+      ADBE: ['adobe.com'],
+      CSCO: ['cisco.com'],
+      PYPL: ['paypal.com'],
+      SHOP: ['shopify.com'],
+      PLTR: ['palantir.com'],
+      CRWD: ['crowdstrike.com'],
+      DDOG: ['datadoghq.com'],
+      WDAY: ['workday.com'],
+      TEAM: ['atlassian.com'],
+    };
+
+    const domainSources = (companyDomains[cleanSymbol] || [])
+      .map((domain) => `https://logo.clearbit.com/${domain}`);
+
+    return [
+      ...domainSources,
+      `https://static2.finnhub.io/logo/${cleanSymbol}.png`,
+      `https://logo.clearbit.com/${cleanSymbol.toLowerCase()}.com`,
+      name ? `https://logo.clearbit.com/${name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}.com` : null,
+    ].filter(Boolean) as string[];
+  };
+
   useEffect(() => {
     const fetchLogo = async () => {
       if (!symbol) return;
@@ -27,12 +62,14 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
         return;
       }
 
+      const fallbackSources = getLogoSources();
+
       try {
         // Try Twelve Data Logo API first
         const response = await fetch(`/api/market/logo?symbol=${encodeURIComponent(cleanSymbol)}`);
         const data = await response.json();
         
-        if (data.url) {
+        if (data.url && !data.url.includes('twelvedata.com/static/img/empty')) {
           setLogoUrl(data.url);
           return;
         }
@@ -40,28 +77,14 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
         console.debug("Twelve Data logo failed, trying alternatives");
       }
 
-      // Fallback sources in order
-      const logoSources = [
-        // Clearbit (best for major companies)
-        `https://logo.clearbit.com/${cleanSymbol.toLowerCase()}.com`,
-        // Finnhub (good for US stocks)
-        `https://static2.finnhub.io/logo/${cleanSymbol}.png`,
-        // Clearbit with company name
-        name ? `https://logo.clearbit.com/${name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}.com` : null,
-      ].filter(Boolean);
-
-      setLogoUrl(logoSources[0]);
+      setLogoUrl(fallbackSources[0] || null);
     };
 
     fetchLogo();
   }, [symbol, name, type, cleanSymbol]);
 
   const handleImageError = () => {
-    const logoSources = [
-      `https://logo.clearbit.com/${cleanSymbol.toLowerCase()}.com`,
-      `https://static2.finnhub.io/logo/${cleanSymbol}.png`,
-      name ? `https://logo.clearbit.com/${name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}.com` : null,
-    ].filter(Boolean);
+    const logoSources = getLogoSources();
 
     if (attemptIndex < logoSources.length - 1) {
       setLogoUrl(logoSources[attemptIndex + 1]);
@@ -86,6 +109,7 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
   return (
     <div className={`flex items-center justify-center bg-bg border border-border-accent rounded-xl overflow-hidden ${className}`}>
       <img
+        key={logoUrl}
         src={logoUrl!}
         alt={`${cleanSymbol} logo`}
         className={`object-contain transition-all duration-500 ${imgClassName}`}

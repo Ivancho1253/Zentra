@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { AlertCircle, ArrowLeft, Clock, ExternalLink, Globe, Newspaper, Radio, TrendingUp } from 'lucide-react';
 import { NewsArticle } from '../types';
-import { ExternalLink, Clock, TrendingUp, Globe, ArrowLeft, AlertCircle } from 'lucide-react';
+import CompanyLogo from './CompanyLogo';
 
 export default function NewsFeed() {
   const navigate = useNavigate();
@@ -16,16 +18,12 @@ export default function NewsFeed() {
       setError('');
       try {
         const response = await fetch(`/api/news?q=${query}`);
-        if (!response.ok) {
-          throw new Error('News service is temporarily unavailable.');
-        }
+        if (!response.ok) throw new Error('News service is temporarily unavailable.');
         const data = await response.json();
-        if (data.articles) {
-          setNews(data.articles);
-        }
-      } catch (error) {
-        console.error("Error fetching news:", error);
-        setError(error instanceof Error ? error.message : 'Unable to load news.');
+        setNews(data.articles || []);
+      } catch (fetchError) {
+        console.error('Error fetching news:', fetchError);
+        setError(fetchError instanceof Error ? fetchError.message : 'Unable to load news.');
       } finally {
         setLoading(false);
       }
@@ -35,122 +33,128 @@ export default function NewsFeed() {
   }, [query]);
 
   const categories = ['Finance', 'Crypto', 'Economy', 'Stocks', 'Tech'];
+  const leadArticle = news[0];
+  const secondaryArticles = news.slice(1, 12);
+  const motionItem = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
+  const fallbackImage = 'https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=1200&q=80';
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate(-1)}
-            className="p-3 bg-surface border border-border-accent rounded-2xl hover:text-accent transition-all group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tighter uppercase">Market Intelligence</h1>
-            <p className="text-[10px] text-text-dim uppercase">Global news and social sentiment</p>
+    <motion.div className="app-page" initial="hidden" animate="show" transition={{ staggerChildren: 0.07 }}>
+      <motion.section variants={motionItem} className="app-hero">
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-4">
+            <button onClick={() => navigate(-1)} className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <div className="accent-chip mb-4"><Newspaper className="h-3.5 w-3.5" /> Market news</div>
+              <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter">Intelligence desk</h1>
+              <p className="mt-3 max-w-2xl text-sm text-text-dim">Noticias globales, contexto y sentimiento social organizados para reaccionar mas rapido.</p>
+            </div>
+          </div>
+          <div className="flex max-w-xl flex-wrap gap-2">
+            {categories.map((cat) => (
+              <button key={cat} onClick={() => setQuery(cat.toLowerCase())} className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${query === cat.toLowerCase() ? 'bg-accent text-bg shadow-[0_0_24px_rgba(124,255,26,0.24)]' : 'border border-border-accent bg-bg/55 text-text-dim hover:border-accent/40 hover:text-text-main'}`}>
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setQuery(cat.toLowerCase())}
-              className={`px-4 py-1 border border-border-accent rounded-full text-[10px] uppercase transition-all ${
-                query === cat.toLowerCase() ? 'bg-accent text-bg border-accent' : 'text-text-dim hover:text-text-main hover:border-text-main'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
+        <div className="absolute bottom-0 left-0 h-px w-full scanline" />
+      </motion.section>
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-2xl border border-loss/40 bg-loss/10 px-4 py-3 text-xs font-bold text-loss">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </div>
-      )}
+      {error && <motion.div variants={motionItem} className="flex items-center gap-3 rounded-2xl border border-loss/40 bg-loss/10 px-4 py-3 text-xs font-bold text-loss"><AlertCircle className="h-4 w-4" />{error}</motion.div>}
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bento-card h-64 animate-pulse" />
-          ))}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-72 animate-pulse rounded-3xl border border-border-accent bg-surface" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {news.slice(0, 12).map((article, idx) => (
-            <div key={idx} className="bento-card flex flex-col group overflow-hidden !p-0">
-              {article.urlToImage && (
-                <div className="h-40 overflow-hidden border-b border-border-accent">
-                  <img 
-                    src={article.urlToImage} 
-                    alt={article.title} 
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
-                    referrerPolicy="no-referrer"
-                  />
+        <>
+          {leadArticle && (
+            <motion.article variants={motionItem} className="panel-card grid overflow-hidden lg:grid-cols-2">
+              <div className="min-h-[320px] overflow-hidden border-b border-border-accent lg:border-b-0 lg:border-r">
+                <img src={leadArticle.urlToImage || fallbackImage} alt={leadArticle.title} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" referrerPolicy="no-referrer" />
+              </div>
+              <div className="flex flex-col justify-between p-6 md:p-8">
+                <div>
+                  <div className="mb-5 flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                    <span className="accent-chip"><Globe className="h-3.5 w-3.5" /> {leadArticle.source?.name || 'ZENTRA'}</span>
+                    <span className="quiet-chip"><Clock className="h-3.5 w-3.5" /> {new Date(leadArticle.publishedAt).toLocaleDateString()}</span>
+                  </div>
+                  <h2 className="text-2xl md:text-4xl font-black leading-tight tracking-tight">{leadArticle.title}</h2>
+                  <p className="mt-4 text-sm leading-6 text-text-dim">{leadArticle.description || 'No summary available for this article.'}</p>
                 </div>
-              )}
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="flex justify-between items-center mb-3 text-[10px] uppercase text-text-dim">
-                  <span className="flex items-center gap-1 text-accent"><Globe className="w-3 h-3" /> {article.source?.name || 'ZENTRA'}</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(article.publishedAt).toLocaleDateString()}</span>
-                </div>
-                <h3 className="font-bold text-sm mb-3 line-clamp-2 group-hover:text-accent transition-colors">{article.title}</h3>
-                <p className="text-[10px] text-text-dim line-clamp-3 mb-4 flex-1">{article.description || 'No summary available for this article.'}</p>
-                <a 
-                  href={article.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="mt-auto flex items-center justify-center gap-2 border border-border-accent rounded-lg p-2 text-[10px] uppercase font-bold hover:bg-text-main hover:text-bg transition-all"
-                >
-                  Read Full Report <ExternalLink className="w-3 h-3" />
+                <a href={leadArticle.url} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-fit items-center gap-2 rounded-2xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:scale-[1.03]">
+                  Read report <ExternalLink className="h-4 w-4" />
                 </a>
               </div>
-            </div>
-          ))}
-          {news.length === 0 && (
-            <div className="col-span-1 md:col-span-2 lg:col-span-3 bento-card text-center text-sm text-text-dim">
-              No news found for this category.
-            </div>
+            </motion.article>
           )}
-        </div>
+
+          <motion.div variants={motionItem} className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {secondaryArticles.map((article, index) => (
+              <motion.article key={`${article.url}-${index}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.03, 0.35) }} className="panel-card flex flex-col overflow-hidden">
+                <div className="h-44 overflow-hidden border-b border-border-accent">
+                  <img src={article.urlToImage || fallbackImage} alt={article.title} className="h-full w-full object-cover grayscale transition-all duration-500 hover:scale-105 hover:grayscale-0" referrerPolicy="no-referrer" />
+                </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3 text-[10px] uppercase text-text-dim">
+                    <span className="flex min-w-0 items-center gap-1 text-accent"><Globe className="h-3 w-3" /> <span className="truncate">{article.source?.name || 'ZENTRA'}</span></span>
+                    <span className="flex shrink-0 items-center gap-1"><Clock className="h-3 w-3" /> {new Date(article.publishedAt).toLocaleDateString()}</span>
+                  </div>
+                  <h3 className="mb-3 line-clamp-2 text-base font-black leading-snug transition-colors hover:text-accent">{article.title}</h3>
+                  <p className="mb-5 line-clamp-3 flex-1 text-xs leading-5 text-text-dim">{article.description || 'No summary available for this article.'}</p>
+                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="mt-auto flex items-center justify-center gap-2 rounded-xl border border-border-accent p-3 text-[10px] font-black uppercase tracking-widest transition-all hover:border-accent hover:bg-accent hover:text-bg">
+                    Open source <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </motion.article>
+            ))}
+            {news.length === 0 && (
+              <div className="panel-card col-span-full p-8 text-center text-sm text-text-dim">No news found for this category.</div>
+            )}
+          </motion.div>
+        </>
       )}
 
-      {/* Social Sentiment Section */}
-      <div className="bento-card !bg-accent/5 border-accent/20">
-        <div className="flex items-center gap-3 mb-6">
-          <TrendingUp className="w-6 h-6 text-accent" />
-          <h2 className="text-lg font-bold uppercase tracking-tighter">Social Sentiment Analysis</h2>
+      <motion.section variants={motionItem} className="panel-card border-accent/25 bg-accent/5 p-6">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-accent/25 bg-accent/10 p-3"><Radio className="h-5 w-5 text-accent" /></div>
+            <div>
+              <h2 className="text-lg font-black uppercase tracking-tighter">Social sentiment</h2>
+              <p className="text-xs text-text-dim">Signals from high-velocity market conversations.</p>
+            </div>
+          </div>
+          <span className="accent-chip"><TrendingUp className="h-3.5 w-3.5" /> Live sample</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           {[
-            { tag: '$BTC', sentiment: 'Bullish', score: 84 },
-            { tag: '$AAPL', sentiment: 'Neutral', score: 52 },
-            { tag: '$TSLA', sentiment: 'Bearish', score: 28 },
-            { tag: '$ETH', sentiment: 'Bullish', score: 76 },
+            { tag: 'BTC', name: 'Bitcoin', type: 'crypto' as const, sentiment: 'Bullish', score: 84 },
+            { tag: 'AAPL', name: 'Apple Inc.', type: 'stock' as const, sentiment: 'Neutral', score: 52 },
+            { tag: 'TSLA', name: 'Tesla Inc.', type: 'stock' as const, sentiment: 'Bearish', score: 28 },
+            { tag: 'ETH', name: 'Ethereum', type: 'crypto' as const, sentiment: 'Bullish', score: 76 },
           ].map((item) => (
-            <div key={item.tag} className="border border-border-accent p-4 rounded-xl bg-bg/50">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-bold">{item.tag}</span>
-                <span className={`text-[10px] uppercase font-bold ${
-                  item.sentiment === 'Bullish' ? 'text-accent' : 
-                  item.sentiment === 'Bearish' ? 'text-loss' : 'text-yellow-400'
-                }`}>{item.sentiment}</span>
+            <div key={item.tag} className="rounded-2xl border border-border-accent bg-bg/45 p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <CompanyLogo symbol={item.tag} name={item.name} type={item.type} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
+                  <div>
+                    <div className="font-black">{item.tag}</div>
+                    <div className="text-[9px] uppercase text-text-dim">{item.name}</div>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-black uppercase ${item.sentiment === 'Bullish' ? 'text-accent' : item.sentiment === 'Bearish' ? 'text-loss' : 'text-yellow-400'}`}>{item.sentiment}</span>
               </div>
-              <div className="w-full bg-surface h-1.5 mt-2 rounded-full overflow-hidden">
-                <div className={`h-full transition-all duration-1000 ${
-                  item.sentiment === 'Bullish' ? 'bg-accent shadow-[0_0_10px_rgba(124,255,26,0.5)]' : 
-                  item.sentiment === 'Bearish' ? 'bg-loss shadow-[0_0_10px_rgba(255,77,77,0.5)]' : 'bg-yellow-400'
-                }`} style={{ width: `${item.score}%` }} />
+              <div className="h-2 overflow-hidden rounded-full bg-surface">
+                <div className={`h-full transition-all duration-1000 ${item.sentiment === 'Bullish' ? 'bg-accent shadow-[0_0_10px_rgba(124,255,26,0.5)]' : item.sentiment === 'Bearish' ? 'bg-loss shadow-[0_0_10px_rgba(255,77,77,0.5)]' : 'bg-yellow-400'}`} style={{ width: `${item.score}%` }} />
               </div>
-              <div className="mt-2 text-[8px] text-text-dim uppercase tracking-widest">Score: {item.score}/100</div>
+              <div className="mt-3 text-[9px] font-black uppercase tracking-widest text-text-dim">Score: {item.score}/100</div>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }

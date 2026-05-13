@@ -46,7 +46,7 @@ export default function Layout({ user, profile }: LayoutProps) {
   return (
     <div className="flex h-screen bg-bg text-text-main font-sans">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-60 border-r border-border-accent flex-col p-6 gap-8">
+      <aside className="hidden md:flex w-64 border-r border-border-accent/70 bg-surface/30 flex-col p-6 gap-8">
         <div className="flex items-center gap-2">
           <img 
             src="/logo.png" 
@@ -66,12 +66,11 @@ export default function Layout({ user, profile }: LayoutProps) {
               <li key={item.path}>
                 <Link
                   to={item.path}
-                  style={{ backgroundColor: location.pathname === item.path ? 'var(--nav-active)' : 'transparent' }}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all border border-transparent",
+                    "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all border border-transparent",
                     location.pathname === item.path 
-                      ? "text-text-main border-border-accent" 
-                      : "text-text-dim hover:text-text-main"
+                      ? "bg-accent text-[#061000] border-accent shadow-[0_0_24px_rgba(124,255,26,0.22)]" 
+                      : "text-text-dim hover:text-text-main hover:bg-bg/50 hover:border-border-accent"
                   )}
                 >
                   <item.icon className="w-4 h-4" />
@@ -83,13 +82,14 @@ export default function Layout({ user, profile }: LayoutProps) {
         </nav>
 
         <div className="mt-auto space-y-4">
-          <div className="p-4 bg-surface rounded-xl border border-border-accent">
-            <div className="text-[10px] text-text-dim uppercase font-bold">PLAN PRO</div>
-            <div className="text-xs font-bold mt-1">Acceso Ilimitado</div>
+          <div className="relative overflow-hidden rounded-3xl border border-accent/20 bg-accent/10 p-4">
+            <div className="text-[10px] text-accent uppercase font-black tracking-widest">ZENTRA PRO</div>
+            <div className="text-xs font-bold mt-1">Live edge enabled</div>
+            <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-accent/20 blur-2xl" />
           </div>
           
           <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-bg font-bold text-xs">
+            <div className="w-9 h-9 bg-accent rounded-2xl flex items-center justify-center text-bg font-bold text-xs shadow-[0_0_18px_rgba(124,255,26,0.25)]">
               {user.email?.[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -111,7 +111,7 @@ export default function Layout({ user, profile }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
         <TickerTape />
-        <header className="h-16 border-b border-border-accent flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/50 backdrop-blur-md sticky top-10 z-20">
+        <header className="h-16 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-10 z-20">
           <div className="hidden sm:block" />
           <div className="sm:hidden flex items-center gap-2">
             <img src="/logo.png" alt="ZENTRA Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
@@ -120,12 +120,12 @@ export default function Layout({ user, profile }: LayoutProps) {
           <div className="flex items-center gap-4 text-xs">
             <button 
               onClick={toggleTheme}
-              className="p-2 bg-surface border border-border-accent rounded-xl hover:text-accent transition-all"
+              className="p-2 bg-surface border border-border-accent rounded-xl hover:border-accent hover:text-accent transition-all"
               title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
             >
               {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </button>
-            <span className="flex items-center gap-2 text-text-dim">
+            <span className="hidden sm:flex items-center gap-2 rounded-full border border-border-accent bg-surface px-3 py-2 text-text-dim">
               <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
               Live Market Data
             </span>

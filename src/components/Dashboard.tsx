@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, onSnapshot, limit } from 'firebase/firestore';
+import { collection, limit, onSnapshot, query } from 'firebase/firestore';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { motion } from 'framer-motion';
+import { Activity, ArrowDownRight, ArrowUpRight, DollarSign, PieChart, Radar, Star, TrendingUp, Zap } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
-import CompanyLogo from './CompanyLogo';
 import { Asset } from '../types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, Activity, DollarSign, PieChart, Star, TrendingUp as TrendingUpIcon } from 'lucide-react';
-// TickerTape is rendered globally in Layout - no local import needed here
+import CompanyLogo from './CompanyLogo';
 
 export default function Dashboard() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -18,7 +18,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    // Portfolio Assets
     const qAssets = query(collection(db, 'users', auth.currentUser.uid, 'assets'));
     const unsubscribeAssets = onSnapshot(qAssets, (snapshot) => {
       const assetList: Asset[] = [];
@@ -35,14 +34,9 @@ export default function Dashboard() {
       setLoading(false);
     });
 
-    // Favorites
     const qFavs = query(collection(db, 'users', auth.currentUser.uid, 'favorites'), limit(5));
     const unsubscribeFavs = onSnapshot(qFavs, (snapshot) => {
-      const favList: any[] = [];
-      snapshot.forEach((doc) => {
-        favList.push({ ...doc.data(), id: doc.id });
-      });
-      setFavorites(favList);
+      setFavorites(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
     });
 
     return () => {
@@ -52,303 +46,202 @@ export default function Dashboard() {
   }, []);
 
   const chartRanges = {
-    '1D': {
-      label: 'Intraday Performance Snapshot',
-      performance: 1.28,
-      data: [
-        { name: '09:30', value: 3180 },
-        { name: '11:00', value: 3260 },
-        { name: '12:30', value: 3210 },
-        { name: '14:00', value: 3380 },
-        { name: '15:30', value: 3470 },
-        { name: 'Close', value: 3510 },
-      ],
-    },
-    '1W': {
-      label: '7-Day Performance Snapshot',
-      performance: 4.76,
-      data: [
-        { name: 'Mon', value: 3020 },
-        { name: 'Tue', value: 3180 },
-        { name: 'Wed', value: 3100 },
-        { name: 'Thu', value: 3340 },
-        { name: 'Fri', value: 3490 },
-        { name: 'Sat', value: 3440 },
-        { name: 'Sun', value: 3580 },
-      ],
-    },
-    '1M': {
-      label: '30-Day Performance Snapshot',
-      performance: 12.42,
-      data: [
-        { name: 'W1', value: 2840 },
-        { name: 'W2', value: 3180 },
-        { name: 'W3', value: 3040 },
-        { name: 'W4', value: 3490 },
-        { name: 'Now', value: 3710 },
-      ],
-    },
-    '1Y': {
-      label: '12-Month Performance Snapshot',
-      performance: 38.9,
-      data: [
-        { name: 'Jan', value: 2100 },
-        { name: 'Mar', value: 2450 },
-        { name: 'May', value: 2380 },
-        { name: 'Jul', value: 2860 },
-        { name: 'Sep', value: 3220 },
-        { name: 'Nov', value: 3510 },
-        { name: 'Now', value: 3920 },
-      ],
-    },
+    '1D': { label: 'Intraday performance', performance: 1.28, data: [{ name: '09:30', value: 3180 }, { name: '11:00', value: 3260 }, { name: '12:30', value: 3210 }, { name: '14:00', value: 3380 }, { name: '15:30', value: 3470 }, { name: 'Close', value: 3510 }] },
+    '1W': { label: '7-day performance', performance: 4.76, data: [{ name: 'Mon', value: 3020 }, { name: 'Tue', value: 3180 }, { name: 'Wed', value: 3100 }, { name: 'Thu', value: 3340 }, { name: 'Fri', value: 3490 }, { name: 'Sat', value: 3440 }, { name: 'Sun', value: 3580 }] },
+    '1M': { label: '30-day performance', performance: 12.42, data: [{ name: 'W1', value: 2840 }, { name: 'W2', value: 3180 }, { name: 'W3', value: 3040 }, { name: 'W4', value: 3490 }, { name: 'Now', value: 3710 }] },
+    '1Y': { label: '12-month performance', performance: 38.9, data: [{ name: 'Jan', value: 2100 }, { name: 'Mar', value: 2450 }, { name: 'May', value: 2380 }, { name: 'Jul', value: 2860 }, { name: 'Sep', value: 3220 }, { name: 'Nov', value: 3510 }, { name: 'Now', value: 3920 }] },
   };
 
   const activeChart = chartRanges[selectedRange];
   const isPerformancePositive = activeChart.performance >= 0;
+  const topAssets = assets.slice(0, 5);
+  const heroAssets = (topAssets.length ? topAssets : [
+    { id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', averagePrice: 188, totalQuantity: 1, lastUpdated: '' },
+    { id: 'NVDA', symbol: 'NVDA', name: 'NVIDIA', type: 'stock', averagePrice: 920, totalQuantity: 1, lastUpdated: '' },
+    { id: 'BTC', symbol: 'BTC', name: 'Bitcoin', type: 'crypto', averagePrice: 68000, totalQuantity: 1, lastUpdated: '' },
+  ] as Asset[]).slice(0, 3);
+
+  const motionItem = {
+    hidden: { opacity: 0, y: 18 },
+    show: { opacity: 1, y: 0 },
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
+      <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">Initializing Terminal...</div>
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">Initializing terminal...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="space-y-2">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <div className="text-xs text-text-dim uppercase font-bold tracking-[0.2em] mb-2">Dashboard</div>
-            <h1 className="text-5xl font-black tracking-tighter uppercase">Portfolio Terminal</h1>
-            <p className="text-sm text-text-dim mt-3 max-w-2xl">
-              Real-time market insights. Monitor your assets, track performance, and explore opportunities across global markets.
+    <motion.div className="app-page" initial="hidden" animate="show" transition={{ staggerChildren: 0.07 }}>
+      <motion.section variants={motionItem} className="app-hero">
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="accent-chip mb-4"><Radar className="h-3.5 w-3.5" /> Dashboard</div>
+            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">Portfolio Terminal</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-text-dim">
+              Monitorea capital, favoritos y sentimiento de mercado desde un cockpit unificado de ZENTRA.
             </p>
           </div>
-          <div className="flex-shrink-0 text-right">
-            <div className="text-[10px] text-text-dim uppercase font-bold tracking-widest mb-2">Status</div>
-            <div className="flex items-center gap-2 justify-end">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              <span className="text-xs font-black text-accent">Live Market Data</span>
-            </div>
+          <div className="grid min-w-[280px] grid-cols-3 gap-3 rounded-3xl border border-accent/15 bg-bg/45 p-3 backdrop-blur">
+            {heroAssets.map((asset, index) => (
+              <motion.div key={asset.symbol} initial={{ opacity: 0, y: 14, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.12 + index * 0.08 }} className="rounded-2xl border border-border-accent bg-surface/70 p-3 text-center">
+                <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="mx-auto h-12 w-12 rounded-2xl" imgClassName="h-8 w-8" />
+                <div className="mt-2 truncate text-[10px] font-black">{asset.symbol}</div>
+              </motion.div>
+            ))}
           </div>
         </div>
-        
-        {/* Decorative divider */}
-        <div className="h-px bg-gradient-to-r from-accent/50 via-accent/20 to-transparent mt-6" />
-      </div>
+        <div className="absolute bottom-0 left-0 h-px w-full scanline" />
+      </motion.section>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-auto">
-        {/* Portfolio Main Card */}
-        <div className="md:col-span-8 bento-card group overflow-hidden relative">
-          {/* Background gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          
-          <div className="flex justify-between items-start relative z-10">
-            <div className="flex-1">
-              <div className="text-xs text-text-dim uppercase font-bold tracking-[0.2em] mb-2">Overall Balance</div>
-              <div className="flex items-end gap-3 mb-2">
-                <h2 className="text-5xl font-black tracking-tighter data-value">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+        <motion.div variants={motionItem} className="panel-card p-6 md:col-span-8">
+          <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="quiet-chip mb-4"><DollarSign className="h-3.5 w-3.5" /> Overall balance</div>
+              <div className="flex flex-wrap items-end gap-3">
+                <h2 className="data-value text-4xl md:text-6xl font-black tracking-tighter">
                   ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h2>
-                <span className="text-sm font-bold text-text-dim uppercase tracking-widest mb-1">USD</span>
+                <span className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-text-dim">USD</span>
               </div>
-              <p className="text-xs text-text-dim mt-1">Your complete portfolio valuation across all holdings</p>
+              <p className="mt-3 text-xs text-text-dim">Valoracion completa de todas tus posiciones.</p>
             </div>
-            
-            <div className="flex-shrink-0 text-right pl-6">
-              <div className="text-xs text-text-dim uppercase font-bold tracking-[0.2em] mb-2">{selectedRange} Performance</div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-2">
-                  {isPerformancePositive ? (
-                    <ArrowUpRight className="w-5 h-5 text-accent" />
-                  ) : (
-                    <ArrowDownRight className="w-5 h-5 text-loss" />
-                  )}
-                  <span className={`stat-badge ${isPerformancePositive ? 'stat-up' : 'stat-down'} text-base font-black`}>
-                    {isPerformancePositive ? '+' : ''}{activeChart.performance.toFixed(2)}%
-                  </span>
-                </div>
-                <div className={`text-xs font-mono ${isPerformancePositive ? 'text-accent/80' : 'text-loss/80'}`}>
-                  {isPerformancePositive ? '+' : '-'}${Math.abs(totalValue * (activeChart.performance / 100)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </div>
+            <div className="rounded-3xl border border-accent/20 bg-accent/10 p-4 text-right">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} performance</div>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                {isPerformancePositive ? <ArrowUpRight className="h-5 w-5 text-accent" /> : <ArrowDownRight className="h-5 w-5 text-loss" />}
+                <span className={`stat-badge ${isPerformancePositive ? 'stat-up' : 'stat-down'} text-base`}>
+                  {isPerformancePositive ? '+' : ''}{activeChart.performance.toFixed(2)}%
+                </span>
               </div>
             </div>
           </div>
-          
-          {/* Decorative elements */}
-          <div className="absolute -bottom-20 -right-20 w-56 h-56 bg-accent/10 blur-3xl rounded-full group-hover:bg-accent/15 transition-all duration-700 pointer-events-none" />
-          <div className="absolute -top-20 -left-20 w-40 h-40 bg-accent/5 blur-2xl rounded-full pointer-events-none" />
+          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-accent/10 blur-3xl" />
+        </motion.div>
+
+        <div className="grid grid-cols-2 gap-4 md:col-span-4">
+          {[
+            { icon: DollarSign, label: 'Total assets', value: assets.length, copy: 'Holdings' },
+            { icon: Star, label: 'Watchlist', value: favorites.length, copy: 'Tracked' },
+          ].map((item) => (
+            <motion.div key={item.label} variants={motionItem} whileHover={{ y: -4 }} className="panel-card p-6">
+              <item.icon className="mb-4 h-5 w-5 text-accent" />
+              <div className="data-value text-4xl font-black">{item.value}</div>
+              <div className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-text-dim">{item.label}</div>
+              <div className="mt-1 text-[10px] text-text-dim">{item.copy}</div>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="md:col-span-4 grid grid-cols-2 gap-4">
-          <div className="bento-card group relative overflow-hidden !p-6 flex flex-col justify-between">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <DollarSign className="w-4 h-4 text-accent" />
-                <div className="text-xs text-text-dim uppercase font-bold tracking-widest">Total Assets</div>
-              </div>
-              <div className="text-3xl font-black data-value">{assets.length}</div>
-              <p className="text-[10px] text-text-dim mt-2">Holdings in portfolio</p>
-            </div>
-          </div>
-          <div className="bento-card group relative overflow-hidden !p-6 flex flex-col justify-between">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <Star className="w-4 h-4 text-accent fill-accent" />
-                <div className="text-xs text-text-dim uppercase font-bold tracking-widest">Watchlist</div>
-              </div>
-              <div className="text-3xl font-black data-value">{favorites.length}</div>
-              <p className="text-[10px] text-text-dim mt-2">Favorited items</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Chart Card */}
-        <div className="md:col-span-8 bento-card group">
-          <div className="flex justify-between items-center mb-8 relative z-10">
+        <motion.div variants={motionItem} className="panel-card p-6 md:col-span-8">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUpIcon className="w-4 h-4 text-accent" />
-                <div className="card-title !mb-0">Portfolio Growth</div>
-              </div>
-              <div className="text-[10px] text-text-dim uppercase font-bold tracking-widest">{activeChart.label}</div>
+              <div className="accent-chip mb-2"><TrendingUp className="h-3.5 w-3.5" /> Portfolio growth</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{activeChart.label}</div>
             </div>
             <div className="flex gap-2">
-              {(['1D', '1W', '1M', '1Y'] as const).map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setSelectedRange(t)}
-                  aria-pressed={selectedRange === t}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${selectedRange === t ? 'bg-accent text-bg shadow-lg' : 'hover:bg-accent/10 text-text-dim border border-border-accent/50 hover:border-accent/30'}`}
-                >
-                  {t}
+              {(['1D', '1W', '1M', '1Y'] as const).map((range) => (
+                <button key={range} type="button" onClick={() => setSelectedRange(range)} aria-pressed={selectedRange === range} className={`rounded-xl px-4 py-2 text-[10px] font-black transition-all ${selectedRange === range ? 'bg-accent text-bg shadow-[0_0_24px_rgba(124,255,26,0.28)]' : 'border border-border-accent/60 text-text-dim hover:border-accent/40 hover:bg-accent/10'}`}>
+                  {range}
                 </button>
               ))}
             </div>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[310px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={activeChart.data}>
                 <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                  <linearGradient id="dashboardValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.42} />
+                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-accent)" opacity={0.5} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700}} />
-                <Tooltip 
-                  contentStyle={{backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)', fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.2)'}}
-                  itemStyle={{color: 'var(--accent)', fontWeight: 800}}
-                  cursor={{stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '4 4'}}
-                />
-                <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#colorValue)" strokeWidth={3} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)' }} itemStyle={{ color: 'var(--accent)', fontWeight: 800 }} cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#dashboardValue)" strokeWidth={3} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Assets List Card */}
-        <div className="md:col-span-4 bento-card flex flex-col group">
-          <div className="flex justify-between items-center mb-6 relative z-10">
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-accent" />
-              <div className="card-title !mb-0">Top Holdings</div>
-            </div>
-            <span className="text-xs text-text-dim bg-accent/10 px-3 py-1 rounded-full">Top 5</span>
+        <motion.div variants={motionItem} className="panel-card flex flex-col p-6 md:col-span-4">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="accent-chip"><Activity className="h-3.5 w-3.5" /> Top holdings</div>
+            <span className="quiet-chip">Top 5</span>
           </div>
-          <div className="flex-1 space-y-3 relative z-10">
-            {assets.slice(0, 5).map((asset) => (
-              <div key={asset.id} className="flex justify-between items-center gap-3 p-4 rounded-2xl bg-surface/30 hover:bg-accent/10 transition-all cursor-pointer group border border-border-accent/30 hover:border-accent/50">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <CompanyLogo 
-                    symbol={asset.symbol} 
-                    name={asset.name} 
-                    type={asset.type === 'crypto' ? 'crypto' : 'stock'}
-                    className="w-11 h-11 rounded-xl flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow"
-                    imgClassName="w-6 h-6 group-hover:grayscale-0 transition-all"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black group-hover:text-accent transition-colors truncate">{asset.symbol}</div>
-                    <div className="text-[9px] text-text-dim uppercase font-bold tracking-tighter truncate">{asset.name}</div>
+          <div className="flex-1 space-y-3">
+            {topAssets.map((asset, index) => (
+              <motion.div key={asset.id} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + index * 0.05 }} className="flex items-center justify-between gap-3 rounded-2xl border border-border-accent/40 bg-bg/35 p-4 transition-all hover:border-accent/50 hover:bg-accent/10">
+                <div className="flex min-w-0 items-center gap-3">
+                  <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-11 w-11 rounded-xl" imgClassName="h-7 w-7" />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-black">{asset.symbol}</div>
+                    <div className="truncate text-[9px] font-bold uppercase tracking-tighter text-text-dim">{asset.name}</div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-black data-value">${asset.averagePrice.toLocaleString()}</div>
-                  <div className="text-[9px] font-bold text-accent mt-0.5 flex items-center gap-1 justify-end">
-                    <ArrowUpRight className="w-3 h-3" />
-                    +2.4%
-                  </div>
+                <div className="text-right">
+                  <div className="data-value text-sm font-black">${asset.averagePrice.toLocaleString()}</div>
+                  <div className="mt-1 flex items-center justify-end gap-1 text-[9px] font-black text-accent"><ArrowUpRight className="h-3 w-3" /> +2.4%</div>
                 </div>
-              </div>
+              </motion.div>
             ))}
-            {assets.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-text-dim gap-2">
-                <PieChart className="w-8 h-8 opacity-20" />
-                <div className="text-[10px] uppercase font-black tracking-widest italic">No assets found</div>
+            {topAssets.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-2 py-12 text-text-dim">
+                <PieChart className="h-8 w-8 opacity-25" />
+                <div className="text-[10px] font-black uppercase tracking-widest">No assets yet</div>
               </div>
             )}
           </div>
-          <Link to="/portfolio" className="mt-6 w-full py-3 rounded-xl border border-border-accent text-[10px] font-black uppercase tracking-widest hover:bg-accent hover:text-bg hover:border-accent transition-all block text-center">
-            Full Portfolio View
+          <Link to="/portfolio" className="mt-6 block rounded-xl border border-border-accent py-3 text-center text-[10px] font-black uppercase tracking-widest transition-all hover:border-accent hover:bg-accent hover:text-bg">
+            Full portfolio view
           </Link>
-        </div>
+        </motion.div>
 
-        {/* Bottom Stats / Social Feed Placeholder */}
-        <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bento-card group">
-            <div className="flex justify-between items-start mb-6 relative z-10">
-              <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-accent fill-accent" />
-                <div className="card-title !mb-0">Watchlist</div>
-              </div>
-              <span className="text-xs text-text-dim bg-accent/10 px-2 py-1 rounded-full">{favorites.length}</span>
+        <div className="grid grid-cols-1 gap-6 md:col-span-12 md:grid-cols-4">
+          <motion.div variants={motionItem} className="panel-card p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="accent-chip"><Star className="h-3.5 w-3.5 fill-accent" /> Watchlist</div>
+              <span className="quiet-chip">{favorites.length}</span>
             </div>
-            <div className="space-y-3 relative z-10">
+            <div className="space-y-3">
               {favorites.map((fav) => (
-                <div key={fav.id} className="flex items-center justify-between group/item cursor-pointer p-3 rounded-xl hover:bg-accent/10 transition-all border border-border-accent/30 hover:border-accent/50">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <CompanyLogo symbol={fav.symbol} name={fav.name} type={fav.type} className="w-9 h-9 rounded-lg flex-shrink-0" imgClassName="w-5 h-5" />
-                    <span className="text-xs font-black group-hover/item:text-accent transition-colors truncate">{fav.symbol}</span>
+                <div key={fav.id} className="flex items-center justify-between rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:border-accent/50 hover:bg-accent/10">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <CompanyLogo symbol={fav.symbol} name={fav.name} type={fav.type} className="h-9 w-9 rounded-lg" imgClassName="h-5 w-5" />
+                    <span className="truncate text-xs font-black">{fav.symbol}</span>
                   </div>
-                  <div className="stat-badge stat-up text-xs flex-shrink-0">+1.2%</div>
+                  <div className="stat-badge stat-up text-xs">+1.2%</div>
                 </div>
               ))}
-              {favorites.length === 0 && (
-                <div className="text-[10px] text-text-dim italic text-center py-6 font-bold uppercase opacity-50">No items yet</div>
-              )}
+              {favorites.length === 0 && <div className="py-6 text-center text-[10px] font-bold uppercase text-text-dim opacity-60">No items yet</div>}
             </div>
-          </div>
-          
+          </motion.div>
+
           {[
-            { tag: 'Reciente', source: 'X / Twitter', content: '"La adopción institucional de $SOL está alcanzando niveles récord este trimestre. #CryptoNews"', meta: '@AltcoinSherpa • 2m' },
-            { tag: 'Mercados', source: 'Reuters', content: 'La Reserva Federal mantiene tasas estables; Wall Street reacciona con optimismo moderado.', meta: 'Economía Global • 15m' },
-            { tag: 'Sentimiento', source: 'Analista Pro', content: '$AAPL: El análisis de sentimiento muestra una tendencia alcista del 78% tras anuncio de IA.', meta: '@FintechWhale • 40m' }
-          ].map((item, i) => (
-            <div key={i} className="bento-card group overflow-hidden relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="relative z-10">
-                <div className="flex justify-between items-start mb-4">
-                  <span className="text-[9px] text-accent uppercase font-black tracking-[0.2em] bg-accent/20 px-2 py-1 rounded">{item.tag}</span>
-                  <span className="text-[9px] text-text-dim uppercase font-bold">{item.source}</span>
-                </div>
-                <p className="text-xs leading-relaxed font-medium group-hover:text-text-main transition-colors mb-4">{item.content}</p>
-                <div className="pt-4 border-t border-border-accent/30 text-[9px] text-text-dim font-bold uppercase tracking-tighter">{item.meta}</div>
+            { tag: 'Signal', source: 'X / Twitter', content: 'SOL muestra volumen institucional creciente y rompe su media de 30 dias.', meta: '@AltcoinSherpa - 2m' },
+            { tag: 'Markets', source: 'Reuters', content: 'La Reserva Federal mantiene tasas estables; Wall Street responde con apetito por riesgo.', meta: 'Global Economy - 15m' },
+            { tag: 'Sentiment', source: 'Analyst Desk', content: 'AAPL sube en sentimiento tras nuevas guias de IA y fuerte demanda de servicios.', meta: '@FintechWhale - 40m' },
+          ].map((item) => (
+            <motion.div key={item.tag} variants={motionItem} whileHover={{ y: -5 }} className="panel-card p-6">
+              <div className="mb-4 flex items-start justify-between">
+                <span className="accent-chip">{item.tag}</span>
+                <Zap className="h-4 w-4 text-accent" />
               </div>
-            </div>
+              <p className="mb-4 text-sm leading-6">{item.content}</p>
+              <div className="border-t border-border-accent/40 pt-4 text-[9px] font-bold uppercase tracking-tighter text-text-dim">{item.source} - {item.meta}</div>
+            </motion.div>
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
