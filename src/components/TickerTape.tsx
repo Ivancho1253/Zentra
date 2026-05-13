@@ -10,8 +10,16 @@ interface TickerAsset {
   type: 'stock' | 'crypto';
 }
 
+const fallbackTickerAssets: TickerAsset[] = [
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', price: '908.10', change: '2.18', type: 'stock' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices', price: '148.20', change: '1.05', type: 'stock' },
+  { symbol: 'META', name: 'Meta Platforms', price: '502.30', change: '1.08', type: 'stock' },
+  { symbol: 'BTC', name: 'Bitcoin', price: '67234.00', change: '2.40', type: 'crypto' },
+  { symbol: 'SOL', name: 'Solana', price: '142.50', change: '-0.50', type: 'crypto' },
+];
+
 export default function TickerTape() {
-  const [assets, setAssets] = useState<TickerAsset[]>([]);
+  const [assets, setAssets] = useState<TickerAsset[]>(fallbackTickerAssets);
 
   useEffect(() => {
     const fetchHot = async () => {
@@ -20,7 +28,10 @@ export default function TickerTape() {
         if (!res.ok) return;
         const data = await res.json();
         if (data.data) {
-          setAssets(data.data.filter((asset: Partial<TickerAsset>) => asset.symbol));
+          const nextAssets = data.data.filter((asset: Partial<TickerAsset>) => asset.symbol);
+          if (nextAssets.length > 0) {
+            setAssets(nextAssets);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch ticker data", e);
@@ -31,13 +42,11 @@ export default function TickerTape() {
     return () => clearInterval(interval);
   }, []);
 
-  if (assets.length === 0) return null;
-
   // Duplicate assets to create a seamless loop
   const tickerItems = [...assets, ...assets, ...assets, ...assets];
 
   return (
-    <div className="h-10 bg-surface border-b border-border-accent overflow-hidden flex items-center relative z-20">
+    <div className="sticky top-0 h-10 shrink-0 bg-surface border-b border-border-accent overflow-hidden flex items-center z-30">
       <div className="absolute left-0 top-0 bottom-0 px-4 bg-accent flex items-center gap-2 z-30 shadow-[10px_0_20px_rgba(0,0,0,0.2)]">
         <Flame className="w-4 h-4 text-bg fill-bg" />
         <span className="text-[10px] font-black uppercase tracking-tighter text-bg">Top Gainers</span>

@@ -111,10 +111,8 @@ export default function Layout({ user, profile }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
         <TickerTape />
-        <header className="h-16 border-b border-border-accent flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/50 backdrop-blur-md sticky top-0 z-10">
-          <div className="hidden sm:block bg-surface border border-border-accent px-4 py-2 rounded-full w-80 max-w-full text-xs text-text-dim">
-            Buscar activos (ej: AAPL, BTC, SOL)...
-          </div>
+        <header className="h-16 border-b border-border-accent flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/50 backdrop-blur-md sticky top-10 z-20">
+          <div className="hidden sm:block" />
           <div className="sm:hidden flex items-center gap-2">
             <img src="/logo.png" alt="ZENTRA Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
             <span className="font-bold tracking-tighter uppercase">ZENTRA</span>

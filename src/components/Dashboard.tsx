@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [selectedRange, setSelectedRange] = useState<'1D' | '1W' | '1M' | '1Y'>('1M');
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -50,15 +51,60 @@ export default function Dashboard() {
     };
   }, []);
 
-  const mockChartData = [
-    { name: 'Mon', value: 4000 },
-    { name: 'Tue', value: 3000 },
-    { name: 'Wed', value: 2000 },
-    { name: 'Thu', value: 2780 },
-    { name: 'Fri', value: 1890 },
-    { name: 'Sat', value: 2390 },
-    { name: 'Sun', value: 3490 },
-  ];
+  const chartRanges = {
+    '1D': {
+      label: 'Intraday Performance Snapshot',
+      performance: 1.28,
+      data: [
+        { name: '09:30', value: 3180 },
+        { name: '11:00', value: 3260 },
+        { name: '12:30', value: 3210 },
+        { name: '14:00', value: 3380 },
+        { name: '15:30', value: 3470 },
+        { name: 'Close', value: 3510 },
+      ],
+    },
+    '1W': {
+      label: '7-Day Performance Snapshot',
+      performance: 4.76,
+      data: [
+        { name: 'Mon', value: 3020 },
+        { name: 'Tue', value: 3180 },
+        { name: 'Wed', value: 3100 },
+        { name: 'Thu', value: 3340 },
+        { name: 'Fri', value: 3490 },
+        { name: 'Sat', value: 3440 },
+        { name: 'Sun', value: 3580 },
+      ],
+    },
+    '1M': {
+      label: '30-Day Performance Snapshot',
+      performance: 12.42,
+      data: [
+        { name: 'W1', value: 2840 },
+        { name: 'W2', value: 3180 },
+        { name: 'W3', value: 3040 },
+        { name: 'W4', value: 3490 },
+        { name: 'Now', value: 3710 },
+      ],
+    },
+    '1Y': {
+      label: '12-Month Performance Snapshot',
+      performance: 38.9,
+      data: [
+        { name: 'Jan', value: 2100 },
+        { name: 'Mar', value: 2450 },
+        { name: 'May', value: 2380 },
+        { name: 'Jul', value: 2860 },
+        { name: 'Sep', value: 3220 },
+        { name: 'Nov', value: 3510 },
+        { name: 'Now', value: 3920 },
+      ],
+    },
+  };
+
+  const activeChart = chartRanges[selectedRange];
+  const isPerformancePositive = activeChart.performance >= 0;
 
   if (loading) {
     return (
@@ -115,16 +161,20 @@ export default function Dashboard() {
             </div>
             
             <div className="flex-shrink-0 text-right pl-6">
-              <div className="text-xs text-text-dim uppercase font-bold tracking-[0.2em] mb-2">30D Performance</div>
+              <div className="text-xs text-text-dim uppercase font-bold tracking-[0.2em] mb-2">{selectedRange} Performance</div>
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-2">
-                  <ArrowUpRight className="w-5 h-5 text-accent" />
-                  <span className="stat-badge stat-up text-base font-black">
-                    +12.42%
+                  {isPerformancePositive ? (
+                    <ArrowUpRight className="w-5 h-5 text-accent" />
+                  ) : (
+                    <ArrowDownRight className="w-5 h-5 text-loss" />
+                  )}
+                  <span className={`stat-badge ${isPerformancePositive ? 'stat-up' : 'stat-down'} text-base font-black`}>
+                    {isPerformancePositive ? '+' : ''}{activeChart.performance.toFixed(2)}%
                   </span>
                 </div>
-                <div className="text-xs font-mono text-accent/80">
-                  +${(totalValue * 0.1242).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                <div className={`text-xs font-mono ${isPerformancePositive ? 'text-accent/80' : 'text-loss/80'}`}>
+                  {isPerformancePositive ? '+' : '-'}${Math.abs(totalValue * (activeChart.performance / 100)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
               </div>
             </div>
@@ -169,11 +219,17 @@ export default function Dashboard() {
                 <TrendingUpIcon className="w-4 h-4 text-accent" />
                 <div className="card-title !mb-0">Portfolio Growth</div>
               </div>
-              <div className="text-[10px] text-text-dim uppercase font-bold tracking-widest">30-Day Performance Snapshot</div>
+              <div className="text-[10px] text-text-dim uppercase font-bold tracking-widest">{activeChart.label}</div>
             </div>
             <div className="flex gap-2">
-              {['1D', '1W', '1M', '1Y'].map(t => (
-                <button key={t} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${t === '1M' ? 'bg-accent text-bg shadow-lg' : 'hover:bg-accent/10 text-text-dim border border-border-accent/50 hover:border-accent/30'}`}>
+              {(['1D', '1W', '1M', '1Y'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setSelectedRange(t)}
+                  aria-pressed={selectedRange === t}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${selectedRange === t ? 'bg-accent text-bg shadow-lg' : 'hover:bg-accent/10 text-text-dim border border-border-accent/50 hover:border-accent/30'}`}
+                >
                   {t}
                 </button>
               ))}
@@ -181,7 +237,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockChartData}>
+              <AreaChart data={activeChart.data}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4}/>

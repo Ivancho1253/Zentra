@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, onSnapshot, addDoc, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Asset, Transaction } from '../types';
-import { Plus, Search, Filter, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, ArrowLeft, AlertCircle, TrendingUp } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Portfolio() {
@@ -280,8 +280,9 @@ export default function Portfolio() {
               <div className="text-4xl font-black mb-3 text-white">{formatMoneyLocale(totalValue)}</div>
               <div className="text-xs font-semibold text-white/80">Wallet Overview & Spending</div>
             </div>
-            <div className="flex-shrink-0 bg-white text-accent px-3 py-1 rounded-full text-xs font-black">
-              +1.5%
+            <div className="inline-flex min-w-[82px] flex-shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/45 bg-white/95 px-3.5 py-2 text-[12px] font-black leading-none text-[#39b900] shadow-[0_10px_28px_rgba(124,255,26,0.28)] ring-1 ring-accent/25 whitespace-nowrap">
+              <TrendingUp size={14} strokeWidth={3} />
+              <span>+1.5%</span>
             </div>
           </div>
         </div>
