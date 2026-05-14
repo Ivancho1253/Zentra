@@ -112,6 +112,42 @@ const NASDAQ100_STOCKS = [
 
 const fallbackStocks = NASDAQ100_STOCKS;
 const NASDAQ100_SYMBOLS = NASDAQ100_STOCKS.map((stock) => stock.symbol);
+const STOCK_COMPANY_ALIASES: Record<string, string> = {
+  GOOG: "GOOGL",
+  GOOGL: "GOOGL",
+};
+const STOCK_MARKET_CAP_ORDER = [
+  "NVDA", "GOOGL", "AAPL", "MSFT", "AMZN", "AVGO", "META", "TSLA", "WMT", "COST",
+  "ASML", "NFLX", "AMD", "PLTR", "CSCO", "TMUS", "LIN", "ADBE", "PEP", "INTU",
+  "QCOM", "TXN", "AMAT", "AMGN", "ISRG", "APP", "BKNG", "HON", "ARM", "PDD",
+  "VRTX", "GILD", "MU", "LRCX", "PANW", "ADI", "KLAC", "SBUX", "MELI", "CRWD",
+  "CEG", "MDLZ", "INTC", "CDNS", "SNPS", "MAR", "CTAS", "ABNB", "REGN", "DASH",
+  "MRVL", "FTNT", "PYPL", "ORLY", "NXPI", "WDAY", "ADP", "MNST", "ROP", "AEP",
+  "AXON", "PCAR", "TEAM", "CPRT", "CHTR", "DDOG", "KDP", "MCHP", "EXC", "ROST",
+  "PAYX", "KHC", "ODFL", "CCEP", "CSX", "WBD", "ZS", "VRSK", "CTSH", "BKR",
+  "GEHC", "DXCM", "XEL", "TTWO", "IDXX", "FAST", "EA", "FANG", "ALNY", "TRI",
+  "MPWR", "MSTR", "FER", "ADSK", "CMCSA", "STX", "WDC", "INSM", "CSGP", "SHOP",
+];
+const STOCK_MARKET_CAP_RANK = new Map(STOCK_MARKET_CAP_ORDER.map((symbol, index) => [symbol, index]));
+
+const canonicalStockSymbol = (symbol: string) => STOCK_COMPANY_ALIASES[symbol] || symbol;
+
+const sortStocksByMarketCap = (stocks: any[]) =>
+  [...stocks].sort((a, b) => {
+    const rankA = STOCK_MARKET_CAP_RANK.get(canonicalStockSymbol(a.symbol)) ?? Number.MAX_SAFE_INTEGER;
+    const rankB = STOCK_MARKET_CAP_RANK.get(canonicalStockSymbol(b.symbol)) ?? Number.MAX_SAFE_INTEGER;
+    return rankA - rankB;
+  });
+
+const uniqueStocksByCompany = (stocks: any[]) => {
+  const seen = new Set<string>();
+  return sortStocksByMarketCap(stocks).filter((stock) => {
+    const companyKey = canonicalStockSymbol(stock.symbol);
+    if (seen.has(companyKey)) return false;
+    seen.add(companyKey);
+    return true;
+  });
+};
 
 const fallbackCryptos = [
   { symbol: "BTC", name: "Bitcoin", price: "67234.00", change: "2.40", exchange: "Crypto", type: "crypto", currency: "USD" },
@@ -290,13 +326,31 @@ async function startServer() {
     'LEO', 'NEAR', 'ATOM', 'OKB', 'IMX', 'XLM', 'KAS', 'ETC', 'FIL', 'LDO',
     'HBAR', 'APT', 'TIA', 'OP', 'ARB', 'VET', 'MKR', 'RUNE', 'INJ', 'STX',
     'GRT', 'THETA', 'SUI', 'BEAM', 'SEI', 'EGLD', 'ALGO', 'FLOW', 'QNT', 'SAND',
-    'MANA', 'ENS', 'LIDO', 'CRV', 'PEPE', 'FLOKI', 'BONK', 'WIF', 'AI', 'PIXEL',
+    'MANA', 'ENS', 'CRV', 'PEPE', 'FLOKI', 'BONK', 'WIF', 'AI', 'PIXEL',
     'BLUR', 'SAFE', 'PENDLE', 'ORDI', 'SATS', 'JUP', 'ONDO', 'RENDER', 'AEVO', 'FARTCOIN'
   ];
+  const CRYPTO_SYMBOL_ALIASES: Record<string, string> = {
+    LIDO: 'LDO',
+  };
+  const TOP_CRYPTO_SYMBOL_SET = new Set(TOP_CRYPTO_SYMBOLS);
+  const CRYPTO_MARKET_CAP_RANK = new Map(TOP_CRYPTO_SYMBOLS.map((symbol, index) => [symbol, index]));
+  const canonicalCryptoSymbol = (symbol: string) => CRYPTO_SYMBOL_ALIASES[symbol] || symbol;
+  const sortCryptosByMarketCap = (cryptos: any[]) =>
+    [...cryptos].sort((a, b) => (Number(b.marketCap) || 0) - (Number(a.marketCap) || 0));
+
+  const uniqueCryptosBySymbol = (cryptos: any[]) => {
+    const seen = new Set<string>();
+    return sortCryptosByMarketCap(cryptos).filter((crypto) => {
+      const symbol = canonicalCryptoSymbol(String(crypto.symbol || '').toUpperCase());
+      if (!symbol || seen.has(symbol)) return false;
+      seen.add(symbol);
+      return true;
+    });
+  };
 
   app.get("/api/market/stocks", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
-    if (!apiKey) return res.json({ data: fallbackStocks, fallback: true });
+    if (!apiKey) return res.json({ data: uniqueStocksByCompany(fallbackStocks), fallback: true });
     try {
       // Fetch stock metadata and keep the NASDAQ-100 universe.
       const [nasdaqRes, nyseRes] = await Promise.all([
@@ -308,14 +362,14 @@ async function startServer() {
       
       const nasdaq100Stocks = allStocks.filter(stock => NASDAQ100_SYMBOLS.includes(stock.symbol));
       
-      nasdaq100Stocks.sort((a, b) => NASDAQ100_SYMBOLS.indexOf(a.symbol) - NASDAQ100_SYMBOLS.indexOf(b.symbol));
+      const orderedFallbackStocks = uniqueStocksByCompany(NASDAQ100_STOCKS);
 
       const selectedStocks = nasdaq100Stocks.length > 0
-        ? NASDAQ100_STOCKS.map((fallbackStock) => {
+        ? orderedFallbackStocks.map((fallbackStock) => {
             const liveStock = nasdaq100Stocks.find((stock) => stock.symbol === fallbackStock.symbol);
             return liveStock ? { ...fallbackStock, ...liveStock } : fallbackStock;
           })
-        : fallbackStocks;
+        : uniqueStocksByCompany(fallbackStocks);
       const quoteSymbols = selectedStocks.map((stock) => stock.symbol).join(",");
       const quoteRes = await axios.get("https://api.twelvedata.com/quote", {
         params: { symbol: quoteSymbols, apikey: apiKey },
@@ -331,16 +385,80 @@ async function startServer() {
         return enrichWithQuote({ ...stock, type: "stock" }, quote);
       });
 
-      const pricedStocks = enrichedStocks.filter((stock) => stock.price !== null && stock.change !== null);
-      res.json({ data: pricedStocks.length > 0 ? enrichedStocks : fallbackStocks, fallback: pricedStocks.length === 0 || nasdaq100Stocks.length === 0 });
+      const orderedStocks = uniqueStocksByCompany(enrichedStocks);
+      const pricedStocks = orderedStocks.filter((stock) => stock.price !== null && stock.change !== null);
+      res.json({ data: pricedStocks.length > 0 ? orderedStocks : uniqueStocksByCompany(fallbackStocks), fallback: pricedStocks.length === 0 || nasdaq100Stocks.length === 0 });
     } catch (error) {
-      res.json({ data: fallbackStocks, fallback: true, error: "Failed to fetch live stocks" });
+      res.json({ data: uniqueStocksByCompany(fallbackStocks), fallback: true, error: "Failed to fetch live stocks" });
     }
   });
 
   app.get("/api/market/cryptos", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
+
+    try {
+      const response = await axios.get("https://api.coinpaprika.com/v1/tickers", {
+        params: { quotes: "USD" },
+        timeout: 12000,
+      });
+
+      const rankedCryptos = uniqueCryptosBySymbol((Array.isArray(response.data) ? response.data : [])
+        .map((coin: any) => ({
+          symbol: canonicalCryptoSymbol(String(coin.symbol || '').toUpperCase()),
+          name: coin.name || String(coin.symbol || '').toUpperCase(),
+          price: coin.quotes?.USD?.price ?? null,
+          change: coin.quotes?.USD?.percent_change_24h ?? null,
+          marketCap: coin.quotes?.USD?.market_cap ?? null,
+          exchange: 'Crypto',
+          type: 'crypto',
+          currency: 'USD',
+        }))
+        .filter((coin: any) => TOP_CRYPTO_SYMBOL_SET.has(coin.symbol)))
+        .slice(0, 50);
+
+      if (rankedCryptos.length >= 6) {
+        return res.json({ data: rankedCryptos, fallback: false, source: "coinpaprika" });
+      }
+    } catch (error) {
+      console.error("Error fetching CoinPaprika market-cap ranking:", error);
+    }
+
+    try {
+      const response = await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+        params: {
+          vs_currency: "usd",
+          order: "market_cap_desc",
+          per_page: 250,
+          page: 1,
+          sparkline: false,
+          price_change_percentage: "24h",
+        },
+        timeout: 12000,
+      });
+
+      const rankedCryptos = uniqueCryptosBySymbol((Array.isArray(response.data) ? response.data : [])
+        .map((coin: any) => ({
+          symbol: canonicalCryptoSymbol(String(coin.symbol || '').toUpperCase()),
+          name: coin.name || String(coin.symbol || '').toUpperCase(),
+          price: coin.current_price ?? null,
+          change: coin.price_change_percentage_24h ?? null,
+          marketCap: coin.market_cap ?? null,
+          exchange: 'Crypto',
+          type: 'crypto',
+          currency: 'USD',
+        }))
+        .filter((coin: any) => TOP_CRYPTO_SYMBOL_SET.has(coin.symbol)))
+        .slice(0, 50);
+
+      if (rankedCryptos.length >= 6) {
+        return res.json({ data: rankedCryptos, fallback: false, source: "coingecko" });
+      }
+    } catch (error) {
+      console.error("Error fetching CoinGecko market-cap ranking:", error);
+    }
+
     if (!apiKey) return res.json({ data: fallbackCryptos, fallback: true });
+
     try {
       const response = await axios.get("https://api.twelvedata.com/cryptocurrencies", {
         params: { apikey: apiKey },
@@ -351,25 +469,29 @@ async function startServer() {
       // Filtro mejorado: captura BTC/USD, BTC, o cualquier variante
       const topCryptos = allCryptos.filter(crypto => 
         TOP_CRYPTO_SYMBOLS.some(topSymbol => 
-          crypto.symbol === topSymbol || 
-          crypto.symbol.startsWith(topSymbol + '/') ||
-          crypto.symbol.split('/')[0] === topSymbol
+          canonicalCryptoSymbol(crypto.symbol.split('/')[0]) === topSymbol ||
+          crypto.symbol === topSymbol ||
+          crypto.symbol.startsWith(topSymbol + '/')
         )
       );
       
       // Eliminar duplicados (si hay BTC/USD y BTC, quedarse con uno)
       const seen = new Set();
       const uniqueCryptos = topCryptos.filter(c => {
-        const base = c.symbol.split('/')[0];
+        const base = canonicalCryptoSymbol(c.symbol.split('/')[0]);
         if (seen.has(base)) return false;
         seen.add(base);
         return true;
+      }).sort((a, b) => {
+        const rankA = CRYPTO_MARKET_CAP_RANK.get(canonicalCryptoSymbol(a.symbol.split('/')[0])) ?? Number.MAX_SAFE_INTEGER;
+        const rankB = CRYPTO_MARKET_CAP_RANK.get(canonicalCryptoSymbol(b.symbol.split('/')[0])) ?? Number.MAX_SAFE_INTEGER;
+        return rankA - rankB;
       });
 
       // Obtener cotizaciones en tiempo real para cada cripto.
       const cryptosWithPrices = await Promise.all(
         uniqueCryptos.slice(0, 50).map(async (crypto) => {
-          const baseSymbol = crypto.symbol.split('/')[0];
+          const baseSymbol = canonicalCryptoSymbol(crypto.symbol.split('/')[0]);
           const fallbackCrypto = fallbackCryptos.find((item) => item.symbol === baseSymbol);
           try {
             const quoteResponse = await axios.get("https://api.twelvedata.com/quote", {
@@ -387,6 +509,7 @@ async function startServer() {
               name: crypto.name || baseSymbol,
               price: quoteData.close ?? quoteData.price ?? fallbackCrypto?.price ?? null,
               change: quoteData.percent_change ?? quoteData.change_percent ?? fallbackCrypto?.change ?? null,
+              marketCap: (fallbackCrypto as any)?.marketCap ?? null,
               exchange: 'Crypto',
               type: 'crypto',
               currency: 'USD'
@@ -398,6 +521,7 @@ async function startServer() {
               name: crypto.name || baseSymbol,
               price: fallbackCrypto?.price ?? null,
               change: fallbackCrypto?.change ?? null,
+              marketCap: (fallbackCrypto as any)?.marketCap ?? null,
               exchange: 'Crypto',
               type: 'crypto',
               currency: 'USD'
