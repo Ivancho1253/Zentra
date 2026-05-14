@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import CompanyLogo from './CompanyLogo';
 
 interface TickerAsset {
   symbol: string;
@@ -61,8 +62,15 @@ export default function TickerTape() {
             <Link
               key={`${asset.symbol}-${idx}`}
               to={`/market/${asset.type === 'crypto' ? 'cryptos' : 'stocks'}/${asset.symbol}`}
-              className="flex items-center gap-4 px-8 border-r border-border-accent/50 hover:bg-accent/5 transition-colors group"
+              className="flex items-center gap-3 px-6 border-r border-border-accent/50 hover:bg-accent/5 transition-colors group"
             >
+              <CompanyLogo
+                symbol={asset.symbol}
+                name={asset.name || asset.symbol}
+                type={asset.type}
+                className="h-6 w-6 rounded-lg"
+                imgClassName="h-4 w-4"
+              />
               <span className="text-[10px] font-black text-text-main group-hover:text-accent transition-colors">
                 {asset.symbol}
               </span>

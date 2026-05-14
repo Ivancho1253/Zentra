@@ -10,10 +10,11 @@ interface CompanyLogoProps {
 }
 
 export default function CompanyLogo({ symbol, name, type = 'stock', className = '', imgClassName = '' }: CompanyLogoProps) {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const cleanSymbol = symbol.split('/')[0].toUpperCase();
+  const localLogoPath = cleanSymbol ? `/logos/${type === 'crypto' ? 'cryptos' : 'stocks'}/${cleanSymbol}.png` : null;
+  const [logoUrl, setLogoUrl] = useState<string | null>(localLogoPath);
   const [error, setError] = useState(false);
   const [attemptIndex, setAttemptIndex] = useState(0);
-  const cleanSymbol = symbol.split('/')[0].toUpperCase();
 
   const getLogoSources = () => {
     const companyDomains: Record<string, string[]> = {
@@ -25,6 +26,70 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
       GOOGL: ['abc.xyz', 'google.com'],
       GOOG: ['abc.xyz', 'google.com'],
       TSLA: ['tesla.com'],
+      AVGO: ['broadcom.com'],
+      WMT: ['walmart.com'],
+      MU: ['micron.com'],
+      ASML: ['asml.com'],
+      COST: ['costco.com'],
+      LRCX: ['lamresearch.com'],
+      AMAT: ['appliedmaterials.com'],
+      TXN: ['ti.com'],
+      KLAC: ['kla.com'],
+      LIN: ['linde.com'],
+      QCOM: ['qualcomm.com'],
+      ARM: ['arm.com'],
+      TMUS: ['t-mobile.com'],
+      PEP: ['pepsico.com'],
+      ADI: ['analog.com'],
+      AMGN: ['amgen.com'],
+      STX: ['seagate.com'],
+      PANW: ['paloaltonetworks.com'],
+      WDC: ['westerndigital.com'],
+      GILD: ['gilead.com'],
+      APP: ['applovin.com'],
+      ISRG: ['intuitive.com'],
+      MRVL: ['marvell.com'],
+      HON: ['honeywell.com'],
+      PDD: ['pinduoduo.com'],
+      BKNG: ['bookingholdings.com', 'booking.com'],
+      SBUX: ['starbucks.com'],
+      VRTX: ['vrtx.com'],
+      INTU: ['intuit.com'],
+      CEG: ['constellationenergy.com'],
+      CDNS: ['cadence.com'],
+      SNPS: ['synopsys.com'],
+      MAR: ['marriott.com'],
+      CMCSA: ['comcast.com'],
+      ADP: ['adp.com'],
+      MNST: ['monsterbevcorp.com', 'monsterenergy.com'],
+      FTNT: ['fortinet.com'],
+      CSX: ['csx.com'],
+      ABNB: ['airbnb.com'],
+      MELI: ['mercadolibre.com'],
+      MDLZ: ['mondelezinternational.com'],
+      MPWR: ['monolithicpower.com'],
+      ORLY: ['oreillyauto.com'],
+      NXPI: ['nxp.com'],
+      REGN: ['regeneron.com'],
+      AEP: ['aep.com'],
+      ROST: ['rossstores.com'],
+      WBD: ['wbd.com'],
+      DASH: ['doordash.com'],
+      CTAS: ['cintas.com'],
+      BKR: ['bakerhughes.com'],
+      MSTR: ['strategy.com', 'microstrategy.com'],
+      PCAR: ['paccar.com'],
+      FANG: ['diamondbackenergy.com'],
+      MCHP: ['microchip.com'],
+      EA: ['ea.com'],
+      XEL: ['xcelenergy.com'],
+      FAST: ['fastenal.com'],
+      ADSK: ['autodesk.com'],
+      FER: ['ferrovial.com'],
+      EXC: ['exeloncorp.com'],
+      IDXX: ['idexx.com'],
+      TTWO: ['take2games.com'],
+      CCEP: ['cocacolaep.com'],
       NFLX: ['netflix.com'],
       AMD: ['amd.com'],
       INTC: ['intel.com'],
@@ -37,13 +102,94 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
       DDOG: ['datadoghq.com'],
       WDAY: ['workday.com'],
       TEAM: ['atlassian.com'],
+      ODFL: ['odfl.com'],
+      KDP: ['keurigdrpepper.com'],
+      ALNY: ['alnylam.com'],
+      TRI: ['thomsonreuters.com'],
+      PAYX: ['paychex.com'],
+      ROP: ['ropertech.com'],
+      CPRT: ['copart.com'],
+      AXON: ['axon.com'],
+      GEHC: ['gehealthcare.com'],
+      KHC: ['kraftheinzcompany.com'],
+      INSM: ['insmed.com'],
+      DXCM: ['dexcom.com'],
+      ZS: ['zscaler.com'],
+      CTSH: ['cognizant.com'],
+      VRSK: ['verisk.com'],
+      CHTR: ['charter.com', 'spectrum.com'],
+      CSGP: ['costargroup.com'],
     };
+
+    const cryptoSlugs: Record<string, string> = {
+      ADA: 'cardano',
+      ALGO: 'algorand',
+      APT: 'aptos',
+      ARB: 'arbitrum',
+      ATOM: 'cosmos',
+      AVAX: 'avalanche-avax',
+      BCH: 'bitcoin-cash',
+      BNB: 'bnb',
+      BTC: 'bitcoin',
+      DAI: 'multi-collateral-dai',
+      DOGE: 'dogecoin',
+      DOT: 'polkadot-new',
+      EGLD: 'multiversx-egld',
+      ENS: 'ethereum-name-service',
+      ETC: 'ethereum-classic',
+      ETH: 'ethereum',
+      FIL: 'filecoin',
+      FLOW: 'flow',
+      GRT: 'the-graph',
+      HBAR: 'hedera',
+      IMX: 'immutable-x',
+      INJ: 'injective',
+      LINK: 'chainlink',
+      LTC: 'litecoin',
+      MANA: 'decentraland',
+      MATIC: 'polygon',
+      MKR: 'maker',
+      NEAR: 'near-protocol',
+      OKB: 'okb',
+      OP: 'optimism-ethereum',
+      QNT: 'quant',
+      RUNE: 'thorchain',
+      SAND: 'the-sandbox',
+      SHIB: 'shiba-inu',
+      SOL: 'solana',
+      STX: 'stacks',
+      SUI: 'sui',
+      THETA: 'theta-network',
+      TRX: 'tron',
+      UNI: 'uniswap',
+      USDC: 'usd-coin',
+      USDT: 'tether',
+      VET: 'vechain',
+      WBTC: 'wrapped-bitcoin',
+      XLM: 'stellar',
+      XRP: 'xrp',
+    };
+
+    if (type === 'crypto') {
+      const lowerSymbol = cleanSymbol.toLowerCase();
+      const slug = cryptoSlugs[cleanSymbol];
+      return [
+        localLogoPath,
+        `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${lowerSymbol}.png`,
+        `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${lowerSymbol}.png`,
+        `https://coinicons-api.vercel.app/api/icon/${lowerSymbol}`,
+        slug ? `https://cryptologos.cc/logos/${slug}-${lowerSymbol}-logo.png` : null,
+        slug ? `https://cryptologos.cc/logos/${slug}-${lowerSymbol}-logo.svg` : null,
+      ].filter(Boolean) as string[];
+    }
 
     const domainSources = (companyDomains[cleanSymbol] || [])
       .map((domain) => `https://logo.clearbit.com/${domain}`);
 
     return [
+      localLogoPath,
       ...domainSources,
+      `https://images.financialmodelingprep.com/symbol/${cleanSymbol}.png`,
       `https://static2.finnhub.io/logo/${cleanSymbol}.png`,
       `https://logo.clearbit.com/${cleanSymbol.toLowerCase()}.com`,
       name ? `https://logo.clearbit.com/${name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}.com` : null,
@@ -51,44 +197,20 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
   };
 
   useEffect(() => {
-    const fetchLogo = async () => {
-      if (!symbol) return;
-      setError(false);
-      setAttemptIndex(0);
-
-      if (type === 'crypto') {
-        // Cryptocurrency icons from multiple sources
-        setLogoUrl(`https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${cleanSymbol.toLowerCase()}.png`);
-        return;
-      }
-
-      const fallbackSources = getLogoSources();
-
-      try {
-        // Try Twelve Data Logo API first
-        const response = await fetch(`/api/market/logo?symbol=${encodeURIComponent(cleanSymbol)}`);
-        const data = await response.json();
-        
-        if (data.url && !data.url.includes('twelvedata.com/static/img/empty')) {
-          setLogoUrl(data.url);
-          return;
-        }
-      } catch (e) {
-        console.debug("Twelve Data logo failed, trying alternatives");
-      }
-
-      setLogoUrl(fallbackSources[0] || null);
-    };
-
-    fetchLogo();
-  }, [symbol, name, type, cleanSymbol]);
+    if (!symbol) return;
+    const logoSources = getLogoSources();
+    setError(false);
+    setAttemptIndex(0);
+    setLogoUrl(logoSources[0] || null);
+  }, [symbol, name, type, cleanSymbol, localLogoPath]);
 
   const handleImageError = () => {
     const logoSources = getLogoSources();
+    const nextIndex = attemptIndex + 1;
 
-    if (attemptIndex < logoSources.length - 1) {
-      setLogoUrl(logoSources[attemptIndex + 1]);
-      setAttemptIndex(attemptIndex + 1);
+    if (nextIndex < logoSources.length) {
+      setLogoUrl(logoSources[nextIndex]);
+      setAttemptIndex(nextIndex);
     } else {
       setError(true);
     }
