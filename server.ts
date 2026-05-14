@@ -3,8 +3,9 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
+import { GoogleGenAI } from "@google/genai";
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const NASDAQ100_STOCKS = [
   { symbol: "NVDA", name: "NVIDIA Corporation", price: "220.78", change: "0.61" },
@@ -129,11 +130,122 @@ const STOCK_MARKET_CAP_ORDER = [
   "MPWR", "MSTR", "FER", "ADSK", "CMCSA", "STX", "WDC", "INSM", "CSGP", "SHOP",
 ];
 const STOCK_MARKET_CAP_RANK = new Map(STOCK_MARKET_CAP_ORDER.map((symbol, index) => [symbol, index]));
+const STOCK_MARKET_CAP_USD: Record<string, number> = {
+  NVDA: 4_550_000_000_000,
+  GOOGL: 3_050_000_000_000,
+  AAPL: 2_950_000_000_000,
+  MSFT: 2_850_000_000_000,
+  AMZN: 2_450_000_000_000,
+  AVGO: 1_720_000_000_000,
+  META: 1_560_000_000_000,
+  TSLA: 1_420_000_000_000,
+  WMT: 850_000_000_000,
+  COST: 470_000_000_000,
+  ASML: 380_000_000_000,
+  NFLX: 370_000_000_000,
+  AMD: 360_000_000_000,
+  PLTR: 330_000_000_000,
+  CSCO: 300_000_000_000,
+  TMUS: 275_000_000_000,
+  LIN: 235_000_000_000,
+  ADBE: 230_000_000_000,
+  PEP: 225_000_000_000,
+  INTU: 210_000_000_000,
+  QCOM: 190_000_000_000,
+  TXN: 185_000_000_000,
+  AMAT: 180_000_000_000,
+  AMGN: 175_000_000_000,
+  ISRG: 170_000_000_000,
+  APP: 165_000_000_000,
+  BKNG: 160_000_000_000,
+  HON: 155_000_000_000,
+  ARM: 150_000_000_000,
+  PDD: 145_000_000_000,
+  VRTX: 125_000_000_000,
+  GILD: 120_000_000_000,
+  MU: 115_000_000_000,
+  LRCX: 112_000_000_000,
+  PANW: 110_000_000_000,
+  ADI: 105_000_000_000,
+  KLAC: 102_000_000_000,
+  SBUX: 100_000_000_000,
+  MELI: 98_000_000_000,
+  CRWD: 96_000_000_000,
+  CEG: 94_000_000_000,
+  MDLZ: 92_000_000_000,
+  INTC: 90_000_000_000,
+  CDNS: 88_000_000_000,
+  SNPS: 86_000_000_000,
+  MAR: 84_000_000_000,
+  CTAS: 82_000_000_000,
+  ABNB: 80_000_000_000,
+  REGN: 78_000_000_000,
+  DASH: 76_000_000_000,
+  MRVL: 74_000_000_000,
+  FTNT: 72_000_000_000,
+  PYPL: 70_000_000_000,
+  ORLY: 68_000_000_000,
+  NXPI: 66_000_000_000,
+  WDAY: 64_000_000_000,
+  ADP: 62_000_000_000,
+  MNST: 60_000_000_000,
+  ROP: 58_000_000_000,
+  AEP: 56_000_000_000,
+  AXON: 54_000_000_000,
+  PCAR: 52_000_000_000,
+  TEAM: 50_000_000_000,
+  CPRT: 48_000_000_000,
+  CHTR: 46_000_000_000,
+  DDOG: 44_000_000_000,
+  KDP: 42_000_000_000,
+  MCHP: 40_000_000_000,
+  EXC: 39_000_000_000,
+  ROST: 38_000_000_000,
+  PAYX: 37_000_000_000,
+  KHC: 36_000_000_000,
+  ODFL: 35_000_000_000,
+  CCEP: 34_000_000_000,
+  CSX: 33_000_000_000,
+  WBD: 32_000_000_000,
+  ZS: 31_000_000_000,
+  VRSK: 30_000_000_000,
+  CTSH: 29_000_000_000,
+  BKR: 28_000_000_000,
+  GEHC: 27_000_000_000,
+  DXCM: 26_000_000_000,
+  XEL: 25_000_000_000,
+  TTWO: 24_000_000_000,
+  IDXX: 23_000_000_000,
+  FAST: 22_000_000_000,
+  EA: 21_000_000_000,
+  FANG: 20_000_000_000,
+  ALNY: 19_000_000_000,
+  TRI: 18_000_000_000,
+  MPWR: 17_000_000_000,
+  MSTR: 16_000_000_000,
+  FER: 15_000_000_000,
+  ADSK: 14_000_000_000,
+  CMCSA: 13_000_000_000,
+  STX: 12_000_000_000,
+  WDC: 11_000_000_000,
+  INSM: 10_000_000_000,
+  CSGP: 9_000_000_000,
+  SHOP: 8_000_000_000,
+};
 
 const canonicalStockSymbol = (symbol: string) => STOCK_COMPANY_ALIASES[symbol] || symbol;
+const getStockMarketCap = (symbol: string) => STOCK_MARKET_CAP_USD[canonicalStockSymbol(symbol)] ?? null;
+
+const withStockMarketCap = (stock: any) => ({
+  ...stock,
+  marketCap: stock?.marketCap ?? getStockMarketCap(stock.symbol),
+});
 
 const sortStocksByMarketCap = (stocks: any[]) =>
   [...stocks].sort((a, b) => {
+    const marketCapA = Number(a.marketCap ?? getStockMarketCap(a.symbol)) || 0;
+    const marketCapB = Number(b.marketCap ?? getStockMarketCap(b.symbol)) || 0;
+    if (marketCapA !== marketCapB) return marketCapB - marketCapA;
     const rankA = STOCK_MARKET_CAP_RANK.get(canonicalStockSymbol(a.symbol)) ?? Number.MAX_SAFE_INTEGER;
     const rankB = STOCK_MARKET_CAP_RANK.get(canonicalStockSymbol(b.symbol)) ?? Number.MAX_SAFE_INTEGER;
     return rankA - rankB;
@@ -141,7 +253,7 @@ const sortStocksByMarketCap = (stocks: any[]) =>
 
 const uniqueStocksByCompany = (stocks: any[]) => {
   const seen = new Set<string>();
-  return sortStocksByMarketCap(stocks).filter((stock) => {
+  return sortStocksByMarketCap(stocks.map(withStockMarketCap)).filter((stock) => {
     const companyKey = canonicalStockSymbol(stock.symbol);
     if (seen.has(companyKey)) return false;
     seen.add(companyKey);
@@ -202,6 +314,121 @@ const enrichWithQuote = (asset: any, quote: any) => {
     price,
     change,
   };
+};
+
+const findFallbackAsset = (symbol: string, type: "stock" | "crypto") => {
+  const cleanSymbol = symbol.split("/")[0].toUpperCase();
+  if (type === "crypto") {
+    return fallbackCryptos.find((asset) => asset.symbol === cleanSymbol) || {
+      symbol: cleanSymbol,
+      name: cleanSymbol,
+      price: null,
+      change: null,
+      exchange: "Crypto",
+      type: "crypto",
+      currency: "USD",
+    };
+  }
+
+  const fallback = uniqueStocksByCompany(fallbackStocks).find((asset) => asset.symbol === cleanSymbol);
+  return fallback ? withStockMarketCap(fallback) : {
+    symbol: cleanSymbol,
+    name: cleanSymbol,
+    price: null,
+    change: null,
+    marketCap: getStockMarketCap(cleanSymbol),
+    exchange: "NASDAQ",
+    type: "stock",
+    currency: "USD",
+  };
+};
+
+const getCryptoSnapshot = async (symbol: string) => {
+  const cleanSymbol = symbol.split("/")[0].toUpperCase();
+  const response = await axios.get("https://api.coinpaprika.com/v1/tickers", {
+    params: { quotes: "USD" },
+    timeout: 10000,
+  });
+  const ticker = (Array.isArray(response.data) ? response.data : []).find((coin: any) => {
+    const tickerSymbol = String(coin.symbol || "").toUpperCase();
+    return tickerSymbol === cleanSymbol || (cleanSymbol === "WBTC" && tickerSymbol === "WBTC");
+  });
+
+  if (!ticker) throw new Error("Crypto snapshot unavailable");
+
+  return {
+    symbol: cleanSymbol,
+    name: ticker.name || cleanSymbol,
+    price: ticker.quotes?.USD?.price ?? null,
+    change: ticker.quotes?.USD?.percent_change_24h ?? null,
+    marketCap: ticker.quotes?.USD?.market_cap ?? null,
+    volume: ticker.quotes?.USD?.volume_24h ?? null,
+    exchange: "Crypto",
+    type: "crypto",
+    currency: "USD",
+    updatedAt: new Date().toISOString(),
+  };
+};
+
+const getYahooStockSnapshot = async (symbol: string) => {
+  const cleanSymbol = symbol.split("/")[0].toUpperCase();
+  const fallback = findFallbackAsset(cleanSymbol, "stock");
+  const response = await axios.get(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(cleanSymbol)}`, {
+    params: { range: "1d", interval: "1m" },
+    timeout: 10000,
+    headers: { "User-Agent": "Mozilla/5.0" },
+  });
+  const meta = response.data?.chart?.result?.[0]?.meta;
+
+  if (!meta?.regularMarketPrice) {
+    throw new Error("Yahoo quote unavailable");
+  }
+
+  const previousClose = Number(meta.chartPreviousClose ?? meta.previousClose);
+  const price = Number(meta.regularMarketPrice);
+  const changePercent = Number.isFinite(previousClose) && previousClose > 0
+    ? ((price - previousClose) / previousClose) * 100
+    : fallback.change ?? null;
+
+  return {
+    ...fallback,
+    symbol: cleanSymbol,
+    name: meta.longName || meta.shortName || fallback.name || cleanSymbol,
+    price,
+    change: changePercent,
+    marketCap: meta.marketCap ?? getStockMarketCap(cleanSymbol),
+    volume: meta.regularMarketVolume ?? null,
+    exchange: meta.fullExchangeName || meta.exchangeName || fallback.exchange || "NASDAQ",
+    type: "stock",
+    currency: meta.currency || "USD",
+    updatedAt: new Date().toISOString(),
+  };
+};
+
+const getStockSnapshot = async (symbol: string, apiKey?: string) => {
+  const cleanSymbol = symbol.split("/")[0].toUpperCase();
+  const fallback = findFallbackAsset(cleanSymbol, "stock");
+  if (!apiKey) return getYahooStockSnapshot(cleanSymbol);
+
+  try {
+    const response = await axios.get("https://api.twelvedata.com/quote", {
+      params: { symbol: cleanSymbol, apikey: apiKey },
+      timeout: 10000,
+    });
+
+    if (response.data?.status === "error") {
+      throw new Error(response.data?.message || "Quote service unavailable");
+    }
+
+    return {
+      ...enrichWithQuote({ ...fallback, symbol: cleanSymbol, type: "stock" }, response.data),
+      marketCap: getStockMarketCap(cleanSymbol),
+      volume: response.data?.volume ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    return getYahooStockSnapshot(cleanSymbol);
+  }
 };
 
 async function startServer() {
@@ -393,6 +620,28 @@ async function startServer() {
     }
   });
 
+  app.get("/api/market/asset", async (req, res) => {
+    const symbol = getStringParam(req.query.symbol).toUpperCase();
+    const type = getStringParam(req.query.type, "stock") === "crypto" ? "crypto" : "stock";
+    const apiKey = process.env.TWELVE_DATA_API_KEY;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol is required" });
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+
+    try {
+      const snapshot = type === "crypto"
+        ? await getCryptoSnapshot(symbol)
+        : await getStockSnapshot(symbol, apiKey);
+      res.json(snapshot);
+    } catch (error) {
+      const fallback = findFallbackAsset(symbol, type);
+      res.json({ ...fallback, updatedAt: new Date().toISOString(), fallback: true, error: "Failed to fetch live asset snapshot" });
+    }
+  });
+
   app.get("/api/market/cryptos", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
 
@@ -540,6 +789,7 @@ async function startServer() {
 
   app.get("/api/market/hot", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
+    res.setHeader("Cache-Control", "no-store");
     const fallbackHot = [
       { symbol: "NVDA", name: "NVIDIA Corporation", price: "908.10", change: "2.18", type: "stock" },
       { symbol: "SMCI", name: "Super Micro Computer Inc.", price: "32.80", change: "-2.13", type: "stock" },
@@ -548,7 +798,14 @@ async function startServer() {
       { symbol: "TSLA", name: "Tesla Inc.", price: "174.60", change: "-1.42", type: "stock" },
       ...fallbackCryptos.slice(0, 3),
     ];
-    if (!apiKey) return res.json({ data: fallbackHot, fallback: true });
+    if (!apiKey) {
+      try {
+        const liveCryptos = await Promise.all(["BTC", "ETH", "SOL"].map((symbol) => getCryptoSnapshot(symbol)));
+        return res.json({ data: [...fallbackHot.slice(0, 5), ...liveCryptos], fallback: true });
+      } catch {
+        return res.json({ data: fallbackHot, fallback: true });
+      }
+    }
     
     try {
       // For a real app, we'd calculate 7d performance. 
@@ -598,6 +855,46 @@ async function startServer() {
       res.json(response.data);
     } catch (error) {
       res.json({ articles: fallbackNews, fallback: true, error: "Failed to fetch live news" });
+    }
+  });
+
+  app.post("/api/ai/asset-chat", async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const symbol = typeof req.body?.symbol === "string" ? req.body.symbol.toUpperCase() : "";
+    const type = req.body?.type === "crypto" ? "crypto" : "stock";
+    const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+    const price = req.body?.price ?? "unknown";
+    const change = req.body?.change ?? "unknown";
+    const isSpanishQuestion = /\b(habla|hablame|accion|precio|riesgo|tendencia|soporte|resistencia|comprar|vender|mercado)\b/i.test(question);
+    const fallbackAnswer = isSpanishQuestion
+      ? `La IA no pudo responder ahora, pero este es el contexto actual de ${symbol}: ${type}, ultimo precio ${price}, variacion 24h ${change}. Revisa tendencia, volumen, soportes y resistencias antes de tomar una decision.`
+      : `The AI service could not answer right now, but here is the current context for ${symbol}: ${type}, last price ${price}, 24h change ${change}. Check trend direction, volume, support and resistance before making a decision.`;
+
+    if (!symbol || !question) {
+      return res.status(400).json({ error: "Symbol and question are required" });
+    }
+
+    if (!apiKey) {
+      return res.json({
+        fallback: true,
+        answer: fallbackAnswer,
+      });
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `You are ZENTRA's financial analysis assistant. Do not give personalized financial advice. Analyze the asset with concise, practical market context.\n\nAsset: ${symbol}\nType: ${type}\nCurrent price: ${price}\n24h change: ${change}\nUser question: ${question}\n\nAnswer in the same language as the user question when obvious. Keep it under 160 words and include risk caveats when relevant.`,
+      });
+
+      res.json({ answer: response.text || "No AI response was generated." });
+    } catch (error) {
+      console.error("AI asset chat failed:", error);
+      res.json({
+        fallback: true,
+        answer: fallbackAnswer,
+      });
     }
   });
 

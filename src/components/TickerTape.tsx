@@ -25,7 +25,7 @@ export default function TickerTape() {
   useEffect(() => {
     const fetchHot = async () => {
       try {
-        const res = await fetch('/api/market/hot');
+        const res = await fetch(`/api/market/hot?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         if (data.data) {
@@ -39,7 +39,7 @@ export default function TickerTape() {
       }
     };
     fetchHot();
-    const interval = setInterval(fetchHot, 60000); // Refresh every minute
+    const interval = setInterval(fetchHot, 15000);
     return () => clearInterval(interval);
   }, []);
 

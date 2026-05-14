@@ -6,6 +6,8 @@ import { LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon } from '
 import { auth } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import TickerTape from './TickerTape';
+import LanguageSelector from './LanguageSelector';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface LayoutProps {
   user: User;
@@ -14,6 +16,7 @@ interface LayoutProps {
 
 export default function Layout({ user, profile }: LayoutProps) {
   const location = useLocation();
+  const { t } = useLanguage();
   const [isLight, setIsLight] = useState(false);
 
   useEffect(() => {
@@ -37,10 +40,10 @@ export default function Layout({ user, profile }: LayoutProps) {
   };
 
   const navItems = [
-    { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/portfolio', icon: Wallet, label: 'Portfolio' },
-    { path: '/market', icon: Compass, label: 'Market' },
-    { path: '/news', icon: Newspaper, label: 'Market News' },
+    { path: '/', icon: LayoutDashboard, label: t('dashboard') },
+    { path: '/portfolio', icon: Wallet, label: t('portfolio') },
+    { path: '/market', icon: Compass, label: t('market') },
+    { path: '/news', icon: Newspaper, label: t('marketNews') },
   ];
 
   return (
@@ -84,7 +87,7 @@ export default function Layout({ user, profile }: LayoutProps) {
         <div className="mt-auto space-y-4">
           <div className="relative overflow-hidden rounded-3xl border border-accent/20 bg-accent/10 p-4">
             <div className="text-[10px] text-accent uppercase font-black tracking-widest">ZENTRA PRO</div>
-            <div className="text-xs font-bold mt-1">Live edge enabled</div>
+            <div className="text-xs font-bold mt-1">{t('liveEdgeEnabled')}</div>
             <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-accent/20 blur-2xl" />
           </div>
           
@@ -94,7 +97,7 @@ export default function Layout({ user, profile }: LayoutProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate">{user.email}</p>
-              <p className="text-[10px] text-text-dim uppercase">Premium User</p>
+              <p className="text-[10px] text-text-dim uppercase">{t('premiumUser')}</p>
             </div>
           </div>
           
@@ -103,7 +106,7 @@ export default function Layout({ user, profile }: LayoutProps) {
             className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-xs text-text-dim hover:text-loss hover:bg-loss/10 transition-all"
           >
             <LogOut className="w-4 h-4" />
-            Logout
+            {t('logout')}
           </button>
         </div>
       </aside>
@@ -117,17 +120,18 @@ export default function Layout({ user, profile }: LayoutProps) {
             <img src="/logo.png" alt="ZENTRA Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
             <span className="font-bold tracking-tighter uppercase">ZENTRA</span>
           </div>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-3 text-xs">
+            <LanguageSelector />
             <button 
               onClick={toggleTheme}
               className="p-2 bg-surface border border-border-accent rounded-xl hover:border-accent hover:text-accent transition-all"
-              title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+              title={isLight ? t('switchDarkMode') : t('switchLightMode')}
             >
               {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </button>
             <span className="hidden sm:flex items-center gap-2 rounded-full border border-border-accent bg-surface px-3 py-2 text-text-dim">
               <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
-              Live Market Data
+              {t('liveMarketData')}
             </span>
           </div>
         </header>
@@ -146,7 +150,7 @@ export default function Layout({ user, profile }: LayoutProps) {
             )}
           >
             <item.icon className="w-4 h-4" />
-            {item.label.replace('Market ', '')}
+            {item.label.replace('Market ', '').replace('Mercado ', '')}
           </Link>
         ))}
       </nav>

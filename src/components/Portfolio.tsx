@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, onSnapshot, query, setDoc, updateDoc } from 'firebase/firestore';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion } from 'framer-motion';
@@ -10,6 +10,7 @@ import CompanyLogo from './CompanyLogo';
 
 export default function Portfolio() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -21,6 +22,27 @@ export default function Portfolio() {
   const [type, setType] = useState<'stock' | 'crypto'>('stock');
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
+
+  useEffect(() => {
+    if (searchParams.get('addAsset') !== '1') return;
+
+    const nextSymbol = (searchParams.get('symbol') || '').trim().toUpperCase();
+    const nextName = (searchParams.get('name') || '').trim();
+    const nextType = searchParams.get('type') === 'crypto' ? 'crypto' : 'stock';
+    const nextPrice = searchParams.get('price') || '';
+
+    setIsAdding(true);
+    if (nextSymbol) setSymbol(nextSymbol);
+    if (nextName) setName(nextName);
+    setType(nextType);
+    if (nextPrice && Number.isFinite(Number(nextPrice))) setPrice(nextPrice);
+    setQuantity('');
+    setFormError('');
+
+    const cleanParams = new URLSearchParams(searchParams);
+    cleanParams.delete('addAsset');
+    setSearchParams(cleanParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!auth.currentUser) return;

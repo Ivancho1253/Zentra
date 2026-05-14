@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, ArrowUpRight, Flame, Search, Sparkles, Star, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowUpRight, Flame, Maximize2, Minimize2, Minus, Plus, Search, Sparkles, Star, TrendingUp } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import CompanyLogo from './CompanyLogo';
@@ -16,7 +16,17 @@ interface MarketAsset {
   type?: string;
   price?: string | number | null;
   change?: string | number | null;
+  marketCap?: string | number | null;
   raw?: any;
+}
+
+interface HeatMapRect {
+  asset: MarketAsset;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value: number;
 }
 
 const toNumber = (value: unknown) => {
@@ -28,14 +38,104 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const splitTreemap = (
+  items: Array<{ asset: MarketAsset; value: number }>,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  _depth = 0
+): HeatMapRect[] => {
+  const total = items.reduce((sum, item) => sum + Math.max(item.value, 0), 0);
+  if (items.length === 0 || total <= 0 || width <= 0 || height <= 0) return [];
+
+  const scaledItems = items.map((item) => ({
+    ...item,
+    area: (Math.max(item.value, 0) / total) * width * height,
+  }));
+  const rects: HeatMapRect[] = [];
+
+  const worstRatio = (row: typeof scaledItems, side: number) => {
+    if (row.length === 0 || side <= 0) return Number.POSITIVE_INFINITY;
+    const areas = row.map((item) => item.area);
+    const sum = areas.reduce((totalArea, area) => totalArea + area, 0);
+    const max = Math.max(...areas);
+    const min = Math.min(...areas);
+    return Math.max((side * side * max) / (sum * sum), (sum * sum) / (side * side * min));
+  };
+
+  const layoutRow = (row: typeof scaledItems, rect: { x: number; y: number; width: number; height: number }) => {
+    const rowArea = row.reduce((sum, item) => sum + item.area, 0);
+    if (rect.width >= rect.height) {
+      const rowHeight = rowArea / rect.width;
+      let cursorX = rect.x;
+      row.forEach((item) => {
+        const itemWidth = item.area / rowHeight;
+        rects.push({ asset: item.asset, value: item.value, x: cursorX, y: rect.y, width: itemWidth, height: rowHeight });
+        cursorX += itemWidth;
+      });
+      rect.y += rowHeight;
+      rect.height -= rowHeight;
+    } else {
+      const rowWidth = rowArea / rect.height;
+      let cursorY = rect.y;
+      row.forEach((item) => {
+        const itemHeight = item.area / rowWidth;
+        rects.push({ asset: item.asset, value: item.value, x: rect.x, y: cursorY, width: rowWidth, height: itemHeight });
+        cursorY += itemHeight;
+      });
+      rect.x += rowWidth;
+      rect.width -= rowWidth;
+    }
+  };
+
+  const remaining = [...scaledItems];
+  const rect = { x, y, width, height };
+  let row: typeof scaledItems = [];
+
+  while (remaining.length > 0) {
+    const next = remaining[0];
+    const side = Math.min(rect.width, rect.height);
+    if (row.length === 0 || worstRatio([...row, next], side) <= worstRatio(row, side)) {
+      row.push(next);
+      remaining.shift();
+    } else {
+      layoutRow(row, rect);
+      row = [];
+    }
+  }
+
+  if (row.length > 0) layoutRow(row, rect);
+  return rects;
+};
+
+const heatColor = (change: number | null) => {
+  if (change === null) return 'rgb(58, 58, 58)';
+  const intensity = Math.min(Math.abs(change) / 6, 1);
+  if (change >= 0) {
+    const green = Math.round(62 + intensity * 86);
+    return `rgb(${Math.round(9 + intensity * 2)}, ${green}, ${Math.round(31 + intensity * 12)})`;
+  }
+
+  const red = Math.round(100 + intensity * 105);
+  return `rgb(${red}, ${Math.round(24 + intensity * 16)}, ${Math.round(35 + intensity * 18)})`;
+};
+
 export default function MarketExplorer() {
   const navigate = useNavigate();
+  const heatMapRef = useRef<HTMLDivElement>(null);
+  const dragMovedRef = useRef(false);
   const [stocks, setStocks] = useState<MarketAsset[]>([]);
   const [cryptos, setCryptos] = useState<MarketAsset[]>([]);
   const [hotAssets, setHotAssets] = useState<MarketAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'stocks' | 'cryptos' | 'favorites'>('all');
+  const [activeTab, setActiveTab] = useState<'stocks' | 'cryptos' | 'heatmap' | 'favorites'>('stocks');
+  const [heatMapType, setHeatMapType] = useState<'stocks' | 'cryptos'>('stocks');
+  const [heatZoom, setHeatZoom] = useState(1);
+  const [heatPan, setHeatPan] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const [isHeatMapFullscreen, setIsHeatMapFullscreen] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [error, setError] = useState('');
 
@@ -50,6 +150,15 @@ export default function MarketExplorer() {
   }, []);
 
   useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsHeatMapFullscreen(document.fullscreenElement === heatMapRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
     const normalize = (item: any, defaultType: string): MarketAsset => {
       const symbol = item?.symbol || item?.ticker || item?.code || item?.id || '';
       return {
@@ -60,6 +169,7 @@ export default function MarketExplorer() {
         type: item?.type || defaultType || (item?.isCrypto ? 'crypto' : 'stock'),
         price: item?.price ?? item?.close ?? item?.last ?? item?.previous_close ?? item?.raw?.price ?? null,
         change: item?.change ?? item?.percent_change ?? item?.pct_change ?? item?.change_percent ?? item?.raw?.percent_change ?? null,
+        marketCap: item?.marketCap ?? item?.market_cap ?? item?.market_cap_usd ?? item?.raw?.marketCap ?? null,
         raw: item,
       };
     };
@@ -112,7 +222,7 @@ export default function MarketExplorer() {
     if (activeTab === 'favorites') return allAssets.filter((asset) => asset.symbol && favorites.includes(asset.symbol));
     if (activeTab === 'stocks') return stocks;
     if (activeTab === 'cryptos') return cryptos;
-    return allAssets;
+    return heatMapType === 'stocks' ? stocks : cryptos;
   };
 
   const filteredAssets = getAssetsToDisplay().filter((asset) =>
@@ -121,6 +231,69 @@ export default function MarketExplorer() {
   );
 
   const motionItem = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
+  const heatAssets = (heatMapType === 'stocks' ? stocks : cryptos).filter((asset) => asset.symbol);
+  const heatItems = heatAssets
+    .map((asset, index) => {
+      const marketCap = toNumber(asset.marketCap);
+      const fallbackWeight = Math.max(heatAssets.length - index, 1);
+      return { asset, value: marketCap && marketCap > 0 ? marketCap : fallbackWeight * fallbackWeight };
+    })
+    .sort((a, b) => b.value - a.value);
+  const heatMapWidth = 1600;
+  const heatMapHeight = 900;
+  const heatRects = splitTreemap(heatItems, 0, 0, heatMapWidth, heatMapHeight);
+  const resetHeatMap = () => {
+    setHeatZoom(1);
+    setHeatPan({ x: 0, y: 0 });
+  };
+  const zoomHeatMap = (nextZoom: number) => {
+    setHeatZoom(Math.min(Math.max(nextZoom, 0.8), 3.5));
+  };
+  const handleHeatWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    zoomHeatMap(heatZoom + (event.deltaY > 0 ? -0.12 : 0.12));
+  };
+  const toggleHeatMapFullscreen = async () => {
+    if (!heatMapRef.current) return;
+
+    if (document.fullscreenElement === heatMapRef.current) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    await heatMapRef.current.requestFullscreen();
+  };
+  const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragMovedRef.current = false;
+    setDragStart({ x: event.clientX, y: event.clientY, panX: heatPan.x, panY: heatPan.y });
+  };
+  const handleDragMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragStart) return;
+    const deltaX = event.clientX - dragStart.x;
+    const deltaY = event.clientY - dragStart.y;
+    if (Math.abs(deltaX) + Math.abs(deltaY) > 4) {
+      dragMovedRef.current = true;
+    }
+    setHeatPan({
+      x: dragStart.panX + deltaX,
+      y: dragStart.panY + deltaY,
+    });
+  };
+  const handleDragEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDragStart(null);
+  };
+  const shouldBlockTileClick = () => {
+    if (!dragMovedRef.current) return false;
+    window.setTimeout(() => {
+      dragMovedRef.current = false;
+    }, 0);
+    return true;
+  };
 
   return (
     <motion.div className="app-page" initial="hidden" animate="show" transition={{ staggerChildren: 0.06 }}>
@@ -148,9 +321,9 @@ export default function MarketExplorer() {
 
       <motion.div variants={motionItem} className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {(['all', 'stocks', 'cryptos', 'favorites'] as const).map((tab) => (
+          {(['stocks', 'cryptos', 'heatmap', 'favorites'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={cn('whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-all', activeTab === tab ? 'bg-accent text-bg shadow-[0_0_24px_rgba(124,255,26,0.24)]' : 'border border-border-accent bg-surface text-text-dim hover:border-accent/40 hover:text-text-main')}>
-              {tab === 'all' ? 'All assets' : tab === 'cryptos' ? 'Crypto' : tab}
+              {tab === 'cryptos' ? 'Crypto' : tab === 'heatmap' ? 'Heat Map' : tab}
             </button>
           ))}
         </div>
@@ -168,7 +341,7 @@ export default function MarketExplorer() {
               const changeValue = toNumber(asset.change) ?? 0;
               const symbol = asset.symbol || asset.id || `hot-${index}`;
               return (
-                <button key={symbol} onClick={() => { setSearch(symbol); setActiveTab('all'); }} className="min-w-[170px] rounded-2xl border border-border-accent bg-bg/45 p-3 text-left transition-all hover:border-accent/50 hover:bg-accent/10">
+                <button key={symbol} onClick={() => { setSearch(symbol); setActiveTab(asset.type === 'crypto' ? 'cryptos' : 'stocks'); }} className="min-w-[170px] rounded-2xl border border-border-accent bg-bg/45 p-3 text-left transition-all hover:border-accent/50 hover:bg-accent/10">
                   <div className="flex items-center gap-3">
                     <CompanyLogo symbol={symbol} name={asset.name || symbol} type={asset.type === 'crypto' ? 'crypto' : 'stock'} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
                     <div className="min-w-0">
@@ -187,6 +360,116 @@ export default function MarketExplorer() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(8)].map((_, index) => <div key={index} className="h-72 animate-pulse rounded-3xl border border-border-accent bg-surface" />)}
         </div>
+      ) : activeTab === 'heatmap' ? (
+        <motion.div ref={heatMapRef} variants={motionItem} className="panel-card overflow-hidden p-0 fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-bg">
+          <div className="flex flex-col gap-3 border-b border-border-accent bg-bg/55 p-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <div className="accent-chip">Heat Map</div>
+              <span className="hidden text-[10px] font-black uppercase tracking-widest text-text-dim sm:inline">
+                {heatMapType === 'stocks' ? 'Stocks by company value' : 'Crypto by market cap'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(['stocks', 'cryptos'] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    setHeatMapType(type);
+                    resetHeatMap();
+                  }}
+                  className={cn(
+                    'rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all',
+                    heatMapType === type ? 'bg-accent text-bg' : 'border border-border-accent bg-surface text-text-dim hover:border-accent/40 hover:text-text-main'
+                  )}
+                >
+                  {type === 'stocks' ? 'Stocks' : 'Crypto'}
+                </button>
+              ))}
+              <div className="ml-0 flex items-center overflow-hidden rounded-xl border border-border-accent bg-surface md:ml-2">
+                <button onClick={() => zoomHeatMap(heatZoom - 0.2)} className="p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent" title="Zoom out">
+                  <Minus className="h-4 w-4" />
+                </button>
+                <button onClick={() => zoomHeatMap(heatZoom + 0.2)} className="border-l border-border-accent p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent" title="Zoom in">
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button onClick={resetHeatMap} className="border-l border-border-accent px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:bg-accent/10 hover:text-accent" title="Reset view">
+                  Reset
+                </button>
+                <button onClick={toggleHeatMapFullscreen} className="border-l border-border-accent p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent" title={isHeatMapFullscreen ? 'Exit full screen' : 'Full screen'}>
+                  {isHeatMapFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="relative h-[72vh] min-h-[560px] cursor-grab touch-none select-none overflow-hidden bg-[#050705] active:cursor-grabbing fullscreen:h-[calc(100vh-57px)] fullscreen:min-h-0"
+            onWheel={handleHeatWheel}
+            onPointerDown={handleDragStart}
+            onPointerMove={handleDragMove}
+            onPointerUp={handleDragEnd}
+            onPointerCancel={handleDragEnd}
+          >
+            <div
+              className={cn('absolute left-1/2 top-1/2 origin-center', dragStart ? '' : 'transition-transform duration-100')}
+              style={{
+                width: heatMapWidth,
+                height: heatMapHeight,
+                transform: `translate(calc(-50% + ${heatPan.x}px), calc(-50% + ${heatPan.y}px)) scale(${heatZoom})`,
+              }}
+            >
+              {heatRects.map((rect) => {
+                const symbol = rect.asset.symbol || '';
+                const assetType = heatMapType === 'cryptos' ? 'cryptos' : 'stocks';
+                const changeValue = toNumber(rect.asset.change);
+                const width = Math.max(rect.width, 0);
+                const height = Math.max(rect.height, 0);
+                const compact = width < 100 || height < 80;
+                const tiny = width < 58 || height < 48;
+                const formattedChange = changeValue !== null ? `${changeValue >= 0 ? '+' : ''}${changeValue.toFixed(2)}%` : 'N/A';
+
+                return (
+                  <Link
+                    key={`${heatMapType}-${symbol}`}
+                    to={`/market/${assetType}/${symbol}`}
+                    onClick={(event) => {
+                      if (shouldBlockTileClick()) event.preventDefault();
+                    }}
+                    draggable={false}
+                    className="absolute flex items-center justify-center overflow-hidden border border-black/80 text-center transition-all hover:z-20 hover:border-white/70 hover:brightness-125"
+                    style={{
+                      left: rect.x,
+                      top: rect.y,
+                      width,
+                      height,
+                      background: heatColor(changeValue),
+                    }}
+                    title={`${symbol} ${formattedChange}`}
+                  >
+                    {!tiny && (
+                      <div className="flex max-w-full flex-col items-center justify-center px-2 text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {!compact && (
+                          <CompanyLogo
+                            symbol={symbol}
+                            name={rect.asset.name || symbol}
+                            type={heatMapType === 'cryptos' ? 'crypto' : 'stock'}
+                            className="mb-3 h-14 w-14 rounded-full border-black/30 bg-black/35"
+                            imgClassName="h-9 w-9"
+                          />
+                        )}
+                        <div className={cn('font-black tracking-tight', compact ? 'text-xs' : 'text-2xl')}>{symbol}</div>
+                        <div className={cn('font-medium', compact ? 'text-[10px]' : 'text-xl')}>{formattedChange}</div>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="pointer-events-none absolute bottom-3 left-3 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+              Wheel to zoom - hold click and drag to move - click tile for chart
+            </div>
+          </div>
+        </motion.div>
       ) : (
         <motion.div variants={motionItem} className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {filteredAssets.map((asset, index) => {

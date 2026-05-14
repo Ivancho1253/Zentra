@@ -129,6 +129,72 @@ const translations: Translations = {
   haveAccount: { es: 'Ya tienes cuenta?', en: 'Already have an account?', pt: 'Ja tem uma conta?' },
   registerNow: { es: 'Registrate ahora', en: 'Register now', pt: 'Registre-se agora' },
   signInNow: { es: 'Inicia sesion', en: 'Sign in', pt: 'Entrar agora' },
+
+  dashboard: { es: 'Panel', en: 'Dashboard', pt: 'Painel' },
+  portfolio: { es: 'Portafolio', en: 'Portfolio', pt: 'Carteira' },
+  market: { es: 'Mercado', en: 'Market', pt: 'Mercado' },
+  marketNews: { es: 'Noticias', en: 'Market News', pt: 'Noticias' },
+  liveEdgeEnabled: { es: 'Ventaja en vivo activa', en: 'Live edge enabled', pt: 'Vantagem ao vivo ativa' },
+  premiumUser: { es: 'Usuario premium', en: 'Premium User', pt: 'Usuario premium' },
+  logout: { es: 'Cerrar sesion', en: 'Logout', pt: 'Sair' },
+  liveMarketData: { es: 'Datos de mercado en vivo', en: 'Live Market Data', pt: 'Dados de mercado ao vivo' },
+  switchDarkMode: { es: 'Cambiar a modo oscuro', en: 'Switch to Dark Mode', pt: 'Mudar para modo escuro' },
+  switchLightMode: { es: 'Cambiar a modo claro', en: 'Switch to Light Mode', pt: 'Mudar para modo claro' },
+
+  equity: { es: 'Accion', en: 'Equity', pt: 'Acao' },
+  digitalAsset: { es: 'Activo digital', en: 'Digital Asset', pt: 'Ativo digital' },
+  updatingQuote: { es: 'Actualizando precio', en: 'Updating quote', pt: 'Atualizando preco' },
+  liveQuote: { es: 'Precio en vivo', en: 'Live Quote', pt: 'Preco ao vivo' },
+  currentPrice: { es: 'Precio actual', en: 'Current Price', pt: 'Preco atual' },
+  refreshesEvery15s: { es: 'Actualiza cada 15s', en: 'Refreshes every 15s', pt: 'Atualiza a cada 15s' },
+  updating: { es: 'Actualizando', en: 'Updating', pt: 'Atualizando' },
+  addFavorite: { es: 'Agregar favorito', en: 'Add Favorite', pt: 'Adicionar favorito' },
+  favorited: { es: 'Favorito', en: 'Favorited', pt: 'Favorito' },
+  addThisAsset: { es: 'Agregar este activo', en: 'Add This Asset', pt: 'Adicionar este ativo' },
+  loginToAddAsset: { es: 'Inicia sesion para agregar este activo a tu portafolio.', en: 'Log in to add this asset to your portfolio.', pt: 'Entre para adicionar este ativo a sua carteira.' },
+  waitingValidPrice: { es: 'Esperando un precio valido para agregarlo.', en: 'Waiting for a valid live price before adding.', pt: 'Aguardando um preco valido para adicionar.' },
+  addedAsset: { es: 'Agregado al portafolio', en: 'Added to portfolio', pt: 'Adicionado a carteira' },
+  couldNotAddAsset: { es: 'No se pudo agregar al portafolio. Revisa permisos o vuelve a intentar.', en: 'Could not add to portfolio. Check permissions or try again.', pt: 'Nao foi possivel adicionar a carteira. Verifique permissoes ou tente novamente.' },
+  daily: { es: 'Diario', en: 'Daily', pt: 'Diario' },
+  weekly: { es: 'Semanal', en: 'Weekly', pt: 'Semanal' },
+  monthly: { es: 'Mensual', en: 'Monthly', pt: 'Mensal' },
+  annual: { es: 'Anual', en: 'Annual', pt: 'Anual' },
+  performance: { es: 'Rendimiento', en: 'Performance', pt: 'Desempenho' },
+  trend: { es: 'Tendencia', en: 'Trend', pt: 'Tendencia' },
+  interactiveChart: { es: 'Grafico interactivo', en: 'Interactive Chart', pt: 'Grafico interativo' },
+  marketFundamentals: { es: 'Fundamentos del mercado', en: 'Market Fundamentals', pt: 'Fundamentos do mercado' },
+  marketCap: { es: 'Capitalizacion', en: 'Market Cap', pt: 'Valor de mercado' },
+  volume24h: { es: 'Volumen 24h', en: 'Volume (24h)', pt: 'Volume 24h' },
+  lastPrice: { es: 'Ultimo precio', en: 'Last Price', pt: 'Ultimo preco' },
+  source: { es: 'Fuente', en: 'Source', pt: 'Fonte' },
+  live: { es: 'En vivo', en: 'Live', pt: 'Ao vivo' },
+  fallback: { es: 'Respaldo', en: 'Fallback', pt: 'Reserva' },
+  technicalSentiment: { es: 'Sentimiento tecnico', en: 'Technical Sentiment', pt: 'Sentimento tecnico' },
+  sell: { es: 'Vender', en: 'Sell', pt: 'Vender' },
+  strongBuy: { es: 'Compra fuerte', en: 'Strong Buy', pt: 'Compra forte' },
+  bullish: { es: 'Alcista', en: 'Bullish', pt: 'Altista' },
+  positive: { es: 'Positivo', en: 'Positive', pt: 'Positivo' },
+  aiInsight: { es: 'Insight IA', en: 'AI Insight', pt: 'Insight IA' },
+  aiInsightText: {
+    es: 'ZENTRA detecta interes elevado en este activo. Revisa precio, volumen y riesgo antes de abrir una posicion.',
+    en: 'ZENTRA detects elevated market interest in this asset. Review price action, volume and risk before opening a position.',
+    pt: 'O ZENTRA detecta interesse elevado neste ativo. Revise preco, volume e risco antes de abrir uma posicao.',
+  },
+  aiAssetChat: { es: 'Chat IA del activo', en: 'AI Asset Chat', pt: 'Chat IA do ativo' },
+  close: { es: 'Cerrar', en: 'Close', pt: 'Fechar' },
+  aiGreeting: {
+    es: 'Preguntame sobre tendencia, riesgos, catalizadores, valuacion o que mirar en el grafico.',
+    en: 'Ask me about trend, risks, catalysts, valuation, or what to inspect on the chart.',
+    pt: 'Pergunte sobre tendencia, riscos, catalisadores, avaliacao ou o que observar no grafico.',
+  },
+  aiThinking: { es: 'Pensando...', en: 'Thinking...', pt: 'Pensando...' },
+  askAboutAsset: { es: 'Pregunta sobre este activo...', en: 'Ask about this asset...', pt: 'Pergunte sobre este ativo...' },
+  aiUnavailable: {
+    es: 'No pude conectar con la IA ahora. Igual puedo mostrarte el contexto actual: precio, variacion y grafico para revisar tendencia, volumen, soportes y resistencias.',
+    en: 'I could not reach the AI service right now. I can still show the current context: price, change and chart so you can review trend, volume, support and resistance.',
+    pt: 'Nao consegui conectar com a IA agora. Ainda posso mostrar o contexto atual: preco, variacao e grafico para revisar tendencia, volume, suporte e resistencia.',
+  },
+  aiResponseUnavailable: { es: 'Respuesta de IA no disponible.', en: 'AI response unavailable.', pt: 'Resposta da IA indisponivel.' },
 };
 
 interface LanguageContextType {
@@ -140,14 +206,20 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
+  const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('language');
-    return saved === 'es' || saved === 'en' || saved === 'pt' ? saved : 'es';
+    const hasUserPreference = localStorage.getItem('languagePreferenceSet') === 'true';
+    return hasUserPreference && (saved === 'es' || saved === 'en' || saved === 'pt') ? saved : 'en';
   });
 
   useEffect(() => {
     localStorage.setItem('language', language);
   }, [language]);
+
+  const setLanguage = (lang: Language) => {
+    localStorage.setItem('languagePreferenceSet', 'true');
+    setLanguageState(lang);
+  };
 
   const t = (key: string) => translations[key]?.[language] || key;
 
