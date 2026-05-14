@@ -31,7 +31,7 @@ export default function LanguageSelector() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-xl border border-border-accent bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-main transition-all hover:border-accent hover:text-accent"
+        className="flex items-center gap-2 rounded-xl border border-border-accent bg-surface px-3 py-2 text-[11px] font-bold uppercase tracking-normal text-text-main transition-all hover:border-accent hover:text-accent"
         title="Change language"
       >
         <Globe className="h-4 w-4 text-accent" />
@@ -49,7 +49,7 @@ export default function LanguageSelector() {
                 setIsOpen(false);
               }}
               className={cn(
-                'flex w-full items-center gap-3 px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest transition-all hover:bg-accent/10',
+                'flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-normal transition-all hover:bg-accent/10',
                 language === lang.code ? 'bg-accent/5 text-accent' : 'text-text-dim'
               )}
             >

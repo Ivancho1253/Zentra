@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../types';
-import { LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon, HelpCircle, Info } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import TickerTape from './TickerTape';
 import LanguageSelector from './LanguageSelector';
 import { useLanguage } from '../contexts/LanguageContext';
+import ZentraAIChat from './ZentraAIChat';
 
 interface LayoutProps {
   user: User;
@@ -45,21 +46,25 @@ export default function Layout({ user, profile }: LayoutProps) {
     { path: '/market', icon: Compass, label: t('market') },
     { path: '/news', icon: Newspaper, label: t('marketNews') },
   ];
+  const secondaryItems = [
+    { path: '/help', icon: HelpCircle, label: t('help') },
+    { path: '/info', icon: Info, label: t('info') },
+  ];
 
   return (
     <div className="flex h-screen bg-bg text-text-main font-sans">
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 border-r border-border-accent/70 bg-surface/30 flex-col p-6 gap-8">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <img 
             src="/logo.png" 
             alt="ZENTRA Logo" 
-            className="w-8 h-8 object-contain" 
+            className="w-9 h-9 object-contain" 
             referrerPolicy="no-referrer" 
           />
-          <span className="flex flex-col leading-none">
-            <span className="font-bold tracking-tighter text-lg uppercase">ZENTRA</span>
-            <span className="text-[8px] uppercase tracking-[0.18em] text-accent">Know before it moves</span>
+            <span className="flex flex-col leading-none">
+            <span className="font-extrabold tracking-tight text-xl uppercase">ZENTRA</span>
+            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-accent">{t('brandTagline')}</span>
           </span>
         </div>
 
@@ -82,6 +87,27 @@ export default function Layout({ user, profile }: LayoutProps) {
               </li>
             ))}
           </ul>
+          <div className="mt-6 border-t border-border-accent/50 pt-4">
+            <div className="mb-2 px-4 text-[9px] font-black uppercase tracking-widest text-text-dim">{t('support')}</div>
+            <ul className="space-y-1">
+              {secondaryItems.map((item) => (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-transparent",
+                      location.pathname === item.path
+                        ? "bg-accent/10 text-accent border-accent/30"
+                        : "text-text-dim hover:text-text-main hover:bg-bg/50 hover:border-border-accent"
+                    )}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
 
         <div className="mt-auto space-y-4">
@@ -114,11 +140,11 @@ export default function Layout({ user, profile }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
         <TickerTape />
-        <header className="h-16 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-10 z-20">
+        <header className="h-16 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-12 z-20">
           <div className="hidden sm:block" />
           <div className="sm:hidden flex items-center gap-2">
             <img src="/logo.png" alt="ZENTRA Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
-            <span className="font-bold tracking-tighter uppercase">ZENTRA</span>
+            <span className="font-extrabold tracking-tight uppercase">ZENTRA</span>
           </div>
           <div className="flex items-center gap-3 text-xs">
             <LanguageSelector />
@@ -129,7 +155,7 @@ export default function Layout({ user, profile }: LayoutProps) {
             >
               {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </button>
-            <span className="hidden sm:flex items-center gap-2 rounded-full border border-border-accent bg-surface px-3 py-2 text-text-dim">
+            <span className="hidden sm:flex items-center gap-2 rounded-full border border-border-accent bg-surface px-3.5 py-2 text-[12px] font-medium text-text-dim">
               <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
               {t('liveMarketData')}
             </span>
@@ -139,8 +165,9 @@ export default function Layout({ user, profile }: LayoutProps) {
           <Outlet />
         </div>
       </main>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-4 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
-        {navItems.map((item) => (
+      <ZentraAIChat />
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-6 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
+        {[...navItems, ...secondaryItems].map((item) => (
           <Link
             key={item.path}
             to={item.path}

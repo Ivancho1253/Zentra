@@ -82,7 +82,7 @@ export default function Auth() {
             />
           </div>
           <h1 className="text-3xl font-black tracking-tighter uppercase">ZENTRA</h1>
-          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">Know before it moves</p>
+          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">{t('brandTagline')}</p>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bento-card !bg-white/5 border-white/10 backdrop-blur-xl">
@@ -92,7 +92,7 @@ export default function Auth() {
 
           {error && (
             <div className="bg-loss/10 border border-loss/50 p-4 mb-8 text-[10px] text-loss uppercase font-black rounded-xl animate-shake">
-              ERROR: {error}
+              {t('errorLabel')}: {error}
             </div>
           )}
 
@@ -142,7 +142,7 @@ export default function Auth() {
             className="w-full flex items-center justify-center gap-3 bg-[#0b0b0b] border border-white/6 py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-105 transition-transform shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)]"
           >
             <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" referrerPolicy="no-referrer" />
-            <span className="ml-2">Google Account</span>
+            <span className="ml-2">{t('googleAccount')}</span>
           </button>
 
           <p className="mt-10 text-center text-[10px] text-text-dim uppercase font-bold tracking-widest">
@@ -158,7 +158,7 @@ export default function Auth() {
 
         <div className="mt-12 flex items-center justify-center gap-2 opacity-20">
           <ShieldCheck className="w-4 h-4" />
-          <span className="text-[8px] uppercase tracking-widest font-bold">End-to-End Encryption Active</span>
+          <span className="text-[8px] uppercase tracking-widest font-bold">{t('authSecurityActive')}</span>
         </div>
       </div>
     </div>

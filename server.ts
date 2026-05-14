@@ -3,7 +3,9 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
-import { GoogleGenAI } from "@google/genai";
+import { createPartFromBase64, GoogleGenAI } from "@google/genai";
+import * as XLSX from "xlsx";
+import mammoth from "mammoth";
 
 dotenv.config({ override: true });
 
@@ -297,6 +299,52 @@ const fallbackNews = [
   },
 ];
 
+const decodeXmlText = (value = "") =>
+  value
+    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+
+const getXmlTag = (item: string, tag: string) => {
+  const match = item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return decodeXmlText(match?.[1] || "");
+};
+
+const fetchGoogleNewsRss = async (query: string) => {
+  const response = await axios.get("https://news.google.com/rss/search", {
+    params: {
+      q: `${query} finance markets stocks crypto`,
+      hl: "en-US",
+      gl: "US",
+      ceid: "US:en",
+    },
+    timeout: 12000,
+    headers: { "User-Agent": "Mozilla/5.0" },
+  });
+
+  const items = String(response.data || "").match(/<item>[\s\S]*?<\/item>/gi) || [];
+  return items.slice(0, 18).map((item) => {
+    const title = getXmlTag(item, "title");
+    const link = getXmlTag(item, "link");
+    const description = getXmlTag(item, "description");
+    const publishedAt = getXmlTag(item, "pubDate");
+    const source = getXmlTag(item, "source");
+    return {
+      title,
+      description,
+      url: link,
+      urlToImage: "",
+      publishedAt: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
+      source: { name: source || "Google News" },
+    };
+  }).filter((article) => article.title && article.url);
+};
+
 const getStringParam = (value: unknown, fallback = "") => {
   const first = Array.isArray(value) ? value[0] : value;
   return typeof first === "string" ? first.trim() : fallback;
@@ -405,6 +453,48 @@ const getYahooStockSnapshot = async (symbol: string) => {
   };
 };
 
+const getYahooStockSnapshotsBatch = async (symbols: string[]) => {
+  const uniqueSymbols = [...new Set(symbols.map((symbol) => symbol.split("/")[0].toUpperCase()).filter(Boolean))];
+  if (uniqueSymbols.length === 0) return [];
+
+  const response = await axios.get("https://query1.finance.yahoo.com/v7/finance/quote", {
+    params: { symbols: uniqueSymbols.join(",") },
+    timeout: 12000,
+    headers: { "User-Agent": "Mozilla/5.0" },
+  });
+
+  const quotes = Array.isArray(response.data?.quoteResponse?.result)
+    ? response.data.quoteResponse.result
+    : [];
+
+  return quotes
+    .map((quote: any) => {
+      const symbol = String(quote.symbol || "").toUpperCase();
+      const fallback = findFallbackAsset(symbol, "stock");
+      const price = Number(quote.regularMarketPrice);
+      const change = Number(quote.regularMarketChangePercent);
+
+      if (!symbol || !Number.isFinite(price) || price <= 0 || !Number.isFinite(change)) {
+        return null;
+      }
+
+      return {
+        ...fallback,
+        symbol,
+        name: quote.longName || quote.shortName || fallback.name || symbol,
+        price,
+        change,
+        marketCap: quote.marketCap ?? getStockMarketCap(symbol),
+        volume: quote.regularMarketVolume ?? null,
+        exchange: quote.fullExchangeName || quote.exchange || fallback.exchange || "NASDAQ",
+        type: "stock",
+        currency: quote.currency || "USD",
+        updatedAt: new Date().toISOString(),
+      };
+    })
+    .filter(Boolean);
+};
+
 const getStockSnapshot = async (symbol: string, apiKey?: string) => {
   const cleanSymbol = symbol.split("/")[0].toUpperCase();
   const fallback = findFallbackAsset(cleanSymbol, "stock");
@@ -431,11 +521,62 @@ const getStockSnapshot = async (symbol: string, apiKey?: string) => {
   }
 };
 
+let hotAssetsCache: { updatedAt: number; data: any[] } | null = null;
+const HOT_ASSETS_CACHE_MS = 15_000;
+
+const isLivePricedAsset = (asset: any) => {
+  const price = Number(asset?.price);
+  const change = Number(asset?.change);
+  return Number.isFinite(price) && price > 0 && Number.isFinite(change);
+};
+
+const toTickerAsset = (asset: any) => ({
+  symbol: String(asset.symbol || "").split("/")[0].toUpperCase(),
+  name: asset.name || asset.symbol,
+  price: Number(asset.price),
+  change: Number(asset.change),
+  type: asset.type === "crypto" ? "crypto" : "stock",
+  exchange: asset.exchange,
+  currency: asset.currency || "USD",
+  updatedAt: asset.updatedAt || new Date().toISOString(),
+});
+
+const QUESTION_ASSET_ALIASES: Record<string, { symbol: string; type: "stock" | "crypto"; name: string }> = {
+  "mercado libre": { symbol: "MELI", type: "stock", name: "MercadoLibre, Inc." },
+  mercadolibre: { symbol: "MELI", type: "stock", name: "MercadoLibre, Inc." },
+  meli: { symbol: "MELI", type: "stock", name: "MercadoLibre, Inc." },
+  nvidia: { symbol: "NVDA", type: "stock", name: "NVIDIA Corporation" },
+  nvda: { symbol: "NVDA", type: "stock", name: "NVIDIA Corporation" },
+  apple: { symbol: "AAPL", type: "stock", name: "Apple Inc." },
+  aapl: { symbol: "AAPL", type: "stock", name: "Apple Inc." },
+  microsoft: { symbol: "MSFT", type: "stock", name: "Microsoft Corporation" },
+  msft: { symbol: "MSFT", type: "stock", name: "Microsoft Corporation" },
+  tesla: { symbol: "TSLA", type: "stock", name: "Tesla, Inc." },
+  tsla: { symbol: "TSLA", type: "stock", name: "Tesla, Inc." },
+  meta: { symbol: "META", type: "stock", name: "Meta Platforms, Inc." },
+  amazon: { symbol: "AMZN", type: "stock", name: "Amazon.com, Inc." },
+  amzn: { symbol: "AMZN", type: "stock", name: "Amazon.com, Inc." },
+  bitcoin: { symbol: "BTC", type: "crypto", name: "Bitcoin" },
+  btc: { symbol: "BTC", type: "crypto", name: "Bitcoin" },
+  ethereum: { symbol: "ETH", type: "crypto", name: "Ethereum" },
+  eth: { symbol: "ETH", type: "crypto", name: "Ethereum" },
+  solana: { symbol: "SOL", type: "crypto", name: "Solana" },
+  sol: { symbol: "SOL", type: "crypto", name: "Solana" },
+};
+
+const detectQuestionAsset = (question: string) => {
+  const normalized = question.toLowerCase();
+  const alias = Object.entries(QUESTION_ASSET_ALIASES).find(([key]) =>
+    new RegExp(`(^|[^a-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`, "i").test(normalized)
+  );
+  return alias?.[1] || null;
+};
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
-  app.use(express.json());
+  app.use(express.json({ limit: "12mb" }));
 
   // API Proxy for Twelve Data
   app.get("/api/market/price", async (req, res) => {
@@ -577,7 +718,44 @@ async function startServer() {
 
   app.get("/api/market/stocks", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
-    if (!apiKey) return res.json({ data: uniqueStocksByCompany(fallbackStocks), fallback: true });
+    res.setHeader("Cache-Control", "no-store");
+
+    try {
+      const yahooStocks = await getYahooStockSnapshotsBatch(STOCK_MARKET_CAP_ORDER.slice(0, 80));
+      const orderedYahooStocks = uniqueStocksByCompany(yahooStocks);
+
+      if (orderedYahooStocks.length >= 20) {
+        return res.json({ data: orderedYahooStocks, fallback: false, source: "yahoo", updatedAt: new Date().toISOString() });
+      }
+    } catch (error) {
+      console.error("Error fetching Yahoo stock batch:", error);
+    }
+
+    try {
+      const liveSnapshots = await Promise.allSettled(
+        STOCK_MARKET_CAP_ORDER.slice(0, 60).map((symbol) => getStockSnapshot(symbol, apiKey))
+      );
+      const liveStocks = liveSnapshots
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
+        .map((result) => result.value)
+        .filter(isLivePricedAsset);
+      const orderedLiveStocks = uniqueStocksByCompany(liveStocks);
+
+      if (orderedLiveStocks.length >= 12) {
+        return res.json({ data: orderedLiveStocks, fallback: false, source: "live-snapshots", updatedAt: new Date().toISOString() });
+      }
+    } catch (error) {
+      console.error("Error fetching stock snapshots:", error);
+    }
+
+    if (!apiKey) {
+      return res.json({
+        data: uniqueStocksByCompany(fallbackStocks).map((stock) => ({ ...stock, price: null, change: null, stale: true })),
+        fallback: true,
+        error: "Live stock quotes unavailable",
+      });
+    }
+
     try {
       // Fetch stock metadata and keep the NASDAQ-100 universe.
       const [nasdaqRes, nyseRes] = await Promise.all([
@@ -614,9 +792,20 @@ async function startServer() {
 
       const orderedStocks = uniqueStocksByCompany(enrichedStocks);
       const pricedStocks = orderedStocks.filter((stock) => stock.price !== null && stock.change !== null);
-      res.json({ data: pricedStocks.length > 0 ? orderedStocks : uniqueStocksByCompany(fallbackStocks), fallback: pricedStocks.length === 0 || nasdaq100Stocks.length === 0 });
+      res.json({
+        data: pricedStocks.length > 0
+          ? orderedStocks
+          : uniqueStocksByCompany(fallbackStocks).map((stock) => ({ ...stock, price: null, change: null, stale: true })),
+        fallback: pricedStocks.length === 0 || nasdaq100Stocks.length === 0,
+        source: pricedStocks.length > 0 ? "twelvedata" : "fallback-market-cap-only",
+      });
     } catch (error) {
-      res.json({ data: uniqueStocksByCompany(fallbackStocks), fallback: true, error: "Failed to fetch live stocks" });
+      res.json({
+        data: uniqueStocksByCompany(fallbackStocks).map((stock) => ({ ...stock, price: null, change: null, stale: true })),
+        fallback: true,
+        source: "fallback-market-cap-only",
+        error: "Failed to fetch live stocks",
+      });
     }
   });
 
@@ -790,51 +979,41 @@ async function startServer() {
   app.get("/api/market/hot", async (req, res) => {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
     res.setHeader("Cache-Control", "no-store");
-    const fallbackHot = [
-      { symbol: "NVDA", name: "NVIDIA Corporation", price: "908.10", change: "2.18", type: "stock" },
-      { symbol: "SMCI", name: "Super Micro Computer Inc.", price: "32.80", change: "-2.13", type: "stock" },
-      { symbol: "AMD", name: "Advanced Micro Devices Inc.", price: "148.20", change: "1.05", type: "stock" },
-      { symbol: "META", name: "Meta Platforms Inc.", price: "502.30", change: "1.08", type: "stock" },
-      { symbol: "TSLA", name: "Tesla Inc.", price: "174.60", change: "-1.42", type: "stock" },
-      ...fallbackCryptos.slice(0, 3),
-    ];
-    if (!apiKey) {
-      try {
-        const liveCryptos = await Promise.all(["BTC", "ETH", "SOL"].map((symbol) => getCryptoSnapshot(symbol)));
-        return res.json({ data: [...fallbackHot.slice(0, 5), ...liveCryptos], fallback: true });
-      } catch {
-        return res.json({ data: fallbackHot, fallback: true });
-      }
-    }
-    
-    try {
-      // For a real app, we'd calculate 7d performance. 
-      // Since Twelve Data doesn't have a simple "top gainers" endpoint for all assets,
-      // we'll pick some trending ones and mock the performance for the UI.
-      const hotSymbols = ['NVDA', 'SMCI', 'AMD', 'META', 'TSLA', 'BTC/USD', 'SOL/USD', 'AVAX/USD'];
-      
-      const response = await axios.get("https://api.twelvedata.com/quote", {
-        params: { symbol: hotSymbols.join(","), apikey: apiKey },
-        timeout: 12000,
-      });
-      
-      // Twelve Data returns an object if multiple symbols, or single object if one
-      const data = response.data;
-      const results = hotSymbols.map(s => {
-        const quote = data[s] || data;
-        const displaySymbol = s.split("/")[0];
-        return {
-          symbol: displaySymbol,
-          name: quote.name || fallbackHot.find((asset) => asset.symbol === displaySymbol)?.name || displaySymbol,
-          price: quote.close || quote.price || fallbackHot.find((asset) => asset.symbol === displaySymbol)?.price || "0",
-          change: quote.percent_change || fallbackHot.find((asset) => asset.symbol === displaySymbol)?.change || "0",
-          type: s.includes("/") ? 'crypto' : 'stock'
-        };
-      });
 
-      res.json({ data: results });
+    if (hotAssetsCache && Date.now() - hotAssetsCache.updatedAt < HOT_ASSETS_CACHE_MS) {
+      return res.json({ data: hotAssetsCache.data, source: "live-cache", updatedAt: new Date(hotAssetsCache.updatedAt).toISOString() });
+    }
+
+    try {
+      const stockCandidates = [
+        "NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "AVGO", "META", "TSLA", "WMT", "COST",
+        "AMD", "NFLX", "PLTR", "CSCO", "QCOM", "INTC", "MU", "ARM", "APP", "CRWD",
+        "PANW", "ADBE", "MSTR", "SMCI", "SHOP",
+      ];
+      const cryptoCandidates = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX"];
+
+      const [stockResults, cryptoResults] = await Promise.all([
+        Promise.allSettled(stockCandidates.map((symbol) => getStockSnapshot(symbol, apiKey))),
+        Promise.allSettled(cryptoCandidates.map((symbol) => getCryptoSnapshot(symbol))),
+      ]);
+
+      const liveAssets = [...stockResults, ...cryptoResults]
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
+        .map((result) => result.value)
+        .filter(isLivePricedAsset)
+        .map(toTickerAsset)
+        .sort((a, b) => Number(b.change) - Number(a.change))
+        .slice(0, 12);
+
+      if (liveAssets.length === 0) {
+        return res.status(503).json({ data: [], error: "No live priced hot assets available" });
+      }
+
+      hotAssetsCache = { updatedAt: Date.now(), data: liveAssets };
+      res.json({ data: liveAssets, source: "live", updatedAt: new Date(hotAssetsCache.updatedAt).toISOString() });
     } catch (error) {
-      res.json({ data: fallbackHot, fallback: true, error: "Failed to fetch live hot assets" });
+      console.error("Failed to fetch live hot assets:", error);
+      res.status(503).json({ data: [], error: "Failed to fetch live hot assets" });
     }
   });
 
@@ -842,9 +1021,16 @@ async function startServer() {
   app.get("/api/news", async (req, res) => {
     const q = getStringParam(req.query.q, "finance");
     const apiKey = process.env.NEWS_API_KEY;
+    res.setHeader("Cache-Control", "no-store");
 
     if (!apiKey) {
-      return res.json({ articles: fallbackNews, fallback: true });
+      try {
+        const articles = await fetchGoogleNewsRss(q);
+        if (articles.length > 0) return res.json({ articles, fallback: false, source: "google-news-rss" });
+      } catch (error) {
+        console.error("Google News RSS fallback failed:", error);
+      }
+      return res.json({ articles: fallbackNews, fallback: true, source: "fallback" });
     }
 
     try {
@@ -854,7 +1040,53 @@ async function startServer() {
       });
       res.json(response.data);
     } catch (error) {
+      try {
+        const articles = await fetchGoogleNewsRss(q);
+        if (articles.length > 0) return res.json({ articles, fallback: false, source: "google-news-rss" });
+      } catch (rssError) {
+        console.error("Google News RSS fallback failed:", rssError);
+      }
       res.json({ articles: fallbackNews, fallback: true, error: "Failed to fetch live news" });
+    }
+  });
+
+  app.post("/api/support", async (req, res) => {
+    const supportEmail = "ivangonzalo1253@gmail.com";
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.SUPPORT_FROM_EMAIL || "ZENTRA Support <onboarding@resend.dev>";
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 120) : "";
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().slice(0, 160) : "";
+    const subject = typeof req.body?.subject === "string" ? req.body.subject.trim().slice(0, 160) : "";
+    const message = typeof req.body?.message === "string" ? req.body.message.trim().slice(0, 4000) : "";
+
+    if (!email || !message) {
+      return res.status(400).json({ error: "Email and message are required" });
+    }
+
+    if (!resendApiKey) {
+      console.log("Support message received without RESEND_API_KEY configured:", { name, email, subject, message });
+      return res.json({ fallback: true, ok: true, message: "Support message received locally. Configure RESEND_API_KEY to send email." });
+    }
+
+    try {
+      await axios.post("https://api.resend.com/emails", {
+        from: fromEmail,
+        to: supportEmail,
+        reply_to: email,
+        subject: subject || "ZENTRA support request",
+        text: `Name: ${name || "Not provided"}\nEmail: ${email}\n\n${message}`,
+      }, {
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 12000,
+      });
+
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Support email failed:", error);
+      res.status(500).json({ error: "Could not send support message" });
     }
   });
 
@@ -895,6 +1127,211 @@ async function startServer() {
         fallback: true,
         answer: fallbackAnswer,
       });
+    }
+  });
+
+  app.post("/api/ai/zentra-chat", async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+    const language = req.body?.language === "es" || req.body?.language === "pt" ? req.body.language : "en";
+    const route = typeof req.body?.route === "string" ? req.body.route.slice(0, 120) : "";
+    const portfolio = Array.isArray(req.body?.portfolio) ? req.body.portfolio.slice(0, 20) : [];
+    const hotAssets = Array.isArray(req.body?.hotAssets) ? req.body.hotAssets.slice(0, 12) : [];
+    const news = Array.isArray(req.body?.news) ? req.body.news.slice(0, 8) : [];
+    const detectedAsset = detectQuestionAsset(question);
+
+    if (!question) {
+      return res.status(400).json({ error: "Question is required" });
+    }
+
+    const financePattern = /\b(stock|stocks|crypto|cript[oó]|cripto|accion|acciones|ação|acoes|portfolio|portafolio|carteira|market|mercado|markets|noticia|noticias|news|price|precio|preco|asset|activo|ativo|assets|holding|holdings|wallet|billetera|cartera|inversion|inversi[oó]n|invest|investment|investimento|risk|riesgo|risco|valuation|valuacion|valuaci[oó]n|market cap|capitalizacion|capitaliza[cç][aã]o|dividend|dividendo|earnings|ganancia|lucro|revenue|ingresos|receita|inflation|inflacion|infla[cç][aã]o|fed|rates|tasas|juros|yield|bond|bono|etf|forex|dollar|dolar|usd|btc|eth|sol|nvda|aapl|msft|meta|tsla|googl|amzn|zentra|heat map|gainer|loser|trade|trading|chart|grafico|gr[aá]fico|soporte|resistencia|volume|volumen|liquidity|liquidez)\b/i;
+    const isFinanceQuestion = financePattern.test(question) || Boolean(detectedAsset);
+    const boundaryAnswer = {
+      es: "Solo puedo responder sobre finanzas, mercados, activos, noticias, portfolio y funciones de ZENTRA. Si quieres, preguntame por una accion, crypto, noticia o posicion de tu portfolio.",
+      en: "I can only answer about finance, markets, assets, news, portfolio and ZENTRA features. Ask me about a stock, crypto, market event or portfolio position.",
+      pt: "So posso responder sobre financas, mercados, ativos, noticias, carteira e recursos do ZENTRA. Pergunte sobre uma acao, cripto, noticia ou posicao da carteira.",
+    }[language];
+
+    if (!isFinanceQuestion) {
+      return res.json({ boundary: true, answer: boundaryAnswer });
+    }
+
+    const portfolioSummary = portfolio.map((asset: any) => ({
+      symbol: String(asset?.symbol || "").toUpperCase(),
+      name: asset?.name || "",
+      type: asset?.type || "",
+      quantity: asset?.totalQuantity ?? asset?.quantity ?? null,
+      averagePrice: asset?.averagePrice ?? null,
+    })).filter((asset: any) => asset.symbol);
+    const hotSummary = hotAssets.map((asset: any) => ({
+      symbol: String(asset?.symbol || "").toUpperCase(),
+      type: asset?.type || "",
+      price: asset?.price ?? null,
+      change: asset?.change ?? null,
+    })).filter((asset: any) => asset.symbol);
+    const newsSummary = news.map((article: any) => ({
+      title: article?.title || "",
+      source: article?.source?.name || article?.source || "",
+      publishedAt: article?.publishedAt || "",
+    })).filter((article: any) => article.title);
+    let detectedAssetContext: any = null;
+    let detectedAssetNews: any[] = [];
+
+    if (detectedAsset) {
+      try {
+        detectedAssetContext = detectedAsset.type === "crypto"
+          ? await getCryptoSnapshot(detectedAsset.symbol)
+          : await getStockSnapshot(detectedAsset.symbol, process.env.TWELVE_DATA_API_KEY);
+      } catch (error) {
+        detectedAssetContext = findFallbackAsset(detectedAsset.symbol, detectedAsset.type);
+      }
+
+      try {
+        detectedAssetNews = (await fetchGoogleNewsRss(`${detectedAsset.name} ${detectedAsset.symbol}`)).slice(0, 5);
+      } catch (error) {
+        detectedAssetNews = [];
+      }
+    }
+
+    const fallbackAnswer = {
+      es: "No pude conectar con la IA ahora. Puedo ayudarte a revisar activos, noticias, precios, riesgos, diversificacion y posiciones del portfolio dentro de ZENTRA.",
+      en: "I could not reach the AI service right now. I can help review assets, news, prices, risks, diversification and portfolio positions inside ZENTRA.",
+      pt: "Nao consegui conectar com a IA agora. Posso ajudar a revisar ativos, noticias, precos, riscos, diversificacao e posicoes da carteira no ZENTRA.",
+    }[language];
+
+    if (!apiKey) {
+      return res.json({ fallback: true, answer: fallbackAnswer });
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `You are AI ZENTRA CHAT, the finance-only assistant inside ZENTRA.
+
+Hard rules:
+- Only answer questions about finance, markets, stocks, crypto, assets, portfolio, news, wallets in read-only context, charts, risks, valuation, diversification, and ZENTRA product workflows.
+- If the user asks anything outside finance/ZENTRA, refuse briefly and redirect to finance topics.
+- Do not provide personalized financial advice or tell the user to buy/sell. Give educational market context, risks and things to inspect.
+- Do not use markdown, bold markers, headings with asterisks, or raw bullet syntax. Write natural plain text.
+- If detected asset context is available, use it directly. Do not say you have no specific information about that asset.
+- Answer in this language: ${language}.
+- Keep answers concise and practical.
+
+Current app route: ${route}
+Portfolio context JSON: ${JSON.stringify(portfolioSummary)}
+Hot assets JSON: ${JSON.stringify(hotSummary)}
+Recent news JSON: ${JSON.stringify(newsSummary)}
+Detected asset JSON: ${JSON.stringify(detectedAssetContext)}
+Detected asset recent news JSON: ${JSON.stringify(detectedAssetNews.map((article: any) => ({
+          title: article?.title || "",
+          source: article?.source?.name || article?.source || "",
+          publishedAt: article?.publishedAt || "",
+        })))}
+
+User question: ${question}`,
+      });
+
+      const answer = (response.text || fallbackAnswer)
+        .replace(/\*\*/g, "")
+        .replace(/^[-*]\s+/gm, "")
+        .trim();
+      res.json({ answer });
+    } catch (error) {
+      console.error("ZENTRA chat failed:", error);
+      res.json({ fallback: true, answer: fallbackAnswer });
+    }
+  });
+
+  app.post("/api/ai/import-file", async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const fileBase64 = typeof req.body?.fileBase64 === "string" ? req.body.fileBase64 : typeof req.body?.imageBase64 === "string" ? req.body.imageBase64 : "";
+    const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "image/png";
+    const fileName = typeof req.body?.fileName === "string" ? req.body.fileName : "portfolio-upload";
+
+    if (!apiKey) {
+      return res.status(500).json({ error: "Gemini API key is required for AI import" });
+    }
+
+    if (!fileBase64) {
+      return res.status(400).json({ error: "A valid file is required" });
+    }
+
+    try {
+      const buffer = Buffer.from(fileBase64, "base64");
+      const lowerName = fileName.toLowerCase();
+      let extractedText = "";
+      const isImage = mimeType.startsWith("image/");
+
+      if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+        const workbook = XLSX.read(buffer, { type: "buffer" });
+        extractedText = workbook.SheetNames.map((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          return `Sheet: ${sheetName}\n${XLSX.utils.sheet_to_csv(sheet)}`;
+        }).join("\n\n").slice(0, 60000);
+      } else if (mimeType.includes("wordprocessingml") || lowerName.endsWith(".docx")) {
+        const result = await mammoth.extractRawText({ buffer });
+        extractedText = result.value.slice(0, 60000);
+      } else if (mimeType.startsWith("text/") || lowerName.endsWith(".csv") || lowerName.endsWith(".txt")) {
+        extractedText = buffer.toString("utf8").slice(0, 60000);
+      } else if (!isImage) {
+        return res.status(400).json({ error: "Supported files: images, CSV, TXT, XLS, XLSX and DOCX" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `You are an investment portfolio extraction engine. Read the provided ${isImage ? "screenshot/image" : "document text/table"} and detect visible portfolio positions, orders, or holdings.
+
+Return only valid JSON, no markdown, no commentary.
+
+Schema:
+{
+  "assets": [
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "type": "stock",
+      "quantity": 2.5,
+      "averagePrice": 123.45,
+      "confidence": 0.86,
+      "notes": "short reason"
+    }
+  ]
+}
+
+Rules:
+- Detect both stocks and crypto.
+- type must be "stock" or "crypto".
+- quantity must be numeric. Use null if not visible.
+- averagePrice must be numeric purchase price, cost basis, entry price, or average buy price. Use null if not visible.
+- Prefer ticker symbols over company names.
+- If the file only shows current value but not quantity or buy price, include the asset with null fields.
+- Do not invent missing quantities or prices.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: isImage
+          ? [prompt, createPartFromBase64(fileBase64, mimeType)]
+          : `${prompt}\n\nFile name: ${fileName}\n\nExtracted content:\n${extractedText}`,
+      });
+
+      const rawText = response.text || "";
+      const jsonText = rawText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+      const parsed = JSON.parse(jsonText);
+      const assets = Array.isArray(parsed?.assets) ? parsed.assets : [];
+      res.json({
+        assets: assets.map((asset: any) => ({
+          symbol: String(asset?.symbol || "").toUpperCase().replace(/[^A-Z0-9.-]/g, ""),
+          name: typeof asset?.name === "string" ? asset.name : "",
+          type: asset?.type === "crypto" ? "crypto" : "stock",
+          quantity: Number.isFinite(Number(asset?.quantity)) ? Number(asset.quantity) : null,
+          averagePrice: Number.isFinite(Number(asset?.averagePrice)) ? Number(asset.averagePrice) : null,
+          confidence: Number.isFinite(Number(asset?.confidence)) ? Math.min(Math.max(Number(asset.confidence), 0), 1) : null,
+          notes: typeof asset?.notes === "string" ? asset.notes : "",
+        })).filter((asset: any) => asset.symbol),
+      });
+    } catch (error) {
+      console.error("AI import failed:", error);
+      res.status(500).json({ error: "Could not extract portfolio positions from that file" });
     }
   });
 

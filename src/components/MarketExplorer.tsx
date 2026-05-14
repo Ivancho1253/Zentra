@@ -121,6 +121,8 @@ const heatColor = (change: number | null) => {
   return `rgb(${red}, ${Math.round(24 + intensity * 16)}, ${Math.round(35 + intensity * 18)})`;
 };
 
+const DEFAULT_HEAT_ZOOM = 0.72;
+
 export default function MarketExplorer() {
   const navigate = useNavigate();
   const heatMapRef = useRef<HTMLDivElement>(null);
@@ -132,7 +134,7 @@ export default function MarketExplorer() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'stocks' | 'cryptos' | 'heatmap' | 'favorites'>('stocks');
   const [heatMapType, setHeatMapType] = useState<'stocks' | 'cryptos'>('stocks');
-  const [heatZoom, setHeatZoom] = useState(1);
+  const [heatZoom, setHeatZoom] = useState(DEFAULT_HEAT_ZOOM);
   const [heatPan, setHeatPan] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const [isHeatMapFullscreen, setIsHeatMapFullscreen] = useState(false);
@@ -243,11 +245,11 @@ export default function MarketExplorer() {
   const heatMapHeight = 900;
   const heatRects = splitTreemap(heatItems, 0, 0, heatMapWidth, heatMapHeight);
   const resetHeatMap = () => {
-    setHeatZoom(1);
+    setHeatZoom(DEFAULT_HEAT_ZOOM);
     setHeatPan({ x: 0, y: 0 });
   };
   const zoomHeatMap = (nextZoom: number) => {
-    setHeatZoom(Math.min(Math.max(nextZoom, 0.8), 3.5));
+    setHeatZoom(Math.min(Math.max(nextZoom, 0.45), 3.5));
   };
   const handleHeatWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -344,9 +346,9 @@ export default function MarketExplorer() {
                 <button key={symbol} onClick={() => { setSearch(symbol); setActiveTab(asset.type === 'crypto' ? 'cryptos' : 'stocks'); }} className="min-w-[170px] rounded-2xl border border-border-accent bg-bg/45 p-3 text-left transition-all hover:border-accent/50 hover:bg-accent/10">
                   <div className="flex items-center gap-3">
                     <CompanyLogo symbol={symbol} name={asset.name || symbol} type={asset.type === 'crypto' ? 'crypto' : 'stock'} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
-                    <div className="min-w-0">
+                      <div className="min-w-0">
                       <div className="truncate text-xs font-black">{symbol}</div>
-                      <div className={cn('text-[10px] font-black', changeValue >= 0 ? 'text-accent' : 'text-loss')}>{changeValue >= 0 ? '+' : ''}{asset.change ?? '0'}%</div>
+                      <div className={cn('text-[10px] font-black', changeValue >= 0 ? 'text-accent' : 'text-loss')}>{changeValue >= 0 ? '+' : ''}{changeValue.toFixed(2)}%</div>
                     </div>
                   </div>
                 </button>

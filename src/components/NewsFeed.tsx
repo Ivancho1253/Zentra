@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Clock, ExternalLink, Globe, Newspaper, Radio, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Clock, ExternalLink, Globe, Newspaper, Radio, Search, TrendingUp, X } from 'lucide-react';
 import { NewsArticle } from '../types';
 import CompanyLogo from './CompanyLogo';
 
@@ -10,14 +10,24 @@ export default function NewsFeed() {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('finance');
+  const [searchInput, setSearchInput] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const nextQuery = searchInput.trim();
+      if (nextQuery) setQuery(nextQuery);
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
 
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(`/api/news?q=${query}`);
+        const response = await fetch(`/api/news?q=${encodeURIComponent(query)}&t=${Date.now()}`, { cache: 'no-store' });
         if (!response.ok) throw new Error('News service is temporarily unavailable.');
         const data = await response.json();
         setNews(data.articles || []);
@@ -52,12 +62,47 @@ export default function NewsFeed() {
               <p className="mt-3 max-w-2xl text-sm text-text-dim">Noticias globales, contexto y sentimiento social organizados para reaccionar mas rapido.</p>
             </div>
           </div>
-          <div className="flex max-w-xl flex-wrap gap-2">
-            {categories.map((cat) => (
-              <button key={cat} onClick={() => setQuery(cat.toLowerCase())} className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${query === cat.toLowerCase() ? 'bg-accent text-bg shadow-[0_0_24px_rgba(124,255,26,0.24)]' : 'border border-border-accent bg-bg/55 text-text-dim hover:border-accent/40 hover:text-text-main'}`}>
-                {cat}
-              </button>
-            ))}
+          <div className="flex w-full max-w-xl flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
+              <input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search news, people, companies..."
+                className="w-full rounded-2xl border border-border-accent bg-bg/65 py-3 pl-11 pr-11 text-sm font-semibold outline-none transition-all focus:border-accent focus:shadow-[0_0_32px_rgba(124,255,26,0.12)]"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchInput('');
+                    setQuery('finance');
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent"
+                  title="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => {
+                const categoryQuery = cat.toLowerCase();
+                const isActive = query === categoryQuery && !searchInput.trim();
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setSearchInput('');
+                      setQuery(categoryQuery);
+                    }}
+                    className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-accent text-bg shadow-[0_0_24px_rgba(124,255,26,0.24)]' : 'border border-border-accent bg-bg/55 text-text-dim hover:border-accent/40 hover:text-text-main'}`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
         <div className="absolute bottom-0 left-0 h-px w-full scanline" />

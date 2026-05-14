@@ -1,12 +1,46 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, onSnapshot, query, setDoc, updateDoc } from 'firebase/firestore';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, ArrowUpRight, Filter, Landmark, Plus, Search, TrendingUp, WalletCards } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowUpRight, Camera, Check, Filter, Landmark, Plus, Search, Shield, TrendingUp, Upload, Wallet, WalletCards } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Asset, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
+
+declare global {
+  interface Window {
+    ethereum?: {
+      providers?: Array<{
+        isMetaMask?: boolean;
+        isCoinbaseWallet?: boolean;
+        isRabby?: boolean;
+        request: (args: { method: string; params?: any[] }) => Promise<any>;
+      }>;
+      isMetaMask?: boolean;
+      isCoinbaseWallet?: boolean;
+      isRabby?: boolean;
+      request: (args: { method: string; params?: any[] }) => Promise<any>;
+    };
+  }
+}
+
+interface ImportCandidate {
+  symbol: string;
+  name: string;
+  type: 'stock' | 'crypto';
+  quantity: string;
+  price: string;
+  confidence?: number | null;
+  notes?: string;
+}
+
+interface MarketSuggestion {
+  symbol: string;
+  name: string;
+  type: 'stock' | 'crypto';
+  price?: string | number | null;
+}
 
 export default function Portfolio() {
   const navigate = useNavigate();
@@ -22,6 +56,16 @@ export default function Portfolio() {
   const [type, setType] = useState<'stock' | 'crypto'>('stock');
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
+  const [marketSuggestions, setMarketSuggestions] = useState<MarketSuggestion[]>([]);
+  const [showSymbolSuggestions, setShowSymbolSuggestions] = useState(false);
+  const [addMode, setAddMode] = useState<'manual' | 'wallet' | 'screenshot'>('manual');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [walletStatus, setWalletStatus] = useState('');
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [selectedWalletIndex, setSelectedWalletIndex] = useState(0);
+  const [screenshotStatus, setScreenshotStatus] = useState('');
+  const [screenshotLoading, setScreenshotLoading] = useState(false);
+  const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([]);
 
   useEffect(() => {
     if (searchParams.get('addAsset') !== '1') return;
@@ -32,6 +76,7 @@ export default function Portfolio() {
     const nextPrice = searchParams.get('price') || '';
 
     setIsAdding(true);
+    setAddMode('manual');
     if (nextSymbol) setSymbol(nextSymbol);
     if (nextName) setName(nextName);
     setType(nextType);
@@ -62,6 +107,36 @@ export default function Portfolio() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAdding || marketSuggestions.length > 0) return;
+
+    const normalizeAsset = (asset: any, fallbackType: 'stock' | 'crypto'): MarketSuggestion => ({
+      symbol: String(asset?.symbol || '').toUpperCase(),
+      name: asset?.name || asset?.symbol || '',
+      type: asset?.type === 'crypto' || fallbackType === 'crypto' ? 'crypto' : 'stock',
+      price: asset?.price ?? null,
+    });
+
+    const fetchSuggestions = async () => {
+      try {
+        const [stocksRes, cryptosRes] = await Promise.all([
+          fetch(`/api/market/stocks?t=${Date.now()}`, { cache: 'no-store' }),
+          fetch(`/api/market/cryptos?t=${Date.now()}`, { cache: 'no-store' }),
+        ]);
+        const [stocksData, cryptosData] = await Promise.all([stocksRes.json(), cryptosRes.json()]);
+        const combined = [
+          ...(stocksData.data || []).map((asset: any) => normalizeAsset(asset, 'stock')),
+          ...(cryptosData.data || []).map((asset: any) => normalizeAsset(asset, 'crypto')),
+        ].filter((asset) => asset.symbol);
+        setMarketSuggestions(combined);
+      } catch (error) {
+        console.error('Could not load asset suggestions:', error);
+      }
+    };
+
+    fetchSuggestions();
+  }, [isAdding, marketSuggestions.length]);
+
   const totalValue = assets.reduce((acc, asset) => acc + Number(asset.averagePrice || 0) * Number(asset.totalQuantity || 0), 0);
   const savingsValue = totalValue * 0.25;
   const investmentValue = totalValue - savingsValue;
@@ -79,11 +154,75 @@ export default function Portfolio() {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const symbolQuery = symbol.trim().toUpperCase();
+  const filteredSymbolSuggestions = symbolQuery
+    ? marketSuggestions
+        .filter((asset) => {
+          const name = asset.name.toLowerCase();
+          const query = symbolQuery.toLowerCase();
+          return asset.symbol.toLowerCase().startsWith(query) || name.includes(query);
+        })
+        .sort((a, b) => {
+          const aExact = a.symbol === symbolQuery ? 0 : a.symbol.startsWith(symbolQuery) ? 1 : 2;
+          const bExact = b.symbol === symbolQuery ? 0 : b.symbol.startsWith(symbolQuery) ? 1 : 2;
+          return aExact - bExact || a.symbol.localeCompare(b.symbol);
+        })
+        .slice(0, 8)
+    : [];
+
+  const selectSuggestedAsset = (asset: MarketSuggestion) => {
+    setSymbol(asset.symbol);
+    setName(asset.name || asset.symbol);
+    setType(asset.type);
+    const numericPrice = Number(asset.price);
+    if (Number.isFinite(numericPrice) && numericPrice > 0) {
+      setPrice(String(numericPrice));
+    } else {
+      fetchAssetPrice(asset.symbol, asset.type).then((nextPrice) => {
+        if (nextPrice) setPrice(String(nextPrice));
+      }).catch(() => undefined);
+    }
+    setShowSymbolSuggestions(false);
+  };
+
+  const savePosition = async (position: { symbol: string; name?: string; type: 'stock' | 'crypto'; quantity: number; price: number }) => {
+    if (!auth.currentUser) throw new Error('Not authenticated');
+    const userId = auth.currentUser.uid;
+    const cleanSymbol = position.symbol.trim().toUpperCase();
+
+    await addDoc(collection(db, 'users', userId, 'transactions'), {
+      assetSymbol: cleanSymbol,
+      type: 'buy',
+      quantity: position.quantity,
+      price: position.price,
+      date: new Date().toISOString(),
+      userId,
+    });
+
+    const assetRef = doc(db, 'users', userId, 'assets', cleanSymbol);
+    const assetSnap = await getDoc(assetRef);
+
+    if (assetSnap.exists()) {
+      const currentData = assetSnap.data() as Asset;
+      const newQty = Number(currentData.totalQuantity || 0) + position.quantity;
+      const newAvgPrice = ((Number(currentData.averagePrice || 0) * Number(currentData.totalQuantity || 0)) + (position.price * position.quantity)) / newQty;
+      await updateDoc(assetRef, { totalQuantity: newQty, averagePrice: newAvgPrice, lastUpdated: new Date().toISOString() });
+    } else {
+      await setDoc(assetRef, {
+        symbol: cleanSymbol,
+        name: position.name?.trim() || cleanSymbol,
+        type: position.type,
+        averagePrice: position.price,
+        totalQuantity: position.quantity,
+        lastUpdated: new Date().toISOString(),
+      });
+    }
+  };
+
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
 
-    const userId = auth.currentUser.uid;
     const qtyNum = parseFloat(quantity);
     const priceNum = parseFloat(price);
     const cleanSymbol = symbol.trim().toUpperCase();
@@ -95,26 +234,7 @@ export default function Portfolio() {
 
     try {
       setFormError('');
-      await addDoc(collection(db, 'users', userId, 'transactions'), {
-        assetSymbol: cleanSymbol,
-        type: 'buy',
-        quantity: qtyNum,
-        price: priceNum,
-        date: new Date().toISOString(),
-        userId,
-      });
-
-      const assetRef = doc(db, 'users', userId, 'assets', cleanSymbol);
-      const assetSnap = await getDoc(assetRef);
-
-      if (assetSnap.exists()) {
-        const currentData = assetSnap.data() as Asset;
-        const newQty = currentData.totalQuantity + qtyNum;
-        const newAvgPrice = ((currentData.averagePrice * currentData.totalQuantity) + (priceNum * qtyNum)) / newQty;
-        await updateDoc(assetRef, { totalQuantity: newQty, averagePrice: newAvgPrice, lastUpdated: new Date().toISOString() });
-      } else {
-        await setDoc(assetRef, { symbol: cleanSymbol, name: name.trim() || cleanSymbol, type, averagePrice: priceNum, totalQuantity: qtyNum, lastUpdated: new Date().toISOString() });
-      }
+      await savePosition({ symbol: cleanSymbol, name: name.trim() || cleanSymbol, type, quantity: qtyNum, price: priceNum });
 
       setSymbol('');
       setName('');
@@ -127,11 +247,176 @@ export default function Portfolio() {
     }
   };
 
+  const fetchAssetPrice = async (assetSymbol: string, assetType: 'stock' | 'crypto') => {
+    const response = await fetch(`/api/market/asset?symbol=${encodeURIComponent(assetSymbol)}&type=${assetType}&t=${Date.now()}`, { cache: 'no-store' });
+    const data = await response.json();
+    const numericPrice = Number(data?.price);
+    return Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice : null;
+  };
+
+  const getWalletProviders = () => {
+    if (!window.ethereum) return [];
+    const providers = window.ethereum.providers?.length ? window.ethereum.providers : [window.ethereum];
+    return providers.map((provider, index) => {
+      const name = provider.isCoinbaseWallet ? 'Coinbase Wallet' : provider.isRabby ? 'Rabby' : provider.isMetaMask ? 'MetaMask' : `Browser wallet ${index + 1}`;
+      return { provider, name, index };
+    });
+  };
+
+  const connectReadOnlyWallet = async () => {
+    setWalletStatus('');
+    setFormError('');
+
+    const providers = getWalletProviders();
+    const selectedProvider = providers[selectedWalletIndex]?.provider;
+
+    if (!selectedProvider) {
+      setWalletStatus('Install or open MetaMask, Coinbase Wallet, Rabby, or another browser wallet to link it in read-only mode.');
+      return;
+    }
+
+    try {
+      setWalletLoading(true);
+      const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
+      const account = String(accounts?.[0] || '');
+      if (!account) throw new Error('No wallet account selected');
+      setWalletAddress(account);
+
+      const balanceHex = await selectedProvider.request({ method: 'eth_getBalance', params: [account, 'latest'] });
+      const wei = BigInt(balanceHex || '0x0');
+      const ethBalance = Number(wei) / 1e18;
+      const ethPrice = await fetchAssetPrice('ETH', 'crypto');
+
+      if (!Number.isFinite(ethBalance) || ethBalance <= 0) {
+        setWalletStatus('Wallet linked in read-only mode. No native ETH balance was detected.');
+        return;
+      }
+
+      setImportCandidates([{
+        symbol: 'ETH',
+        name: 'Ethereum',
+        type: 'crypto',
+        quantity: String(Number(ethBalance.toFixed(8))),
+        price: ethPrice ? String(ethPrice) : '',
+        confidence: 1,
+        notes: 'Read-only native ETH balance from connected wallet.',
+      }]);
+      setWalletStatus('Wallet linked read-only. Review the detected ETH position before importing.');
+    } catch (error) {
+      console.error('Wallet import failed:', error);
+      setWalletStatus('Could not link the wallet. No transaction was requested.');
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const linkManualReadOnlyAddress = async () => {
+    const cleanAddress = walletAddress.trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(cleanAddress)) {
+      setWalletStatus('Enter a valid public EVM wallet address.');
+      return;
+    }
+
+    setImportCandidates([]);
+    setWalletStatus(`Read-only address linked: ${cleanAddress}. Add an indexer next to sync tokens automatically, or use screenshot/document import now.`);
+  };
+
+  const analyzeScreenshot = async (file: File | null) => {
+    if (!file) return;
+    setScreenshotStatus('');
+    setFormError('');
+
+    try {
+      setScreenshotLoading(true);
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          resolve(result.includes(',') ? result.split(',')[1] : result);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      const response = await fetch('/api/ai/import-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileBase64: imageBase64, mimeType: file.type || 'application/octet-stream', fileName: file.name }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Screenshot import failed');
+
+      const candidates = (data.assets || []).map((asset: any): ImportCandidate => ({
+        symbol: String(asset.symbol || '').toUpperCase(),
+        name: asset.name || asset.symbol || '',
+        type: asset.type === 'crypto' ? 'crypto' : 'stock',
+        quantity: asset.quantity ? String(asset.quantity) : '',
+        price: asset.averagePrice ? String(asset.averagePrice) : '',
+        confidence: asset.confidence,
+        notes: asset.notes || '',
+      })).filter((asset: ImportCandidate) => asset.symbol);
+
+      setImportCandidates(candidates);
+      setScreenshotStatus(candidates.length > 0 ? 'AI detected positions. Review them before importing.' : 'No positions were detected in that file.');
+    } catch (error) {
+      console.error('Screenshot analysis failed:', error);
+      setScreenshotStatus('Could not read that file. Try a clearer screenshot, CSV, Excel or Word document with symbols, quantities and average prices visible.');
+    } finally {
+      setScreenshotLoading(false);
+    }
+  };
+
+  const updateCandidate = (index: number, patch: Partial<ImportCandidate>) => {
+    setImportCandidates((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
+  };
+
+  const importDetectedPositions = async () => {
+    if (!auth.currentUser) return;
+
+    const validCandidates = importCandidates
+      .map((candidate) => ({
+        ...candidate,
+        parsedQuantity: Number(candidate.quantity),
+        parsedPrice: Number(candidate.price),
+      }))
+      .filter((candidate) => candidate.symbol && Number.isFinite(candidate.parsedQuantity) && candidate.parsedQuantity > 0 && Number.isFinite(candidate.parsedPrice) && candidate.parsedPrice > 0);
+
+    if (validCandidates.length === 0) {
+      setFormError('Review the detected rows. Every import needs symbol, quantity and buy price.');
+      return;
+    }
+
+    try {
+      setFormError('');
+      for (const candidate of validCandidates) {
+        await savePosition({
+          symbol: candidate.symbol,
+          name: candidate.name || candidate.symbol,
+          type: candidate.type,
+          quantity: candidate.parsedQuantity,
+          price: candidate.parsedPrice,
+        });
+      }
+      setImportCandidates([]);
+      setScreenshotStatus('');
+      setWalletStatus('');
+      setIsAdding(false);
+    } catch (error) {
+      console.error('Bulk import failed:', error);
+      setFormError('Could not import the detected positions. Please try again.');
+    }
+  };
+
   const filteredTransactions = transactions
     .filter((tx) => tx.assetSymbol.toLowerCase().includes(txSearch.toLowerCase()))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const motionItem = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
+  const walletProviders = getWalletProviders();
+  const getAssetPath = (asset: Asset) => {
+    const assetType = asset.type === 'crypto' ? 'cryptos' : 'stocks';
+    return `/market/${assetType}/${encodeURIComponent(asset.symbol)}`;
+  };
 
   if (loading) {
     return (
@@ -170,32 +455,199 @@ export default function Portfolio() {
 
       {isAdding && (
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="panel-card border-accent/40 p-6">
-          <h2 className="mb-6 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Plus className="h-4 w-4 text-accent" /> Add new position</h2>
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Plus className="h-4 w-4 text-accent" /> Add new position</h2>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: 'manual', label: 'Manual', icon: Plus },
+                { id: 'wallet', label: 'Read-only wallet', icon: Shield },
+                { id: 'screenshot', label: 'AI screenshot', icon: Camera },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => {
+                    setAddMode(mode.id as typeof addMode);
+                    setFormError('');
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${addMode === mode.id ? 'bg-accent text-bg' : 'border border-border-accent bg-bg/60 text-text-dim hover:border-accent hover:text-text-main'}`}
+                >
+                  <mode.icon className="h-3.5 w-3.5" />
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {formError && <div className="mb-4 flex items-center gap-2 rounded-xl border border-loss/40 bg-loss/10 p-3 text-xs font-bold text-loss"><AlertCircle className="h-4 w-4" />{formError}</div>}
-          <form onSubmit={handleAddAsset} className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
-            {[
-              { label: 'Symbol *', value: symbol, set: (v: string) => setSymbol(v.toUpperCase()), placeholder: 'AAPL / BTC' },
-              { label: 'Name', value: name, set: setName, placeholder: 'Apple Inc.' },
-              { label: 'Quantity *', value: quantity, set: setQuantity, placeholder: '0.00', type: 'number' },
-              { label: 'Price *', value: price, set: setPrice, placeholder: '0.00', type: 'number' },
-            ].map((field) => (
-              <div key={field.label} className="flex flex-col">
-                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">{field.label}</label>
-                <input type={field.type || 'text'} step="any" min="0" value={field.value} onChange={(e) => field.set(e.target.value)} placeholder={field.placeholder} className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent" required={field.label.includes('*')} />
+
+          {addMode === 'manual' && (
+            <form onSubmit={handleAddAsset} className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="relative flex flex-col">
+                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Symbol *</label>
+                <input
+                  type="text"
+                  value={symbol}
+                  onChange={(event) => {
+                    setSymbol(event.target.value.toUpperCase());
+                    setShowSymbolSuggestions(true);
+                  }}
+                  onFocus={() => setShowSymbolSuggestions(true)}
+                  onBlur={() => window.setTimeout(() => setShowSymbolSuggestions(false), 160)}
+                  placeholder="AAPL / BTC"
+                  className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent"
+                  required
+                />
+                {showSymbolSuggestions && filteredSymbolSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full z-40 mt-2 max-h-96 w-[min(92vw,560px)] overflow-y-auto rounded-2xl border border-border-accent bg-surface shadow-2xl">
+                    {filteredSymbolSuggestions.map((asset) => {
+                      const numericPrice = Number(asset.price);
+                      return (
+                        <button
+                          key={`${asset.type}-${asset.symbol}`}
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            selectSuggestedAsset(asset);
+                          }}
+                          className="flex w-full items-center justify-between gap-4 border-b border-border-accent/40 px-4 py-3 text-left transition-all last:border-b-0 hover:bg-accent/10"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-9 w-9 rounded-xl" imgClassName="h-5 w-5" />
+                            <div className="min-w-0">
+                              <div className="text-sm font-black">{asset.symbol}</div>
+                              <div className="max-w-[330px] truncate text-[11px] text-text-dim">{asset.name || asset.symbol}</div>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-[10px] font-black uppercase text-accent">{asset.type}</div>
+                            {Number.isFinite(numericPrice) && numericPrice > 0 && (
+                              <div className="text-[10px] text-text-dim">{formatMoney(numericPrice)}</div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ))}
-            <div className="flex flex-col">
-              <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Type *</label>
-              <select value={type} onChange={(e) => setType(e.target.value as any)} className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent">
-                <option value="stock">Stock</option>
-                <option value="crypto">Crypto</option>
-              </select>
+              {[
+                { label: 'Name', value: name, set: setName, placeholder: 'Apple Inc.' },
+                { label: 'Quantity *', value: quantity, set: setQuantity, placeholder: '0.00', type: 'number' },
+                { label: 'Price *', value: price, set: setPrice, placeholder: '0.00', type: 'number' },
+              ].map((field) => (
+                <div key={field.label} className="flex flex-col">
+                  <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">{field.label}</label>
+                  <input type={field.type || 'text'} step="any" min="0" value={field.value} onChange={(e) => field.set(e.target.value)} placeholder={field.placeholder} className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent" required={field.label.includes('*')} />
+                </div>
+              ))}
+              <div className="flex flex-col">
+                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Type *</label>
+                <select value={type} onChange={(e) => setType(e.target.value as any)} className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent">
+                  <option value="stock">Stock</option>
+                  <option value="crypto">Crypto</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 lg:col-span-5">
+                <button type="button" onClick={() => setIsAdding(false)} className="rounded-xl border border-border-accent px-6 py-2 text-[10px] font-black uppercase transition-all hover:bg-surface">Cancel</button>
+                <button type="submit" className="rounded-xl bg-accent px-8 py-2 text-[10px] font-black uppercase text-bg transition-all hover:opacity-90">Save position</button>
+              </div>
+            </form>
+          )}
+
+          {addMode === 'wallet' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border-accent bg-bg/45 p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest"><Shield className="h-4 w-4 text-accent" /> Read-only wallet link</div>
+                <p className="text-xs leading-6 text-text-dim">ZENTRA only reads your public wallet address and public on-chain balances. It never asks for seed phrases, private keys, spending approvals, token permissions, signatures, or transactions.</p>
+              </div>
+              {walletProviders.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {walletProviders.map((wallet) => (
+                    <button
+                      key={`${wallet.name}-${wallet.index}`}
+                      type="button"
+                      onClick={() => setSelectedWalletIndex(wallet.index)}
+                      className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${selectedWalletIndex === wallet.index ? 'bg-accent text-bg' : 'border border-border-accent bg-bg/60 text-text-dim hover:border-accent hover:text-text-main'}`}
+                    >
+                      {wallet.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto]">
+                <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="0x wallet address" className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent" />
+                <button type="button" onClick={connectReadOnlyWallet} disabled={walletLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60">
+                  <Wallet className="h-4 w-4" />
+                  {walletLoading ? 'Reading wallet' : 'Connect wallet'}
+                </button>
+                <button type="button" onClick={linkManualReadOnlyAddress} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
+                  Link address
+                </button>
+              </div>
+              <div className="rounded-2xl border border-border-accent bg-bg/35 p-4 text-xs leading-6 text-text-dim">
+                Current wallet sync reads native ETH from browser wallets. Full token sync across Ethereum, Polygon, Base, Arbitrum, Optimism, Solana and more needs a portfolio indexer such as Zerion, Moralis, Alchemy or Covalent.
+              </div>
+              {walletStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{walletStatus}</div>}
             </div>
-            <div className="flex justify-end gap-3 lg:col-span-5">
-              <button type="button" onClick={() => setIsAdding(false)} className="rounded-xl border border-border-accent px-6 py-2 text-[10px] font-black uppercase transition-all hover:bg-surface">Cancel</button>
-              <button type="submit" className="rounded-xl bg-accent px-8 py-2 text-[10px] font-black uppercase text-bg transition-all hover:opacity-90">Save position</button>
+          )}
+
+          {addMode === 'screenshot' && (
+            <div className="space-y-4">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-accent/50 bg-accent/5 p-8 text-center transition-all hover:bg-accent/10">
+                <Upload className="h-7 w-7 text-accent" />
+                <div>
+                  <div className="text-sm font-black uppercase tracking-widest">Upload screenshot, spreadsheet or document</div>
+                  <div className="mt-2 text-xs text-text-dim">The AI reads visible symbols, quantities and average buy prices from images, CSV/TXT, Excel and Word files. You review everything before import.</div>
+                </div>
+                <input type="file" accept="image/*,.csv,.txt,.xls,.xlsx,.docx" className="hidden" onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)} />
+              </label>
+              {screenshotLoading && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">Reading file with AI...</div>}
+              {screenshotStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{screenshotStatus}</div>}
             </div>
-          </form>
+          )}
+
+          {importCandidates.length > 0 && (
+            <div className="mt-6 overflow-hidden rounded-2xl border border-border-accent">
+              <div className="flex items-center justify-between border-b border-border-accent bg-bg/55 px-4 py-3">
+                <div className="text-xs font-black uppercase tracking-widest">Review import</div>
+                <button type="button" onClick={importDetectedPositions} className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg">
+                  <Check className="h-4 w-4" />
+                  Import valid rows
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-bg/35 text-[10px] uppercase tracking-widest text-text-dim">
+                      <th className="p-3">Symbol</th>
+                      <th className="p-3">Name</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Quantity</th>
+                      <th className="p-3">Buy price</th>
+                      <th className="p-3">Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importCandidates.map((candidate, index) => (
+                      <tr key={`${candidate.symbol}-${index}`} className="border-t border-border-accent/40">
+                        <td className="p-3"><input value={candidate.symbol} onChange={(event) => updateCandidate(index, { symbol: event.target.value.toUpperCase() })} className="w-24 rounded-lg border border-border-accent bg-bg p-2 text-xs font-black outline-none focus:border-accent" /></td>
+                        <td className="p-3"><input value={candidate.name} onChange={(event) => updateCandidate(index, { name: event.target.value })} className="min-w-40 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                        <td className="p-3">
+                          <select value={candidate.type} onChange={(event) => updateCandidate(index, { type: event.target.value as 'stock' | 'crypto' })} className="rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent">
+                            <option value="stock">Stock</option>
+                            <option value="crypto">Crypto</option>
+                          </select>
+                        </td>
+                        <td className="p-3"><input value={candidate.quantity} onChange={(event) => updateCandidate(index, { quantity: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                        <td className="p-3"><input value={candidate.price} onChange={(event) => updateCandidate(index, { price: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                        <td className="p-3 text-xs text-text-dim">{candidate.confidence != null ? `${Math.round(candidate.confidence * 100)}%` : 'Review'}{candidate.notes ? ` - ${candidate.notes}` : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -224,7 +676,7 @@ export default function Portfolio() {
           </div>
           <div className="space-y-3">
             {assets.slice(0, 6).map((asset) => (
-              <div key={asset.id} className="flex items-center justify-between rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:border-accent/50 hover:bg-accent/10">
+              <Link key={asset.id} to={getAssetPath(asset)} className="flex items-center justify-between rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/10">
                 <div className="flex min-w-0 items-center gap-3">
                   <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
                   <div className="min-w-0">
@@ -233,7 +685,7 @@ export default function Portfolio() {
                   </div>
                 </div>
                 <div className="data-value text-sm font-black">{formatMoney(asset.averagePrice * asset.totalQuantity)}</div>
-              </div>
+              </Link>
             ))}
             {assets.length === 0 && <div className="rounded-2xl border border-dashed border-border-accent p-8 text-center text-xs text-text-dim">Add your first position to unlock portfolio analytics.</div>}
           </div>

@@ -14,6 +14,8 @@ const MarketExplorer = lazy(() => import('./components/MarketExplorer'));
 const AssetDetail = lazy(() => import('./components/AssetDetail'));
 const Auth = lazy(() => import('./components/Auth'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
+const Help = lazy(() => import('./components/Help'));
+const Info = lazy(() => import('./components/Info'));
 
 function AppLoader({ label = 'Loading ZENTRA...' }: { label?: string }) {
   return (
@@ -84,6 +86,8 @@ export default function App() {
                 <Route path="/market" element={<MarketExplorer />} />
                 <Route path="/market/:type/:symbol" element={<AssetDetail />} />
                 <Route path="/news" element={<NewsFeed />} />
+                <Route path="/help" element={<Help />} />
+                <Route path="/info" element={<Info />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Route>
             )}

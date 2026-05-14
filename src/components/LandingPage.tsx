@@ -55,10 +55,10 @@ export default function LandingPage() {
   ];
 
   const stats = [
-    { label: t('statMarkets'), value: '50K+', icon: LineChart, detail: 'Stocks + crypto' },
-    { label: t('statSignals'), value: '1.2M', icon: Radar, detail: 'AI market events' },
-    { label: t('statLatency'), value: '<1s', icon: Gauge, detail: 'Signal refresh' },
-    { label: t('statCoverage'), value: '24/7', icon: Shield, detail: 'Always watching' },
+    { label: t('statMarkets'), value: '50K+', icon: LineChart, detail: t('statMarketsDetail') },
+    { label: t('statSignals'), value: '1.2M', icon: Radar, detail: t('statSignalsDetail') },
+    { label: t('statLatency'), value: '<1s', icon: Gauge, detail: t('statLatencyDetail') },
+    { label: t('statCoverage'), value: '24/7', icon: Shield, detail: t('statCoverageDetail') },
   ];
 
   const featureCards = [
@@ -207,7 +207,7 @@ export default function LandingPage() {
             transition={{ delay: 0.9, duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
             className="absolute right-0 bottom-1 hidden lg:flex items-center gap-3 text-[10px] uppercase tracking-[0.26em] text-lime-200/70"
           >
-            <span>Scroll</span>
+            <span>{t('scroll')}</span>
             <span className="h-10 w-px bg-gradient-to-b from-lime-300 to-transparent" />
           </motion.div>
 
@@ -263,7 +263,7 @@ export default function LandingPage() {
               <p className="mt-6 text-white/58 text-lg leading-relaxed">{t('featuresSub')}</p>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                {['Portfolio', 'Signals', 'Watchlist', 'News', 'Charts'].map((item) => (
+                {[t('tagPortfolio'), t('tagSignals'), t('tagWatchlist'), t('tagNews'), t('tagCharts')].map((item) => (
                   <span key={item} className="px-4 py-2 rounded-full border border-white/12 bg-white/5 text-xs font-bold text-white/70">
                     {item}
                   </span>
@@ -359,7 +359,7 @@ export default function LandingPage() {
                 <div className="absolute left-5 bottom-5 right-5 flex items-center justify-between gap-4 rounded-2xl border border-white/12 bg-black/35 backdrop-blur-xl p-4">
                   <div>
                     <div className="text-3xl font-black">92%</div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-bold">Retention Signal</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-bold">{t('retentionSignal')}</div>
                   </div>
                   <div className="flex gap-1">
                     {[...Array(5)].map((_, index) => (
@@ -430,9 +430,9 @@ export default function LandingPage() {
 
                 <div className="mt-8 grid grid-cols-3 gap-3 max-w-xl">
                   {[
-                    ['24/7', 'Market scan'],
-                    ['<1s', 'Fast reads'],
-                    ['50K+', 'Assets'],
+                    ['24/7', t('marketScan')],
+                    ['<1s', t('fastReadsMetric')],
+                    ['50K+', t('assetsMetric')],
                   ].map(([value, label]) => (
                     <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 backdrop-blur">
                       <div className="text-xl md:text-2xl font-black text-lime-200">{value}</div>

@@ -6,21 +6,13 @@ import CompanyLogo from './CompanyLogo';
 interface TickerAsset {
   symbol: string;
   name: string;
-  price: string | number;
-  change: string | number;
+  price: string | number | null;
+  change: string | number | null;
   type: 'stock' | 'crypto';
 }
 
-const fallbackTickerAssets: TickerAsset[] = [
-  { symbol: 'NVDA', name: 'NVIDIA Corporation', price: '908.10', change: '2.18', type: 'stock' },
-  { symbol: 'AMD', name: 'Advanced Micro Devices', price: '148.20', change: '1.05', type: 'stock' },
-  { symbol: 'META', name: 'Meta Platforms', price: '502.30', change: '1.08', type: 'stock' },
-  { symbol: 'BTC', name: 'Bitcoin', price: '67234.00', change: '2.40', type: 'crypto' },
-  { symbol: 'SOL', name: 'Solana', price: '142.50', change: '-0.50', type: 'crypto' },
-];
-
 export default function TickerTape() {
-  const [assets, setAssets] = useState<TickerAsset[]>(fallbackTickerAssets);
+  const [assets, setAssets] = useState<TickerAsset[]>([]);
 
   useEffect(() => {
     const fetchHot = async () => {
@@ -29,7 +21,11 @@ export default function TickerTape() {
         if (!res.ok) return;
         const data = await res.json();
         if (data.data) {
-          const nextAssets = data.data.filter((asset: Partial<TickerAsset>) => asset.symbol);
+          const nextAssets = data.data.filter((asset: Partial<TickerAsset>) => {
+            const price = Number(asset.price);
+            const change = Number(asset.change);
+            return asset.symbol && Number.isFinite(price) && price > 0 && Number.isFinite(change);
+          });
           if (nextAssets.length > 0) {
             setAssets(nextAssets);
           }
@@ -44,25 +40,30 @@ export default function TickerTape() {
   }, []);
 
   // Duplicate assets to create a seamless loop
-  const tickerItems = [...assets, ...assets, ...assets, ...assets];
+  const tickerItems = assets.length > 0 ? [...assets, ...assets, ...assets, ...assets] : [];
 
   return (
-    <div className="sticky top-0 h-10 shrink-0 bg-surface border-b border-border-accent overflow-hidden flex items-center z-30">
-      <div className="absolute left-0 top-0 bottom-0 px-4 bg-accent flex items-center gap-2 z-30 shadow-[10px_0_20px_rgba(0,0,0,0.2)]">
-        <Flame className="w-4 h-4 text-bg fill-bg" />
-        <span className="text-[10px] font-black uppercase tracking-tighter text-bg">Top Gainers</span>
+    <div className="sticky top-0 h-12 shrink-0 bg-surface border-b border-border-accent overflow-hidden flex items-center z-30">
+      <div className="absolute left-0 top-0 bottom-0 px-5 bg-accent flex items-center gap-2.5 z-30 shadow-[10px_0_20px_rgba(0,0,0,0.2)]">
+        <Flame className="w-4.5 h-4.5 text-bg fill-bg" />
+        <span className="text-[11px] font-extrabold uppercase tracking-normal text-bg">Top Gainers</span>
       </div>
       
-      <div className="flex animate-ticker whitespace-nowrap pl-32">
+      <div className="flex animate-ticker whitespace-nowrap pl-36">
+        {tickerItems.length === 0 && (
+          <div className="flex items-center px-6 text-[11px] font-bold uppercase tracking-normal text-text-dim">
+            Updating live gainers...
+          </div>
+        )}
         {tickerItems.map((asset, idx) => {
-          const isPositive = parseFloat(asset.change) >= 0;
+          const isPositive = Number(asset.change) >= 0;
           const price = Number(asset.price);
           const change = Number(asset.change);
           return (
             <Link
               key={`${asset.symbol}-${idx}`}
               to={`/market/${asset.type === 'crypto' ? 'cryptos' : 'stocks'}/${asset.symbol}`}
-              className="flex items-center gap-3 px-6 border-r border-border-accent/50 hover:bg-accent/5 transition-colors group"
+              className="flex items-center gap-3.5 px-6 border-r border-border-accent/50 hover:bg-accent/5 transition-colors group"
             >
               <CompanyLogo
                 symbol={asset.symbol}
@@ -71,15 +72,15 @@ export default function TickerTape() {
                 className="h-6 w-6 rounded-lg"
                 imgClassName="h-4 w-4"
               />
-              <span className="text-[10px] font-black text-text-main group-hover:text-accent transition-colors">
+              <span className="text-[11px] font-extrabold text-text-main group-hover:text-accent transition-colors">
                 {asset.symbol}
               </span>
-              <span className="text-[10px] font-medium text-text-dim">
+              <span className="text-[11px] font-medium text-text-dim">
                 {Number.isFinite(price) ? `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
               </span>
-              <div className={`flex items-center gap-1 text-[10px] font-bold ${isPositive ? 'text-accent' : 'text-loss'}`}>
-                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {Number.isFinite(change) ? `${isPositive ? '+' : ''}${asset.change}%` : 'N/A'}
+              <div className={`flex items-center gap-1 text-[11px] font-bold ${isPositive ? 'text-accent' : 'text-loss'}`}>
+                {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {Number.isFinite(change) ? `${isPositive ? '+' : ''}${change.toFixed(2)}%` : 'N/A'}
               </div>
             </Link>
           );
