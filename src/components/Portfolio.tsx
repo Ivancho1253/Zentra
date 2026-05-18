@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, onSnapshot, query, setDoc, updateDoc } from 'firebase/firestore';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, ArrowUpRight, Camera, Check, Filter, Landmark, Plus, Search, Shield, TrendingUp, Upload, Wallet, WalletCards } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowUpRight, Camera, Check, FileText, Filter, KeyRound, Landmark, Plus, Search, Shield, Sparkles, TrendingUp, Upload, Wallet, WalletCards } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Asset, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
@@ -183,6 +183,13 @@ export default function Portfolio() {
       }).catch(() => undefined);
     }
     setShowSymbolSuggestions(false);
+  };
+
+  const closeAddFlow = () => {
+    setIsAdding(false);
+    setFormError('');
+    setShowSymbolSuggestions(false);
+    navigate('/portfolio', { replace: true });
   };
 
   const savePosition = async (position: { symbol: string; name?: string; type: 'stock' | 'crypto'; quantity: number; price: number }) => {
@@ -426,6 +433,302 @@ export default function Portfolio() {
           <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">Syncing portfolio...</div>
         </div>
       </div>
+    );
+  }
+
+  if (isAdding) {
+    const addOptions = [
+      {
+        id: 'manual',
+        label: 'Manual entry',
+        description: 'Search the asset, confirm quantity and set your real entry price.',
+        icon: Plus,
+      },
+      {
+        id: 'wallet',
+        label: 'Read-only wallet',
+        description: 'Connect or paste a public wallet address. ZENTRA never requests approvals.',
+        icon: Shield,
+      },
+      {
+        id: 'screenshot',
+        label: 'AI import',
+        description: 'Upload screenshots, spreadsheets, CSV, TXT or Word files and review before saving.',
+        icon: Sparkles,
+      },
+    ] as const;
+
+    return (
+      <motion.div className="app-page" initial="hidden" animate="show" transition={{ staggerChildren: 0.07 }}>
+        <motion.section variants={motionItem} className="app-hero overflow-visible">
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-start gap-4">
+              <button onClick={closeAddFlow} className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent">
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div>
+                <div className="accent-chip mb-4"><WalletCards className="h-3.5 w-3.5" /> Portfolio import center</div>
+                <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter md:text-6xl">Add positions with confidence</h1>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-dim">
+                  Registering your investments is one of the most important parts of ZENTRA. Choose the fastest path, review every number, and only save when symbol, quantity and buy price are right.
+                </p>
+              </div>
+            </div>
+            <button type="button" onClick={closeAddFlow} className="rounded-2xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
+              Cancel import
+            </button>
+          </div>
+          <div className="absolute bottom-0 left-0 h-px w-full scanline" />
+        </motion.section>
+
+        <motion.div variants={motionItem} className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_1fr]">
+          <aside className="panel-card p-4">
+            <div className="mb-4 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-text-dim">Import method</div>
+            <div className="space-y-3">
+              {addOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setAddMode(option.id);
+                    setFormError('');
+                    setShowSymbolSuggestions(false);
+                  }}
+                  className={`group flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-all ${
+                    addMode === option.id
+                      ? 'border-accent/60 bg-accent/10 shadow-[0_0_24px_rgba(124,255,26,0.12)]'
+                      : 'border-border-accent bg-bg/35 hover:border-accent/50 hover:bg-surface'
+                  }`}
+                >
+                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${addMode === option.id ? 'bg-accent text-bg' : 'border border-border-accent text-accent'}`}>
+                    <option.icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-black uppercase tracking-wide">{option.label}</div>
+                    <p className="mt-1 text-xs leading-5 text-text-dim">{option.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-accent/25 bg-accent/5 p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-accent"><KeyRound className="h-4 w-4" /> Safety promise</div>
+              <p className="text-xs leading-6 text-text-dim">
+                ZENTRA never asks for seed phrases, private keys, token approvals or transactions. Imports are saved only after your review.
+              </p>
+            </div>
+          </aside>
+
+          <section className="panel-card min-w-0 p-5 md:p-7">
+            {formError && <div className="mb-5 flex items-center gap-2 rounded-xl border border-loss/40 bg-loss/10 p-3 text-xs font-bold text-loss"><AlertCircle className="h-4 w-4" />{formError}</div>}
+
+            {addMode === 'manual' && (
+              <form onSubmit={handleAddAsset} className="space-y-6">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Search className="h-4 w-4 text-accent" /> Find the asset</div>
+                  <p className="mb-4 text-xs leading-6 text-text-dim">Start typing a symbol or company name. Selecting a result fills name, type and live price when available.</p>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-dim" />
+                    <input
+                      type="text"
+                      value={symbol}
+                      onChange={(event) => {
+                        setSymbol(event.target.value.toUpperCase());
+                        setShowSymbolSuggestions(true);
+                      }}
+                      onFocus={() => setShowSymbolSuggestions(true)}
+                      onBlur={() => window.setTimeout(() => setShowSymbolSuggestions(false), 160)}
+                      placeholder="Search AAPL, Apple, BTC, Ethereum..."
+                      className="h-16 w-full rounded-2xl border border-border-accent bg-bg pl-14 pr-4 text-lg font-black outline-none transition-colors placeholder:text-text-dim focus:border-accent"
+                      required
+                    />
+                    {showSymbolSuggestions && filteredSymbolSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full z-40 mt-3 max-h-[430px] overflow-y-auto rounded-2xl border border-accent/40 bg-surface shadow-2xl">
+                        {filteredSymbolSuggestions.map((asset) => {
+                          const numericPrice = Number(asset.price);
+                          return (
+                            <button
+                              key={`${asset.type}-${asset.symbol}`}
+                              type="button"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                selectSuggestedAsset(asset);
+                              }}
+                              className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-border-accent/40 px-4 py-4 text-left transition-all last:border-b-0 hover:bg-accent/10"
+                            >
+                              <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-12 w-12 rounded-2xl" imgClassName="h-7 w-7" />
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-lg font-black">{asset.symbol}</span>
+                                  <span className="rounded-full border border-border-accent px-2 py-1 text-[9px] font-black uppercase tracking-widest text-accent">{asset.type}</span>
+                                </div>
+                                <div className="mt-1 truncate text-xs text-text-dim">{asset.name || asset.symbol}</div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                {Number.isFinite(numericPrice) && numericPrice > 0 ? (
+                                  <div className="data-value text-sm">{formatMoney(numericPrice)}</div>
+                                ) : (
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-text-dim">Price lookup</div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.7fr]">
+                  <div className="flex flex-col">
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Name</label>
+                    <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Apple Inc." className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Quantity *</label>
+                    <input type="number" step="any" min="0" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="0.00" className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" required />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Buy price *</label>
+                    <input type="number" step="any" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0.00" className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" required />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Type *</label>
+                    <select value={type} onChange={(event) => setType(event.target.value as 'stock' | 'crypto')} className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent">
+                      <option value="stock">Stock</option>
+                      <option value="crypto">Crypto</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-border-accent pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-xs leading-6 text-text-dim">Use your actual entry price, not necessarily the current market price.</div>
+                  <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:brightness-110">
+                    <Check className="h-4 w-4" />
+                    Save position
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {addMode === 'wallet' && (
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-border-accent bg-bg/45 p-5">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Shield className="h-4 w-4 text-accent" /> Read-only wallet link</div>
+                  <p className="text-sm leading-7 text-text-dim">ZENTRA only reads your public wallet address and public on-chain balances. It never asks for seed phrases, private keys, spending approvals, token permissions, signatures or transactions.</p>
+                </div>
+                {walletProviders.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {walletProviders.map((wallet) => (
+                      <button
+                        key={`${wallet.name}-${wallet.index}`}
+                        type="button"
+                        onClick={() => setSelectedWalletIndex(wallet.index)}
+                        className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${selectedWalletIndex === wallet.index ? 'bg-accent text-bg' : 'border border-border-accent bg-bg/60 text-text-dim hover:border-accent hover:text-text-main'}`}
+                      >
+                        {wallet.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_auto_auto]">
+                  <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="Paste public 0x wallet address" className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" />
+                  <button type="button" onClick={connectReadOnlyWallet} disabled={walletLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60">
+                    <Wallet className="h-4 w-4" />
+                    {walletLoading ? 'Reading wallet' : 'Connect wallet'}
+                  </button>
+                  <button type="button" onClick={linkManualReadOnlyAddress} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
+                    Link address
+                  </button>
+                </div>
+                <div className="rounded-2xl border border-border-accent bg-bg/35 p-4 text-xs leading-6 text-text-dim">
+                  Current wallet sync reads native ETH from browser wallets. Full token sync across Ethereum, Polygon, Base, Arbitrum, Optimism, Solana and more needs a portfolio indexer such as Zerion, Moralis, Alchemy or Covalent.
+                </div>
+                {walletStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{walletStatus}</div>}
+              </div>
+            )}
+
+            {addMode === 'screenshot' && (
+              <div className="space-y-5">
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-accent/50 bg-accent/5 p-10 text-center transition-all hover:bg-accent/10">
+                  <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent text-bg shadow-[0_0_28px_rgba(124,255,26,0.28)]">
+                    <Upload className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-black uppercase tracking-widest">Upload a portfolio file</div>
+                    <div className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-text-dim">AI reads visible symbols, quantities and average buy prices from screenshots, CSV/TXT, Excel and Word files. You review every detected row before it enters your portfolio.</div>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                    {['PNG/JPG', 'CSV/TXT', 'XLS/XLSX', 'DOCX'].map((item) => <span key={item} className="rounded-full border border-border-accent px-3 py-1">{item}</span>)}
+                  </div>
+                  <input type="file" accept="image/*,.csv,.txt,.xls,.xlsx,.docx" className="hidden" onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)} />
+                </label>
+                {screenshotLoading && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">Reading file with AI...</div>}
+                {screenshotStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{screenshotStatus}</div>}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {[
+                    { icon: FileText, title: 'Extract', text: 'Symbols, names, quantities and buy prices.' },
+                    { icon: Search, title: 'Review', text: 'You can edit every row before saving.' },
+                    { icon: Check, title: 'Import', text: 'Valid rows become portfolio positions.' },
+                  ].map((step) => (
+                    <div key={step.title} className="rounded-2xl border border-border-accent bg-bg/35 p-4">
+                      <step.icon className="mb-3 h-5 w-5 text-accent" />
+                      <div className="text-xs font-black uppercase tracking-widest">{step.title}</div>
+                      <p className="mt-2 text-xs leading-5 text-text-dim">{step.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {importCandidates.length > 0 && (
+              <div className="mt-7 overflow-hidden rounded-2xl border border-border-accent">
+                <div className="flex flex-col gap-3 border-b border-border-accent bg-bg/55 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-widest">Review import</div>
+                    <div className="mt-1 text-[11px] text-text-dim">Only rows with symbol, quantity and buy price will be saved.</div>
+                  </div>
+                  <button type="button" onClick={importDetectedPositions} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg">
+                    <Check className="h-4 w-4" />
+                    Import valid rows
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-bg/35 text-[10px] uppercase tracking-widest text-text-dim">
+                        <th className="p-3">Symbol</th>
+                        <th className="p-3">Name</th>
+                        <th className="p-3">Type</th>
+                        <th className="p-3">Quantity</th>
+                        <th className="p-3">Buy price</th>
+                        <th className="p-3">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importCandidates.map((candidate, index) => (
+                        <tr key={`${candidate.symbol}-${index}`} className="border-t border-border-accent/40">
+                          <td className="p-3"><input value={candidate.symbol} onChange={(event) => updateCandidate(index, { symbol: event.target.value.toUpperCase() })} className="w-24 rounded-lg border border-border-accent bg-bg p-2 text-xs font-black outline-none focus:border-accent" /></td>
+                          <td className="p-3"><input value={candidate.name} onChange={(event) => updateCandidate(index, { name: event.target.value })} className="min-w-40 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                          <td className="p-3">
+                            <select value={candidate.type} onChange={(event) => updateCandidate(index, { type: event.target.value as 'stock' | 'crypto' })} className="rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent">
+                              <option value="stock">Stock</option>
+                              <option value="crypto">Crypto</option>
+                            </select>
+                          </td>
+                          <td className="p-3"><input value={candidate.quantity} onChange={(event) => updateCandidate(index, { quantity: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                          <td className="p-3"><input value={candidate.price} onChange={(event) => updateCandidate(index, { price: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                          <td className="p-3 text-xs text-text-dim">{candidate.confidence != null ? `${Math.round(candidate.confidence * 100)}%` : 'Review'}{candidate.notes ? ` - ${candidate.notes}` : ''}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
+        </motion.div>
+      </motion.div>
     );
   }
 
