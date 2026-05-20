@@ -22,8 +22,26 @@ declare global {
       isRabby?: boolean;
       request: (args: { method: string; params?: any[] }) => Promise<any>;
     };
+    solana?: {
+      isPhantom?: boolean;
+      connect: () => Promise<{ publicKey: { toString: () => string } }>;
+      disconnect?: () => Promise<void>;
+    };
+    phantom?: {
+      solana?: {
+        isPhantom?: boolean;
+        connect: () => Promise<{ publicKey: { toString: () => string } }>;
+        disconnect?: () => Promise<void>;
+      };
+    };
+    suiWallet?: {
+      requestPermissions?: () => Promise<{ accounts?: string[] }>;
+      getAccounts?: () => Promise<string[]>;
+    };
   }
 }
+
+type WalletEcosystem = 'evm' | 'solana' | 'sui';
 
 interface ImportCandidate {
   symbol: string;
@@ -63,6 +81,7 @@ export default function Portfolio() {
   const [walletStatus, setWalletStatus] = useState('');
   const [walletLoading, setWalletLoading] = useState(false);
   const [selectedWalletIndex, setSelectedWalletIndex] = useState(0);
+  const [walletEcosystem, setWalletEcosystem] = useState<WalletEcosystem>('evm');
   const [screenshotStatus, setScreenshotStatus] = useState('');
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([]);
@@ -192,6 +211,22 @@ export default function Portfolio() {
     navigate('/portfolio', { replace: true });
   };
 
+  const resetWalletLink = async () => {
+    try {
+      if (walletEcosystem === 'solana') {
+        await (window.phantom?.solana || window.solana)?.disconnect?.();
+      }
+    } catch (error) {
+      console.warn('Wallet disconnect skipped:', error);
+    }
+    setWalletAddress('');
+    setWalletStatus('');
+    setWalletLoading(false);
+    setSelectedWalletIndex(0);
+    setImportCandidates([]);
+    setFormError('');
+  };
+
   const savePosition = async (position: { symbol: string; name?: string; type: 'stock' | 'crypto'; quantity: number; price: number }) => {
     if (!auth.currentUser) throw new Error('Not authenticated');
     const userId = auth.currentUser.uid;
@@ -261,7 +296,7 @@ export default function Portfolio() {
     return Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice : null;
   };
 
-  const getWalletProviders = () => {
+  const getEvmWalletProviders = () => {
     if (!window.ethereum) return [];
     const providers = window.ethereum.providers?.length ? window.ethereum.providers : [window.ethereum];
     return providers.map((provider, index) => {
@@ -270,48 +305,96 @@ export default function Portfolio() {
     });
   };
 
+  const getVisibleWalletProviders = () => {
+    if (walletEcosystem === 'evm') return getEvmWalletProviders().map((wallet) => ({ name: wallet.name, index: wallet.index }));
+    if (walletEcosystem === 'solana') {
+      const provider = window.phantom?.solana || window.solana;
+      return provider ? [{ name: provider.isPhantom ? 'Phantom' : 'Solana wallet', index: 0 }] : [];
+    }
+    return window.suiWallet ? [{ name: 'Sui Wallet', index: 0 }] : [];
+  };
+
+  const scanReadOnlyWallet = async (address: string, ecosystem: WalletEcosystem = walletEcosystem) => {
+    const response = await fetch(`/api/wallet/read-only?address=${encodeURIComponent(address)}&ecosystem=${ecosystem}&t=${Date.now()}`, { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Wallet scan failed');
+
+    const candidates = (data.positions || []).map((position: any): ImportCandidate => ({
+      symbol: String(position.symbol || '').toUpperCase(),
+      name: position.name || position.symbol || '',
+      type: 'crypto',
+      quantity: position.quantity ? String(position.quantity) : '',
+      price: position.price ? String(position.price) : '',
+      confidence: 1,
+      notes: `${position.chain} ${position.source === 'native' ? 'native balance' : 'token balance'} read-only.`,
+    })).filter((asset: ImportCandidate) => asset.symbol && Number(asset.quantity) > 0);
+
+    setImportCandidates(candidates);
+    const networkCount = Array.isArray(data.networks) ? data.networks.length : 0;
+    const symbolList = Array.isArray(data.supportedSymbols) ? data.supportedSymbols.slice(0, 12).join(', ') : '';
+    const ecosystemLabel = ecosystem === 'evm' ? 'EVM' : ecosystem === 'solana' ? 'Solana' : 'Sui';
+    setWalletStatus(
+      candidates.length > 0
+        ? `Read-only ${ecosystemLabel} scan found ${candidates.length} crypto position${candidates.length === 1 ? '' : 's'} across ${networkCount} network${networkCount === 1 ? '' : 's'}. Review quantities and prices before importing.`
+        : `Wallet linked in read-only mode, but no supported ZENTRA crypto balances were detected yet. Scanned ${networkCount} ${ecosystemLabel} network${networkCount === 1 ? '' : 's'} for ${symbolList}.`
+    );
+  };
+
   const connectReadOnlyWallet = async () => {
     setWalletStatus('');
     setFormError('');
 
-    const providers = getWalletProviders();
-    const selectedProvider = providers[selectedWalletIndex]?.provider;
-
-    if (!selectedProvider) {
-      setWalletStatus('Install or open MetaMask, Coinbase Wallet, Rabby, or another browser wallet to link it in read-only mode.');
-      return;
-    }
-
     try {
       setWalletLoading(true);
-      const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
-      const account = String(accounts?.[0] || '');
-      if (!account) throw new Error('No wallet account selected');
-      setWalletAddress(account);
+      if (walletEcosystem === 'evm') {
+        const providers = getEvmWalletProviders();
+        const selectedProvider = providers[selectedWalletIndex]?.provider;
 
-      const balanceHex = await selectedProvider.request({ method: 'eth_getBalance', params: [account, 'latest'] });
-      const wei = BigInt(balanceHex || '0x0');
-      const ethBalance = Number(wei) / 1e18;
-      const ethPrice = await fetchAssetPrice('ETH', 'crypto');
+        if (!selectedProvider) {
+          setWalletStatus('Install or open MetaMask, Coinbase Wallet, Rabby, or another EVM wallet to link it in read-only mode.');
+          return;
+        }
 
-      if (!Number.isFinite(ethBalance) || ethBalance <= 0) {
-        setWalletStatus('Wallet linked in read-only mode. No native ETH balance was detected.');
+        try {
+          await selectedProvider.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+        } catch {
+          // Some wallets do not support permission prompts; eth_requestAccounts remains the fallback.
+        }
+        const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
+        const account = String(accounts?.[0] || '');
+        if (!account) throw new Error('No wallet account selected');
+        setWalletAddress(account);
+        await scanReadOnlyWallet(account, 'evm');
         return;
       }
 
-      setImportCandidates([{
-        symbol: 'ETH',
-        name: 'Ethereum',
-        type: 'crypto',
-        quantity: String(Number(ethBalance.toFixed(8))),
-        price: ethPrice ? String(ethPrice) : '',
-        confidence: 1,
-        notes: 'Read-only native ETH balance from connected wallet.',
-      }]);
-      setWalletStatus('Wallet linked read-only. Review the detected ETH position before importing.');
+      if (walletEcosystem === 'solana') {
+        const provider = window.phantom?.solana || window.solana;
+        if (!provider) {
+          setWalletStatus('Install or open Phantom to link a Solana wallet in read-only mode.');
+          return;
+        }
+        const connection = await provider.connect();
+        const account = connection.publicKey.toString();
+        if (!account) throw new Error('No Solana account selected');
+        setWalletAddress(account);
+        await scanReadOnlyWallet(account, 'solana');
+        return;
+      }
+
+      if (!window.suiWallet) {
+        setWalletStatus('Install or open a Sui wallet to link it in read-only mode, or paste a public Sui address.');
+        return;
+      }
+      const permissions = await window.suiWallet.requestPermissions?.();
+      const accounts = permissions?.accounts || (await window.suiWallet.getAccounts?.());
+      const account = String(accounts?.[0] || '');
+      if (!account) throw new Error('No Sui account selected');
+      setWalletAddress(account);
+      await scanReadOnlyWallet(account, 'sui');
     } catch (error) {
       console.error('Wallet import failed:', error);
-      setWalletStatus('Could not link the wallet. No transaction was requested.');
+      setWalletStatus('Could not scan the wallet. No transaction, signature or token approval was requested.');
     } finally {
       setWalletLoading(false);
     }
@@ -319,19 +402,41 @@ export default function Portfolio() {
 
   const linkManualReadOnlyAddress = async () => {
     const cleanAddress = walletAddress.trim();
-    if (!/^0x[a-fA-F0-9]{40}$/.test(cleanAddress)) {
-      setWalletStatus('Enter a valid public EVM wallet address.');
+    const isValidAddress = walletEcosystem === 'evm'
+      ? /^0x[a-fA-F0-9]{40}$/.test(cleanAddress)
+      : walletEcosystem === 'sui'
+        ? /^0x[a-fA-F0-9]{64}$/.test(cleanAddress)
+        : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress);
+
+    if (!isValidAddress) {
+      setWalletStatus(`Enter a valid public ${walletEcosystem.toUpperCase()} wallet address.`);
       return;
     }
 
-    setImportCandidates([]);
-    setWalletStatus(`Read-only address linked: ${cleanAddress}. Add an indexer next to sync tokens automatically, or use screenshot/document import now.`);
+    try {
+      setWalletLoading(true);
+      setImportCandidates([]);
+      setWalletStatus('Scanning public balances across supported ZENTRA networks...');
+      await scanReadOnlyWallet(cleanAddress, walletEcosystem);
+    } catch (error) {
+      console.error('Manual wallet scan failed:', error);
+      setWalletStatus('Could not scan that address right now. No transaction, signature or wallet access was requested.');
+    } finally {
+      setWalletLoading(false);
+    }
   };
 
   const analyzeScreenshot = async (file: File | null) => {
     if (!file) return;
     setScreenshotStatus('');
     setFormError('');
+    setImportCandidates([]);
+
+    const maxFileSize = 12 * 1024 * 1024;
+    if (file.size > maxFileSize) {
+      setScreenshotStatus('That file is too large. Try a file under 12MB or export only the portfolio sheet.');
+      return;
+    }
 
     try {
       setScreenshotLoading(true);
@@ -364,7 +469,11 @@ export default function Portfolio() {
       })).filter((asset: ImportCandidate) => asset.symbol);
 
       setImportCandidates(candidates);
-      setScreenshotStatus(candidates.length > 0 ? 'AI detected positions. Review them before importing.' : 'No positions were detected in that file.');
+      setScreenshotStatus(
+        candidates.length > 0
+          ? `${data.source === 'fallback-parser' ? 'Fallback parser' : 'AI'} detected ${candidates.length} position${candidates.length === 1 ? '' : 's'}. Review every row before importing.`
+          : 'No positions were detected. Make sure the file shows ticker/symbol, quantity and buy or average price.'
+      );
     } catch (error) {
       console.error('Screenshot analysis failed:', error);
       setScreenshotStatus('Could not read that file. Try a clearer screenshot, CSV, Excel or Word document with symbols, quantities and average prices visible.');
@@ -419,7 +528,7 @@ export default function Portfolio() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const motionItem = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
-  const walletProviders = getWalletProviders();
+  const walletProviders = getVisibleWalletProviders();
   const getAssetPath = (asset: Asset) => {
     const assetType = asset.type === 'crypto' ? 'cryptos' : 'stocks';
     return `/market/${assetType}/${encodeURIComponent(asset.symbol)}`;
@@ -447,7 +556,7 @@ export default function Portfolio() {
       {
         id: 'wallet',
         label: 'Read-only wallet',
-        description: 'Connect or paste a public wallet address. ZENTRA never requests approvals.',
+        description: 'Scan public balances across supported networks. ZENTRA never requests approvals.',
         icon: Shield,
       },
       {
@@ -614,8 +723,29 @@ export default function Portfolio() {
             {addMode === 'wallet' && (
               <div className="space-y-5">
                 <div className="rounded-2xl border border-border-accent bg-bg/45 p-5">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Shield className="h-4 w-4 text-accent" /> Read-only wallet link</div>
-                  <p className="text-sm leading-7 text-text-dim">ZENTRA only reads your public wallet address and public on-chain balances. It never asks for seed phrases, private keys, spending approvals, token permissions, signatures or transactions.</p>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Shield className="h-4 w-4 text-accent" /> Wallet universe import</div>
+                  <p className="text-sm leading-7 text-text-dim">Choose a wallet ecosystem, connect only to reveal your public address, or paste an address manually. ZENTRA scans public balances only. No seed phrases, private keys, approvals, signatures or transactions.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {[
+                    { id: 'evm', label: 'MetaMask / EVM', detail: 'Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche' },
+                    { id: 'solana', label: 'Phantom / Solana', detail: 'SOL, USDC, USDT, JUP, RAY, BONK, WIF' },
+                    { id: 'sui', label: 'Sui Wallet', detail: 'SUI and supported Sui coins' },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setWalletEcosystem(item.id as WalletEcosystem);
+                        setSelectedWalletIndex(0);
+                        setWalletStatus('');
+                      }}
+                      className={`rounded-2xl border p-4 text-left transition-all ${walletEcosystem === item.id ? 'border-accent/60 bg-accent/10' : 'border-border-accent bg-bg/35 hover:border-accent/50'}`}
+                    >
+                      <div className="text-xs font-black uppercase tracking-widest">{item.label}</div>
+                      <div className="mt-2 text-[11px] leading-5 text-text-dim">{item.detail}</div>
+                    </button>
+                  ))}
                 </div>
                 {walletProviders.length > 0 && (
                   <div className="flex flex-wrap gap-2">
@@ -631,8 +761,8 @@ export default function Portfolio() {
                     ))}
                   </div>
                 )}
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_auto_auto]">
-                  <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="Paste public 0x wallet address" className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" />
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_auto_auto_auto]">
+                  <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder={walletEcosystem === 'evm' ? 'Paste public 0x EVM address' : walletEcosystem === 'solana' ? 'Paste public Solana address' : 'Paste public Sui address'} className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" />
                   <button type="button" onClick={connectReadOnlyWallet} disabled={walletLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60">
                     <Wallet className="h-4 w-4" />
                     {walletLoading ? 'Reading wallet' : 'Connect wallet'}
@@ -640,9 +770,12 @@ export default function Portfolio() {
                   <button type="button" onClick={linkManualReadOnlyAddress} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
                     Link address
                   </button>
+                  <button type="button" onClick={() => void resetWalletLink()} disabled={walletLoading && !walletAddress && importCandidates.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl border border-loss/40 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/10 disabled:cursor-not-allowed disabled:opacity-40">
+                    Reset wallet
+                  </button>
                 </div>
                 <div className="rounded-2xl border border-border-accent bg-bg/35 p-4 text-xs leading-6 text-text-dim">
-                  Current wallet sync reads native ETH from browser wallets. Full token sync across Ethereum, Polygon, Base, Arbitrum, Optimism, Solana and more needs a portfolio indexer such as Zerion, Moralis, Alchemy or Covalent.
+                  ZENTRA now supports EVM, Solana and Sui read-only imports. Bitcoin, XRP, Cardano and exchange accounts need dedicated adapters or user-uploaded statements next, because they do not expose the same browser wallet standard.
                 </div>
                 {walletStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{walletStatus}</div>}
               </div>
@@ -877,7 +1010,7 @@ export default function Portfolio() {
                   ))}
                 </div>
               )}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto]">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto_auto]">
                 <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="0x wallet address" className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent" />
                 <button type="button" onClick={connectReadOnlyWallet} disabled={walletLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60">
                   <Wallet className="h-4 w-4" />
@@ -885,6 +1018,9 @@ export default function Portfolio() {
                 </button>
                 <button type="button" onClick={linkManualReadOnlyAddress} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
                   Link address
+                </button>
+                <button type="button" onClick={() => void resetWalletLink()} disabled={walletLoading && !walletAddress && importCandidates.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl border border-loss/40 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/10 disabled:cursor-not-allowed disabled:opacity-40">
+                  Reset wallet
                 </button>
               </div>
               <div className="rounded-2xl border border-border-accent bg-bg/35 p-4 text-xs leading-6 text-text-dim">

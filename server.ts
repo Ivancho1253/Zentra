@@ -272,6 +272,111 @@ const fallbackCryptos = [
   { symbol: "ADA", name: "Cardano", price: "0.45", change: "0.35", exchange: "Crypto", type: "crypto", currency: "USD" },
 ];
 
+const EVM_WALLET_CHAINS = [
+  {
+    id: "ethereum",
+    name: "Ethereum",
+    rpcUrl: "https://eth.llamarpc.com",
+    native: { symbol: "ETH", name: "Ethereum", decimals: 18 },
+    tokens: [
+      { symbol: "USDT", name: "Tether USD", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+      { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
+      { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+      { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+      { symbol: "LINK", name: "Chainlink", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
+      { symbol: "UNI", name: "Uniswap", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18 },
+      { symbol: "AAVE", name: "Aave", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18 },
+    ],
+  },
+  {
+    id: "base",
+    name: "Base",
+    rpcUrl: "https://base-rpc.publicnode.com",
+    native: { symbol: "ETH", name: "Ethereum", decimals: 18 },
+    tokens: [
+      { symbol: "USDC", name: "USD Coin", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+      { symbol: "DAI", name: "Dai", address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18 },
+    ],
+  },
+  {
+    id: "arbitrum",
+    name: "Arbitrum",
+    rpcUrl: "https://arbitrum-one-rpc.publicnode.com",
+    native: { symbol: "ETH", name: "Ethereum", decimals: 18 },
+    tokens: [
+      { symbol: "USDT", name: "Tether USD", address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
+      { symbol: "USDC", name: "USD Coin", address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
+      { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", decimals: 8 },
+      { symbol: "LINK", name: "Chainlink", address: "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4", decimals: 18 },
+      { symbol: "ARB", name: "Arbitrum", address: "0x912CE59144191C1204E64559FE8253a0e49E6548", decimals: 18 },
+    ],
+  },
+  {
+    id: "optimism",
+    name: "Optimism",
+    rpcUrl: "https://optimism-rpc.publicnode.com",
+    native: { symbol: "ETH", name: "Ethereum", decimals: 18 },
+    tokens: [
+      { symbol: "USDT", name: "Tether USD", address: "0x94b008aD8e834C8E4FdBF681aB865bDcD8bD0cE", decimals: 6 },
+      { symbol: "USDC", name: "USD Coin", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+      { symbol: "DAI", name: "Dai", address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+      { symbol: "OP", name: "Optimism", address: "0x4200000000000000000000000000000000000042", decimals: 18 },
+    ],
+  },
+  {
+    id: "polygon",
+    name: "Polygon",
+    rpcUrl: "https://polygon-rpc.com",
+    native: { symbol: "MATIC", name: "Polygon", decimals: 18 },
+    tokens: [
+      { symbol: "USDT", name: "Tether USD", address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
+      { symbol: "USDC", name: "USD Coin", address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
+      { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6", decimals: 8 },
+      { symbol: "DAI", name: "Dai", address: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", decimals: 18 },
+      { symbol: "LINK", name: "Chainlink", address: "0x53E0bca35eC356BD5ddDFEBbd1Fc0fD03FaBad39", decimals: 18 },
+      { symbol: "AAVE", name: "Aave", address: "0xD6DF932A45C0f255f85145f286eA0b292B21C90B", decimals: 18 },
+    ],
+  },
+  {
+    id: "bsc",
+    name: "BNB Chain",
+    rpcUrl: "https://bsc-dataseed.binance.org",
+    native: { symbol: "BNB", name: "BNB", decimals: 18 },
+    tokens: [
+      { symbol: "USDT", name: "Tether USD", address: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+      { symbol: "USDC", name: "USD Coin", address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", decimals: 18 },
+      { symbol: "BTCB", name: "Bitcoin BEP2", address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", decimals: 18 },
+      { symbol: "DAI", name: "Dai", address: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3", decimals: 18 },
+    ],
+  },
+  {
+    id: "avalanche",
+    name: "Avalanche",
+    rpcUrl: "https://avalanche-c-chain-rpc.publicnode.com",
+    native: { symbol: "AVAX", name: "Avalanche", decimals: 18 },
+    tokens: [
+      { symbol: "USDT", name: "Tether USD", address: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", decimals: 6 },
+      { symbol: "USDC", name: "USD Coin", address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", decimals: 6 },
+      { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x50b7545627a5162F82A992c33b87aDc75187B218", decimals: 8 },
+      { symbol: "LINK", name: "Chainlink", address: "0x5947BB275c521040051D82396192181b413227A3", decimals: 18 },
+    ],
+  },
+];
+
+const SOLANA_TOKEN_MINTS: Record<string, { symbol: string; name: string; decimals: number }> = {
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: "USDC", name: "USD Coin", decimals: 6 },
+  Es9vMFrzaCERmJfrF4H2FYD4KCoH3E5W4T9Zw4tHf9F: { symbol: "USDT", name: "Tether USD", decimals: 6 },
+  JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: { symbol: "JUP", name: "Jupiter", decimals: 6 },
+  "4k3Dyjzvzp8eLw2UrhT9FM3RgQtsjYfXkXdg3JkB6Yfq": { symbol: "RAY", name: "Raydium", decimals: 6 },
+  DezXAZ8z7PnrnRJjz3mCX6d1ZkgFvxxsVdRj3Z7ZpPB263: { symbol: "BONK", name: "Bonk", decimals: 5 },
+  EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzL8HkPMPs4XH: { symbol: "WIF", name: "dogwifhat", decimals: 6 },
+};
+
+const SUI_COIN_TYPES: Record<string, { symbol: string; name: string; decimals: number }> = {
+  "0x2::sui::SUI": { symbol: "SUI", name: "Sui", decimals: 9 },
+  "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC": { symbol: "USDC", name: "USD Coin", decimals: 6 },
+};
+
 const fallbackNews = [
   {
     title: "Markets digest rate outlook as technology shares lead the session",
@@ -348,6 +453,346 @@ const fetchGoogleNewsRss = async (query: string) => {
 const getStringParam = (value: unknown, fallback = "") => {
   const first = Array.isArray(value) ? value[0] : value;
   return typeof first === "string" ? first.trim() : fallback;
+};
+
+const parseLooseNumber = (value: unknown) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed
+    .replace(/[$€£,%\s]/g, "")
+    .replace(/(?<=\d),(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const extractJsonObject = (rawText: string) => {
+  const cleaned = rawText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("AI response did not contain JSON");
+    return JSON.parse(match[0]);
+  }
+};
+
+const knownImportSymbols: Record<string, { name: string; type: "stock" | "crypto" }> = {
+  AAPL: { name: "Apple Inc.", type: "stock" },
+  MSFT: { name: "Microsoft Corporation", type: "stock" },
+  NVDA: { name: "NVIDIA Corporation", type: "stock" },
+  META: { name: "Meta Platforms, Inc.", type: "stock" },
+  GOOGL: { name: "Alphabet Inc.", type: "stock" },
+  AMZN: { name: "Amazon.com, Inc.", type: "stock" },
+  TSLA: { name: "Tesla, Inc.", type: "stock" },
+  MELI: { name: "MercadoLibre, Inc.", type: "stock" },
+  BTC: { name: "Bitcoin", type: "crypto" },
+  ETH: { name: "Ethereum", type: "crypto" },
+  SOL: { name: "Solana", type: "crypto" },
+  BNB: { name: "BNB", type: "crypto" },
+  SUI: { name: "Sui", type: "crypto" },
+  USDT: { name: "Tether USD", type: "crypto" },
+  USDC: { name: "USD Coin", type: "crypto" },
+  XRP: { name: "XRP", type: "crypto" },
+  ADA: { name: "Cardano", type: "crypto" },
+  AVAX: { name: "Avalanche", type: "crypto" },
+  LINK: { name: "Chainlink", type: "crypto" },
+  DOGE: { name: "Dogecoin", type: "crypto" },
+};
+
+const heuristicPortfolioExtract = (text: string) => {
+  const rows = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const assets: any[] = [];
+
+  rows.forEach((row) => {
+    const upperRow = row.toUpperCase();
+    const symbol = Object.keys(knownImportSymbols).find((candidate) => new RegExp(`(^|[^A-Z0-9])${candidate}([^A-Z0-9]|$)`).test(upperRow));
+    if (!symbol) return;
+    const numbers = row.match(/(?:[$€£]?\s*)-?\d+(?:[.,]\d+)?(?:\s*%?)?/g)?.map(parseLooseNumber).filter((item): item is number => item !== null && item > 0) || [];
+    const quantity = numbers[0] ?? null;
+    const averagePrice = numbers.length > 1 ? numbers[1] : null;
+    const known = knownImportSymbols[symbol];
+    assets.push({
+      symbol,
+      name: known.name,
+      type: known.type,
+      quantity,
+      averagePrice,
+      confidence: 0.45,
+      notes: "Detected by fallback parser. Review before importing.",
+    });
+  });
+
+  const seen = new Set<string>();
+  return assets.filter((asset) => {
+    const key = `${asset.symbol}-${asset.quantity}-${asset.averagePrice}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const formatUnits = (value: bigint, decimals: number) => {
+  const base = 10n ** BigInt(decimals);
+  const whole = value / base;
+  const fraction = value % base;
+  if (fraction === 0n) return whole.toString();
+  const fractionText = fraction.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return `${whole}.${fractionText}`;
+};
+
+const hexToBigInt = (value: string) => {
+  if (!value || value === "0x") return 0n;
+  return BigInt(value);
+};
+
+const createJsonRpcClient = (rpcUrl: string) => {
+  let requestId = 1;
+  return async (method: string, params: any[]) => {
+    const response = await axios.post(rpcUrl, {
+      jsonrpc: "2.0",
+      id: requestId++,
+      method,
+      params,
+    }, {
+      timeout: 10000,
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.data?.error) {
+      throw new Error(response.data.error.message || "RPC request failed");
+    }
+
+    return response.data?.result;
+  };
+};
+
+const createJsonRpcClientWithBody = (rpcUrl: string) => {
+  let requestId = 1;
+  return async (method: string, params: any[]) => {
+    const response = await axios.post(rpcUrl, {
+      jsonrpc: "2.0",
+      id: requestId++,
+      method,
+      params,
+    }, {
+      timeout: 12000,
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.data?.error) {
+      throw new Error(response.data.error.message || "RPC request failed");
+    }
+
+    return response.data?.result;
+  };
+};
+
+const getWalletAssetPrice = async (symbol: string) => {
+  const stableSymbols = new Set(["USDC", "USDT", "DAI"]);
+  if (stableSymbols.has(symbol)) return 1;
+
+  const priceSymbol = symbol === "BTCB" || symbol === "WBTC" ? "BTC" : symbol === "MATIC" ? "POL" : symbol;
+  try {
+    const snapshot = await getCryptoSnapshot(priceSymbol);
+    const price = Number(snapshot.price);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  } catch {
+    try {
+      const coinGeckoIds: Record<string, string> = {
+        AAVE: "aave",
+        ARB: "arbitrum",
+        AVAX: "avalanche-2",
+        BNB: "binancecoin",
+        BONK: "bonk",
+        BTC: "bitcoin",
+        ETH: "ethereum",
+        JUP: "jupiter-exchange-solana",
+        LINK: "chainlink",
+        MATIC: "matic-network",
+        OP: "optimism",
+        POL: "polygon-ecosystem-token",
+        RAY: "raydium",
+        SOL: "solana",
+        SUI: "sui",
+        UNI: "uniswap",
+        WIF: "dogwifcoin",
+      };
+      const id = coinGeckoIds[symbol] || coinGeckoIds[priceSymbol];
+      if (id) {
+        const response = await axios.get("https://api.coingecko.com/api/v3/simple/price", {
+          params: { ids: id, vs_currencies: "usd" },
+          timeout: 10000,
+        });
+        const price = Number(response.data?.[id]?.usd);
+        if (Number.isFinite(price) && price > 0) return price;
+      }
+    } catch {
+      // Keep falling back to the local asset table below.
+    }
+
+    const fallback = findFallbackAsset(priceSymbol, "crypto");
+    const price = Number(fallback?.price);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  }
+};
+
+const getReadOnlyWalletPositions = async (address: string) => {
+  const cleanAddress = address.trim();
+  const paddedAddress = cleanAddress.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+  const positions: any[] = [];
+  const chainResults = await Promise.allSettled(EVM_WALLET_CHAINS.map(async (chain) => {
+    const rpc = createJsonRpcClient(chain.rpcUrl);
+    const chainPositions: any[] = [];
+
+    const nativeHex = await rpc("eth_getBalance", [cleanAddress, "latest"]);
+    const nativeBalance = hexToBigInt(nativeHex);
+    if (nativeBalance > 0n) {
+      const quantity = Number(formatUnits(nativeBalance, chain.native.decimals));
+      if (Number.isFinite(quantity) && quantity > 0) {
+        chainPositions.push({
+          symbol: chain.native.symbol,
+          name: chain.native.name,
+          quantity,
+          chain: chain.name,
+          source: "native",
+        });
+      }
+    }
+
+    const tokenResults = await Promise.allSettled(chain.tokens.map(async (token) => {
+      const callData = `0x70a08231${paddedAddress}`;
+      const result = await rpc("eth_call", [{ to: token.address, data: callData }, "latest"]);
+      const balance = hexToBigInt(result);
+      if (balance <= 0n) return null;
+      const quantity = Number(formatUnits(balance, token.decimals));
+      if (!Number.isFinite(quantity) || quantity <= 0) return null;
+      return {
+        symbol: token.symbol,
+        name: token.name,
+        quantity,
+        chain: chain.name,
+        source: "token",
+      };
+    }));
+
+    tokenResults.forEach((result) => {
+      if (result.status === "fulfilled" && result.value) {
+        chainPositions.push(result.value);
+      }
+    });
+
+    return chainPositions;
+  }));
+
+  chainResults.forEach((result) => {
+    if (result.status === "fulfilled") positions.push(...result.value);
+  });
+
+  const enriched = (await Promise.all(positions.map(async (position) => {
+    const price = await getWalletAssetPrice(position.symbol);
+    return {
+      ...position,
+      price,
+      estimatedValue: price ? price * position.quantity : null,
+    };
+  }))).filter((position) => {
+    const estimatedValue = Number(position.estimatedValue);
+    if (Number.isFinite(estimatedValue)) return estimatedValue >= 0.01;
+    return position.quantity >= 0.000001;
+  });
+
+  return enriched.sort((a, b) => (Number(b.price) || 0) * b.quantity - (Number(a.price) || 0) * a.quantity);
+};
+
+const getReadOnlySolanaPositions = async (address: string) => {
+  const rpc = createJsonRpcClientWithBody("https://api.mainnet-beta.solana.com");
+  const positions: any[] = [];
+
+  const balance = await rpc("getBalance", [address]);
+  const lamports = Number(balance?.value || 0);
+  if (Number.isFinite(lamports) && lamports > 0) {
+    positions.push({
+      symbol: "SOL",
+      name: "Solana",
+      quantity: lamports / 1_000_000_000,
+      chain: "Solana",
+      source: "native",
+    });
+  }
+
+  const tokenAccounts = await rpc("getTokenAccountsByOwner", [
+    address,
+    { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+    { encoding: "jsonParsed" },
+  ]);
+
+  const accounts = Array.isArray(tokenAccounts?.value) ? tokenAccounts.value : [];
+  accounts.forEach((account: any) => {
+    const parsed = account?.account?.data?.parsed?.info;
+    const mint = String(parsed?.mint || "");
+    const token = SOLANA_TOKEN_MINTS[mint];
+    if (!token) return;
+    const quantity = Number(parsed?.tokenAmount?.uiAmountString ?? parsed?.tokenAmount?.uiAmount ?? 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) return;
+    positions.push({
+      symbol: token.symbol,
+      name: token.name,
+      quantity,
+      chain: "Solana",
+      source: "token",
+    });
+  });
+
+  const enriched = (await Promise.all(positions.map(async (position) => {
+    const price = await getWalletAssetPrice(position.symbol);
+    return { ...position, price, estimatedValue: price ? price * position.quantity : null };
+  }))).filter((position) => {
+    const estimatedValue = Number(position.estimatedValue);
+    if (Number.isFinite(estimatedValue)) return estimatedValue >= 0.01;
+    return position.quantity >= 0.000001;
+  });
+
+  return enriched.sort((a, b) => (Number(b.estimatedValue) || 0) - (Number(a.estimatedValue) || 0));
+};
+
+const getReadOnlySuiPositions = async (address: string) => {
+  const rpc = createJsonRpcClientWithBody("https://fullnode.mainnet.sui.io:443");
+  const balances = await rpc("suix_getAllBalances", [address]);
+  const positions = (Array.isArray(balances) ? balances : []).map((balance: any) => {
+    const coinType = String(balance?.coinType || "");
+    const coin = SUI_COIN_TYPES[coinType];
+    if (!coin) return null;
+    const totalBalance = BigInt(String(balance?.totalBalance || "0"));
+    const quantity = Number(formatUnits(totalBalance, coin.decimals));
+    if (!Number.isFinite(quantity) || quantity <= 0) return null;
+    return {
+      symbol: coin.symbol,
+      name: coin.name,
+      quantity,
+      chain: "Sui",
+      source: "coin",
+    };
+  }).filter(Boolean);
+
+  const enriched = (await Promise.all(positions.map(async (position: any) => {
+    const price = await getWalletAssetPrice(position.symbol);
+    return { ...position, price, estimatedValue: price ? price * position.quantity : null };
+  }))).filter((position) => {
+    const estimatedValue = Number(position.estimatedValue);
+    if (Number.isFinite(estimatedValue)) return estimatedValue >= 0.01;
+    return position.quantity >= 0.000001;
+  });
+
+  return enriched.sort((a, b) => (Number(b.estimatedValue) || 0) - (Number(a.estimatedValue) || 0));
+};
+
+const getReadOnlyPositionsByEcosystem = async (address: string, ecosystem: string) => {
+  if (ecosystem === "solana") return getReadOnlySolanaPositions(address);
+  if (ecosystem === "sui") return getReadOnlySuiPositions(address);
+  return getReadOnlyWalletPositions(address);
 };
 
 const getQuoteFromResponse = (data: any, symbol: string) => {
@@ -1050,6 +1495,49 @@ async function startServer() {
     }
   });
 
+  app.get("/api/wallet/read-only", async (req, res) => {
+    const address = getStringParam(req.query.address);
+    const ecosystem = getStringParam(req.query.ecosystem, "evm").toLowerCase();
+
+    const isValidAddress = ecosystem === "solana"
+      ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
+      : ecosystem === "sui"
+        ? /^0x[a-fA-F0-9]{64}$/.test(address)
+        : /^0x[a-fA-F0-9]{40}$/.test(address);
+
+    if (!isValidAddress) {
+      return res.status(400).json({ error: `A valid ${ecosystem.toUpperCase()} wallet address is required` });
+    }
+
+    try {
+      const positions = await getReadOnlyPositionsByEcosystem(address, ecosystem);
+      const evmSymbols = EVM_WALLET_CHAINS.flatMap((chain) => [
+        chain.native.symbol,
+        ...chain.tokens.map((token) => token.symbol),
+      ]);
+      const solanaSymbols = ["SOL", ...Object.values(SOLANA_TOKEN_MINTS).map((token) => token.symbol)];
+      const suiSymbols = Object.values(SUI_COIN_TYPES).map((coin) => coin.symbol);
+      const networks = ecosystem === "solana"
+        ? ["Solana"]
+        : ecosystem === "sui"
+          ? ["Sui"]
+          : EVM_WALLET_CHAINS.map((chain) => chain.name);
+      const supportedSymbols = ecosystem === "solana" ? solanaSymbols : ecosystem === "sui" ? suiSymbols : evmSymbols;
+
+      res.json({
+        address,
+        ecosystem,
+        positions,
+        networks,
+        supportedSymbols: [...new Set(supportedSymbols)].sort(),
+        readOnly: true,
+      });
+    } catch (error) {
+      console.error("Read-only wallet scan failed:", error);
+      res.status(500).json({ error: "Could not scan that wallet in read-only mode" });
+    }
+  });
+
   app.post("/api/support", async (req, res) => {
     const supportEmail = "ivangonzalo1253@gmail.com";
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -1267,7 +1755,10 @@ User question: ${question}`,
         const workbook = XLSX.read(buffer, { type: "buffer" });
         extractedText = workbook.SheetNames.map((sheetName) => {
           const sheet = workbook.Sheets[sheetName];
-          return `Sheet: ${sheetName}\n${XLSX.utils.sheet_to_csv(sheet)}`;
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as any[][];
+          const csv = XLSX.utils.sheet_to_csv(sheet);
+          const previewRows = rows.slice(0, 120).map((row) => row.map((cell) => String(cell || "").trim()).join(" | ")).join("\n");
+          return `Sheet: ${sheetName}\nTable preview:\n${previewRows}\n\nCSV:\n${csv}`;
         }).join("\n\n").slice(0, 60000);
       } else if (mimeType.includes("wordprocessingml") || lowerName.endsWith(".docx")) {
         const result = await mammoth.extractRawText({ buffer });
@@ -1279,7 +1770,7 @@ User question: ${question}`,
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are an investment portfolio extraction engine. Read the provided ${isImage ? "screenshot/image" : "document text/table"} and detect visible portfolio positions, orders, or holdings.
+      const prompt = `You are an investment portfolio extraction engine. Read the provided ${isImage ? "screenshot/image with OCR" : "document text/table"} and detect visible portfolio positions, orders, transactions, or holdings.
 
 Return only valid JSON, no markdown, no commentary.
 
@@ -1304,30 +1795,43 @@ Rules:
 - quantity must be numeric. Use null if not visible.
 - averagePrice must be numeric purchase price, cost basis, entry price, or average buy price. Use null if not visible.
 - Prefer ticker symbols over company names.
+- Common column names can be Symbol, Ticker, Asset, Coin, Crypto, Stock, Quantity, Qty, Units, Shares, Amount, Average Price, Avg Price, Buy Price, Entry, Cost Basis, Precio, Cantidad, Compra.
+- Spanish and Portuguese documents are common. Understand "cantidad", "precio promedio", "precio de compra", "ativo", "carteira", "acao", and "cripto".
 - If the file only shows current value but not quantity or buy price, include the asset with null fields.
-- Do not invent missing quantities or prices.`;
+- Do not invent missing quantities or prices.
+- If unsure, still return the symbol with null quantity or averagePrice and a low confidence note.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
+        config: {
+          responseMimeType: "application/json",
+        },
         contents: isImage
           ? [prompt, createPartFromBase64(fileBase64, mimeType)]
           : `${prompt}\n\nFile name: ${fileName}\n\nExtracted content:\n${extractedText}`,
       });
 
       const rawText = response.text || "";
-      const jsonText = rawText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-      const parsed = JSON.parse(jsonText);
-      const assets = Array.isArray(parsed?.assets) ? parsed.assets : [];
+      let parsed: any = { assets: [] };
+      try {
+        parsed = extractJsonObject(rawText);
+      } catch (parseError) {
+        console.error("AI import JSON parse failed:", parseError, rawText.slice(0, 500));
+      }
+      const aiAssets = Array.isArray(parsed?.assets) ? parsed.assets : [];
+      const fallbackAssets = !isImage && extractedText ? heuristicPortfolioExtract(extractedText) : [];
+      const assets = aiAssets.length > 0 ? aiAssets : fallbackAssets;
       res.json({
         assets: assets.map((asset: any) => ({
           symbol: String(asset?.symbol || "").toUpperCase().replace(/[^A-Z0-9.-]/g, ""),
           name: typeof asset?.name === "string" ? asset.name : "",
           type: asset?.type === "crypto" ? "crypto" : "stock",
-          quantity: Number.isFinite(Number(asset?.quantity)) ? Number(asset.quantity) : null,
-          averagePrice: Number.isFinite(Number(asset?.averagePrice)) ? Number(asset.averagePrice) : null,
+          quantity: parseLooseNumber(asset?.quantity),
+          averagePrice: parseLooseNumber(asset?.averagePrice ?? asset?.price ?? asset?.buyPrice ?? asset?.entryPrice),
           confidence: Number.isFinite(Number(asset?.confidence)) ? Math.min(Math.max(Number(asset.confidence), 0), 1) : null,
           notes: typeof asset?.notes === "string" ? asset.notes : "",
         })).filter((asset: any) => asset.symbol),
+        source: aiAssets.length > 0 ? "gemini" : "fallback-parser",
       });
     } catch (error) {
       console.error("AI import failed:", error);
