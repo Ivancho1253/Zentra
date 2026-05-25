@@ -114,7 +114,7 @@ export default function Dashboard() {
               <p className="mt-3 text-xs text-text-dim">Valoracion completa de todas tus posiciones.</p>
             </div>
             <div className="rounded-3xl border border-accent/20 bg-accent/10 p-4 text-right">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} performance</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} demo performance</div>
               <div className="mt-3 flex items-center justify-end gap-2">
                 {isPerformancePositive ? <ArrowUpRight className="h-5 w-5 text-accent" /> : <ArrowDownRight className="h-5 w-5 text-loss" />}
                 <span className={`stat-badge ${isPerformancePositive ? 'stat-up' : 'stat-down'} text-base`}>
@@ -144,7 +144,7 @@ export default function Dashboard() {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="accent-chip mb-2"><TrendingUp className="h-3.5 w-3.5" /> Portfolio growth</div>
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{activeChart.label}</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{activeChart.label} · Demo curve until daily snapshots exist</div>
             </div>
             <div className="flex gap-2">
               {(['1D', '1W', '1M', '1Y'] as const).map((range) => (
@@ -190,7 +190,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <div className="data-value text-sm font-black">${asset.averagePrice.toLocaleString()}</div>
-                  <div className="mt-1 flex items-center justify-end gap-1 text-[9px] font-black text-accent"><ArrowUpRight className="h-3 w-3" /> +2.4%</div>
+                  <div className="mt-1 flex items-center justify-end gap-1 text-[9px] font-black text-text-dim">Entry price</div>
                 </div>
               </motion.div>
             ))}
@@ -219,7 +219,7 @@ export default function Dashboard() {
                     <CompanyLogo symbol={fav.symbol} name={fav.name} type={fav.type} className="h-9 w-9 rounded-lg" imgClassName="h-5 w-5" />
                     <span className="truncate text-xs font-black">{fav.symbol}</span>
                   </div>
-                  <div className="stat-badge stat-up text-xs">+1.2%</div>
+                  <div className="quiet-chip text-[9px]">Tracked</div>
                 </div>
               ))}
               {favorites.length === 0 && <div className="py-6 text-center text-[10px] font-bold uppercase text-text-dim opacity-60">No items yet</div>}
@@ -227,9 +227,9 @@ export default function Dashboard() {
           </motion.div>
 
           {[
-            { tag: 'Signal', source: 'X / Twitter', content: 'SOL muestra volumen institucional creciente y rompe su media de 30 dias.', meta: '@AltcoinSherpa - 2m' },
-            { tag: 'Markets', source: 'Reuters', content: 'La Reserva Federal mantiene tasas estables; Wall Street responde con apetito por riesgo.', meta: 'Global Economy - 15m' },
-            { tag: 'Sentiment', source: 'Analyst Desk', content: 'AAPL sube en sentimiento tras nuevas guias de IA y fuerte demanda de servicios.', meta: '@FintechWhale - 40m' },
+            { tag: 'Demo Signal', source: 'Sample feed', content: 'SOL muestra volumen institucional creciente y rompe su media de 30 dias.', meta: 'Demo only' },
+            { tag: 'Demo Markets', source: 'Sample feed', content: 'La Reserva Federal mantiene tasas estables; Wall Street responde con apetito por riesgo.', meta: 'Demo only' },
+            { tag: 'Demo Sentiment', source: 'Sample feed', content: 'AAPL sube en sentimiento tras nuevas guias de IA y fuerte demanda de servicios.', meta: 'Demo only' },
           ].map((item) => (
             <motion.div key={item.tag} variants={motionItem} whileHover={{ y: -5 }} className="panel-card p-6">
               <div className="mb-4 flex items-start justify-between">

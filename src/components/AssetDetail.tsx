@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bot, Globe, Plus, Send, Star, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowLeft, BellRing, Bot, Globe, Plus, Send, Star, TrendingDown, TrendingUp } from 'lucide-react';
 import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import CompanyLogo from './CompanyLogo';
@@ -24,6 +24,9 @@ export default function AssetDetail() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatQuestion, setChatQuestion] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [alertCondition, setAlertCondition] = useState<'above' | 'below'>('above');
+  const [alertTarget, setAlertTarget] = useState('');
+  const [alertStatus, setAlertStatus] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([
     { role: 'assistant', text: t('aiGreeting') },
   ]);
@@ -130,6 +133,40 @@ export default function AssetDetail() {
     });
     if (isPriceValid && currentPrice > 0) params.set('price', String(currentPrice));
     navigate(`/portfolio?${params.toString()}`);
+  };
+
+  const savePriceAlert = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAlertStatus('');
+
+    if (!auth.currentUser || !normalizedSymbol) {
+      setAlertStatus('Log in to create alerts.');
+      return;
+    }
+
+    const targetPrice = Number(alertTarget);
+    if (!Number.isFinite(targetPrice) || targetPrice <= 0) {
+      setAlertStatus('Enter a valid target price.');
+      return;
+    }
+
+    try {
+      const alertId = `${normalizedSymbol}-${alertCondition}-${targetPrice}`.replace(/[^A-Z0-9.-]/gi, '_');
+      await setDoc(doc(db, 'users', auth.currentUser.uid, 'alerts', alertId), {
+        symbol: normalizedSymbol,
+        type: assetKind,
+        condition: alertCondition,
+        targetPrice,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        lastCheckedAt: '',
+      });
+      setAlertStatus(`Alert saved: ${normalizedSymbol} ${alertCondition} ${formattedPrice.startsWith('$') ? '$' : ''}${targetPrice.toLocaleString()}.`);
+      setAlertTarget('');
+    } catch (error) {
+      console.error('Could not save price alert:', error);
+      setAlertStatus('Could not save the alert. Check permissions or try again.');
+    }
   };
 
   const askAi = async (event: React.FormEvent) => {
@@ -289,15 +326,15 @@ export default function AssetDetail() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: t('daily'), change: formattedChange, up: isPositive },
-          { label: t('weekly'), change: '+8.1%', up: true },
-          { label: t('monthly'), change: '-3.2%', up: false },
-          { label: t('annual'), change: '+142.5%', up: true },
+          { label: t('weekly'), change: 'Demo', up: true },
+          { label: t('monthly'), change: 'Demo', up: true },
+          { label: t('annual'), change: 'Demo', up: true },
         ].map((stat) => (
           <div key={stat.label} className="bento-card !p-4">
             <div className="text-[9px] text-text-dim uppercase font-black tracking-widest mb-1">{stat.label} {t('performance')}</div>
             <div className="flex justify-between items-end">
               <div className={`text-lg font-bold ${stat.up ? 'text-accent' : 'text-loss'}`}>{stat.change}</div>
-              <div className={`stat-badge ${stat.up ? 'stat-up' : 'stat-down'}`}>{t('trend')}</div>
+              <div className={`stat-badge ${stat.change === 'Demo' ? 'text-text-dim border-border-accent bg-bg' : stat.up ? 'stat-up' : 'stat-down'}`}>{stat.change === 'Demo' ? 'Sample' : t('trend')}</div>
             </div>
           </div>
         ))}
@@ -362,6 +399,33 @@ export default function AssetDetail() {
               </div>
             </div>
           </div>
+
+          <form onSubmit={savePriceAlert} className="bento-card border-accent/25 bg-accent/5">
+            <div className="mb-4 flex items-center gap-2 text-accent">
+              <BellRing className="h-4 w-4" />
+              <span className="text-[10px] font-bold uppercase">Price alert</span>
+            </div>
+            <div className="space-y-3">
+              <select value={alertCondition} onChange={(event) => setAlertCondition(event.target.value as 'above' | 'below')} className="w-full rounded-xl border border-border-accent bg-bg px-3 py-2 text-xs font-bold outline-none focus:border-accent">
+                <option value="above">Price moves above</option>
+                <option value="below">Price moves below</option>
+              </select>
+              <input
+                value={alertTarget}
+                onChange={(event) => setAlertTarget(event.target.value)}
+                type="number"
+                step="any"
+                min="0"
+                placeholder={isPriceValid ? String(currentPrice) : 'Target price'}
+                className="w-full rounded-xl border border-border-accent bg-bg px-3 py-2 text-xs font-bold outline-none focus:border-accent"
+              />
+              <button type="submit" className="w-full rounded-xl bg-accent px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-110">
+                Save alert
+              </button>
+              {alertStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-[10px] font-bold text-text-dim">{alertStatus}</div>}
+              <p className="text-[10px] leading-5 text-text-dim">Alerts are stored now. Notification delivery is the next step.</p>
+            </div>
+          </form>
 
           <div className="bento-card bg-accent/5 border-accent/20 animate-float">
             <div className="flex items-center gap-2 text-accent mb-2">

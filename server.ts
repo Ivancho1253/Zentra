@@ -3,9 +3,12 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import { createPartFromBase64, GoogleGenAI } from "@google/genai";
-import * as XLSX from "xlsx";
 import mammoth from "mammoth";
+import readXlsxFile from "read-excel-file/node";
+import { z } from "zod";
 
 dotenv.config({ override: true });
 
@@ -453,6 +456,77 @@ const fetchGoogleNewsRss = async (query: string) => {
 const getStringParam = (value: unknown, fallback = "") => {
   const first = Array.isArray(value) ? value[0] : value;
   return typeof first === "string" ? first.trim() : fallback;
+};
+
+const commonSymbolSchema = z.string().trim().min(1).max(16).regex(/^[A-Z0-9./-]+$/i);
+const assetTypeSchema = z.enum(["stock", "crypto"]);
+const walletEcosystemSchema = z.enum(["evm", "solana", "sui"]);
+const supportRequestSchema = z.object({
+  name: z.string().max(120).optional().default(""),
+  email: z.string().email().max(160),
+  subject: z.string().max(160).optional().default(""),
+  message: z.string().min(1).max(4000),
+});
+const assetChatRequestSchema = z.object({
+  symbol: commonSymbolSchema,
+  type: assetTypeSchema.optional().default("stock"),
+  question: z.string().trim().min(1).max(1200),
+  price: z.union([z.string(), z.number()]).optional().default("unknown"),
+  change: z.union([z.string(), z.number()]).optional().default("unknown"),
+});
+const zentraChatRequestSchema = z.object({
+  question: z.string().trim().min(1).max(1600),
+  language: z.enum(["es", "en", "pt"]).optional().default("en"),
+  route: z.string().max(120).optional().default(""),
+  portfolio: z.array(z.any()).optional().default([]),
+  hotAssets: z.array(z.any()).optional().default([]),
+  news: z.array(z.any()).optional().default([]),
+});
+const importFileRequestSchema = z.object({
+  fileBase64: z.string().optional(),
+  imageBase64: z.string().optional(),
+  mimeType: z.string().max(120).optional().default("image/png"),
+  fileName: z.string().max(240).optional().default("portfolio-upload"),
+}).refine((value) => Boolean(value.fileBase64 || value.imageBase64), {
+  message: "A valid file is required",
+});
+
+type CacheEntry = {
+  expiresAt: number;
+  body: any;
+};
+
+const responseCache = new Map<string, CacheEntry>();
+
+const getStableQuery = (query: Record<string, unknown>) => {
+  const entries = Object.entries(query)
+    .filter(([key]) => key !== "t")
+    .map(([key, value]) => [key, Array.isArray(value) ? value.join(",") : String(value ?? "")])
+    .sort(([left], [right]) => left.localeCompare(right));
+  return new URLSearchParams(entries).toString();
+};
+
+const cacheJsonResponse = (ttlMs: number) => (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.method !== "GET") return next();
+
+  const query = getStableQuery(req.query as Record<string, unknown>);
+  const cacheKey = `${req.path}?${query}`;
+  const cached = responseCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.setHeader("X-Zentra-Cache", "HIT");
+    return res.json({ ...cached.body, cached: true });
+  }
+
+  const originalJson = res.json.bind(res);
+  res.json = ((body: any) => {
+    if (res.statusCode < 400) {
+      responseCache.set(cacheKey, { expiresAt: Date.now() + ttlMs, body });
+      res.setHeader("X-Zentra-Cache", "MISS");
+    }
+    return originalJson({ ...body, cached: false });
+  }) as typeof res.json;
+
+  return next();
 };
 
 const parseLooseNumber = (value: unknown) => {
@@ -1021,14 +1095,67 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }));
   app.use(express.json({ limit: "12mb" }));
+
+  const marketLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many market requests. Please slow down." },
+  });
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many AI requests. Please slow down." },
+  });
+  const importLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 8,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many import attempts. Please try again later." },
+  });
+  const walletLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many wallet scans. Please slow down." },
+  });
+  const supportLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many support requests. Please try again later." },
+  });
+
+  app.use("/api/market", marketLimiter);
+  app.use("/api/ai", aiLimiter);
+  app.use("/api/ai/import-file", importLimiter);
+  app.use("/api/wallet", walletLimiter);
+  app.use("/api/support", supportLimiter);
+
+  app.use("/api/market/stocks", cacheJsonResponse(60_000));
+  app.use("/api/market/cryptos", cacheJsonResponse(45_000));
+  app.use("/api/market/hot", cacheJsonResponse(15_000));
+  app.use("/api/market/asset", cacheJsonResponse(15_000));
+  app.use("/api/news", cacheJsonResponse(120_000));
 
   // API Proxy for Twelve Data
   app.get("/api/market/price", async (req, res) => {
-    const symbol = getStringParam(req.query.symbol).toUpperCase();
+    const symbolResult = commonSymbolSchema.safeParse(getStringParam(req.query.symbol).toUpperCase());
+    const symbol = symbolResult.success ? symbolResult.data.toUpperCase() : "";
     const apiKey = process.env.TWELVE_DATA_API_KEY;
 
-    if (!symbol) {
+    if (!symbolResult.success) {
       return res.status(400).json({ error: "Symbol is required" });
     }
     
@@ -1048,11 +1175,12 @@ async function startServer() {
   });
 
   app.get("/api/market/time_series", async (req, res) => {
-    const symbol = getStringParam(req.query.symbol).toUpperCase();
+    const symbolResult = commonSymbolSchema.safeParse(getStringParam(req.query.symbol).toUpperCase());
+    const symbol = symbolResult.success ? symbolResult.data.toUpperCase() : "";
     const interval = getStringParam(req.query.interval, "1h");
     const apiKey = process.env.TWELVE_DATA_API_KEY;
 
-    if (!symbol) {
+    if (!symbolResult.success) {
       return res.status(400).json({ error: "Symbol is required" });
     }
 
@@ -1072,9 +1200,10 @@ async function startServer() {
   });
 
   app.get("/api/market/logo", async (req, res) => {
-    const symbol = getStringParam(req.query.symbol).toUpperCase();
+    const symbolResult = commonSymbolSchema.safeParse(getStringParam(req.query.symbol).toUpperCase());
+    const symbol = symbolResult.success ? symbolResult.data.toUpperCase() : "";
     const apiKey = process.env.TWELVE_DATA_API_KEY;
-    if (!symbol) return res.status(400).json({ error: "Symbol is required" });
+    if (!symbolResult.success) return res.status(400).json({ error: "Symbol is required" });
     if (!apiKey) return res.status(500).json({ error: "API key missing" });
     try {
       const response = await axios.get("https://api.twelvedata.com/logo", {
@@ -1255,11 +1384,14 @@ async function startServer() {
   });
 
   app.get("/api/market/asset", async (req, res) => {
-    const symbol = getStringParam(req.query.symbol).toUpperCase();
-    const type = getStringParam(req.query.type, "stock") === "crypto" ? "crypto" : "stock";
+    const symbolResult = commonSymbolSchema.safeParse(getStringParam(req.query.symbol).toUpperCase());
+    const requestedType = getStringParam(req.query.type, "stock") === "crypto" ? "crypto" : "stock";
+    const typeResult = assetTypeSchema.safeParse(requestedType);
+    const symbol = symbolResult.success ? symbolResult.data.toUpperCase() : "";
+    const type = typeResult.success ? typeResult.data : "stock";
     const apiKey = process.env.TWELVE_DATA_API_KEY;
 
-    if (!symbol) {
+    if (!symbolResult.success) {
       return res.status(400).json({ error: "Symbol is required" });
     }
 
@@ -1497,7 +1629,8 @@ async function startServer() {
 
   app.get("/api/wallet/read-only", async (req, res) => {
     const address = getStringParam(req.query.address);
-    const ecosystem = getStringParam(req.query.ecosystem, "evm").toLowerCase();
+    const ecosystemResult = walletEcosystemSchema.safeParse(getStringParam(req.query.ecosystem, "evm").toLowerCase());
+    const ecosystem = ecosystemResult.success ? ecosystemResult.data : "evm";
 
     const isValidAddress = ecosystem === "solana"
       ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
@@ -1542,17 +1675,21 @@ async function startServer() {
     const supportEmail = "ivangonzalo1253@gmail.com";
     const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.SUPPORT_FROM_EMAIL || "ZENTRA Support <onboarding@resend.dev>";
-    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 120) : "";
-    const email = typeof req.body?.email === "string" ? req.body.email.trim().slice(0, 160) : "";
-    const subject = typeof req.body?.subject === "string" ? req.body.subject.trim().slice(0, 160) : "";
-    const message = typeof req.body?.message === "string" ? req.body.message.trim().slice(0, 4000) : "";
+    const parsedSupport = supportRequestSchema.safeParse(req.body || {});
 
-    if (!email || !message) {
-      return res.status(400).json({ error: "Email and message are required" });
+    if (!parsedSupport.success) {
+      return res.status(400).json({ error: "A valid email and message are required" });
     }
 
+    const { name, email, subject, message } = parsedSupport.data;
+
     if (!resendApiKey) {
-      console.log("Support message received without RESEND_API_KEY configured:", { name, email, subject, message });
+      console.log("Support message received without RESEND_API_KEY configured:", {
+        hasName: Boolean(name),
+        emailDomain: email.includes("@") ? email.split("@").pop() : "invalid",
+        hasSubject: Boolean(subject),
+        messageLength: message.length,
+      });
       return res.json({ fallback: true, ok: true, message: "Support message received locally. Configure RESEND_API_KEY to send email." });
     }
 
@@ -1580,19 +1717,21 @@ async function startServer() {
 
   app.post("/api/ai/asset-chat", async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    const symbol = typeof req.body?.symbol === "string" ? req.body.symbol.toUpperCase() : "";
-    const type = req.body?.type === "crypto" ? "crypto" : "stock";
-    const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
-    const price = req.body?.price ?? "unknown";
-    const change = req.body?.change ?? "unknown";
+    const parsedChat = assetChatRequestSchema.safeParse(req.body || {});
+
+    if (!parsedChat.success) {
+      return res.status(400).json({ error: "Symbol and question are required" });
+    }
+
+    const symbol = parsedChat.data.symbol.toUpperCase();
+    const type = parsedChat.data.type;
+    const question = parsedChat.data.question;
+    const price = parsedChat.data.price;
+    const change = parsedChat.data.change;
     const isSpanishQuestion = /\b(habla|hablame|accion|precio|riesgo|tendencia|soporte|resistencia|comprar|vender|mercado)\b/i.test(question);
     const fallbackAnswer = isSpanishQuestion
       ? `La IA no pudo responder ahora, pero este es el contexto actual de ${symbol}: ${type}, ultimo precio ${price}, variacion 24h ${change}. Revisa tendencia, volumen, soportes y resistencias antes de tomar una decision.`
       : `The AI service could not answer right now, but here is the current context for ${symbol}: ${type}, last price ${price}, 24h change ${change}. Check trend direction, volume, support and resistance before making a decision.`;
-
-    if (!symbol || !question) {
-      return res.status(400).json({ error: "Symbol and question are required" });
-    }
 
     if (!apiKey) {
       return res.json({
@@ -1620,17 +1759,19 @@ async function startServer() {
 
   app.post("/api/ai/zentra-chat", async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
-    const language = req.body?.language === "es" || req.body?.language === "pt" ? req.body.language : "en";
-    const route = typeof req.body?.route === "string" ? req.body.route.slice(0, 120) : "";
-    const portfolio = Array.isArray(req.body?.portfolio) ? req.body.portfolio.slice(0, 20) : [];
-    const hotAssets = Array.isArray(req.body?.hotAssets) ? req.body.hotAssets.slice(0, 12) : [];
-    const news = Array.isArray(req.body?.news) ? req.body.news.slice(0, 8) : [];
-    const detectedAsset = detectQuestionAsset(question);
+    const parsedChat = zentraChatRequestSchema.safeParse(req.body || {});
 
-    if (!question) {
+    if (!parsedChat.success) {
       return res.status(400).json({ error: "Question is required" });
     }
+
+    const question = parsedChat.data.question;
+    const language = parsedChat.data.language;
+    const route = parsedChat.data.route;
+    const portfolio = parsedChat.data.portfolio.slice(0, 20);
+    const hotAssets = parsedChat.data.hotAssets.slice(0, 12);
+    const news = parsedChat.data.news.slice(0, 8);
+    const detectedAsset = detectQuestionAsset(question);
 
     const financePattern = /\b(stock|stocks|crypto|cript[oó]|cripto|accion|acciones|ação|acoes|portfolio|portafolio|carteira|market|mercado|markets|noticia|noticias|news|price|precio|preco|asset|activo|ativo|assets|holding|holdings|wallet|billetera|cartera|inversion|inversi[oó]n|invest|investment|investimento|risk|riesgo|risco|valuation|valuacion|valuaci[oó]n|market cap|capitalizacion|capitaliza[cç][aã]o|dividend|dividendo|earnings|ganancia|lucro|revenue|ingresos|receita|inflation|inflacion|infla[cç][aã]o|fed|rates|tasas|juros|yield|bond|bono|etf|forex|dollar|dolar|usd|btc|eth|sol|nvda|aapl|msft|meta|tsla|googl|amzn|zentra|heat map|gainer|loser|trade|trading|chart|grafico|gr[aá]fico|soporte|resistencia|volume|volumen|liquidity|liquidez)\b/i;
     const isFinanceQuestion = financePattern.test(question) || Boolean(detectedAsset);
@@ -1733,17 +1874,19 @@ User question: ${question}`,
 
   app.post("/api/ai/import-file", async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    const fileBase64 = typeof req.body?.fileBase64 === "string" ? req.body.fileBase64 : typeof req.body?.imageBase64 === "string" ? req.body.imageBase64 : "";
-    const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "image/png";
-    const fileName = typeof req.body?.fileName === "string" ? req.body.fileName : "portfolio-upload";
+    const parsedImport = importFileRequestSchema.safeParse(req.body || {});
 
     if (!apiKey) {
       return res.status(500).json({ error: "Gemini API key is required for AI import" });
     }
 
-    if (!fileBase64) {
+    if (!parsedImport.success) {
       return res.status(400).json({ error: "A valid file is required" });
     }
+
+    const fileBase64 = parsedImport.data.fileBase64 || parsedImport.data.imageBase64 || "";
+    const mimeType = parsedImport.data.mimeType;
+    const fileName = parsedImport.data.fileName;
 
     try {
       const buffer = Buffer.from(fileBase64, "base64");
@@ -1751,22 +1894,30 @@ User question: ${question}`,
       let extractedText = "";
       const isImage = mimeType.startsWith("image/");
 
-      if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
-        const workbook = XLSX.read(buffer, { type: "buffer" });
-        extractedText = workbook.SheetNames.map((sheetName) => {
-          const sheet = workbook.Sheets[sheetName];
-          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as any[][];
-          const csv = XLSX.utils.sheet_to_csv(sheet);
-          const previewRows = rows.slice(0, 120).map((row) => row.map((cell) => String(cell || "").trim()).join(" | ")).join("\n");
-          return `Sheet: ${sheetName}\nTable preview:\n${previewRows}\n\nCSV:\n${csv}`;
-        }).join("\n\n").slice(0, 60000);
+      if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || lowerName.endsWith(".xlsx")) {
+        if (lowerName.endsWith(".xls") && !lowerName.endsWith(".xlsx")) {
+          return res.status(400).json({ error: "Legacy .xls files are not supported. Export as .xlsx, CSV or TXT." });
+        }
+
+        const sheets = await readXlsxFile(buffer);
+        const sheetText = sheets.slice(0, 5).map((sheet) => {
+          const rows = sheet.data.slice(0, 120)
+            .map((row) => row.map((cell) => cell == null ? "" : String(cell)));
+          const previewRows = rows.map((row) => row.map((cell) => cell.trim()).join(" | ")).join("\n");
+          const csv = rows.map((row) => row.map((cell) => {
+            const safeCell = cell.replace(/"/g, '""');
+            return /[",\n]/.test(safeCell) ? `"${safeCell}"` : safeCell;
+          }).join(",")).join("\n");
+          return `Sheet: ${sheet.sheet}\nTable preview:\n${previewRows}\n\nCSV:\n${csv}`;
+        });
+        extractedText = sheetText.join("\n\n").slice(0, 60000);
       } else if (mimeType.includes("wordprocessingml") || lowerName.endsWith(".docx")) {
         const result = await mammoth.extractRawText({ buffer });
         extractedText = result.value.slice(0, 60000);
       } else if (mimeType.startsWith("text/") || lowerName.endsWith(".csv") || lowerName.endsWith(".txt")) {
         extractedText = buffer.toString("utf8").slice(0, 60000);
       } else if (!isImage) {
-        return res.status(400).json({ error: "Supported files: images, CSV, TXT, XLS, XLSX and DOCX" });
+        return res.status(400).json({ error: "Supported files: images, CSV, TXT, XLSX and DOCX" });
       }
 
       const ai = new GoogleGenAI({ apiKey });

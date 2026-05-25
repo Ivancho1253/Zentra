@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../types';
-import { LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon, HelpCircle, Info } from 'lucide-react';
+import { BellRing, LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon, HelpCircle, Info } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import TickerTape from './TickerTape';
@@ -44,6 +44,7 @@ export default function Layout({ user, profile }: LayoutProps) {
     { path: '/', icon: LayoutDashboard, label: t('dashboard') },
     { path: '/portfolio', icon: Wallet, label: t('portfolio') },
     { path: '/market', icon: Compass, label: t('market') },
+    { path: '/alerts', icon: BellRing, label: 'Alerts' },
     { path: '/news', icon: Newspaper, label: t('marketNews') },
   ];
   const secondaryItems = [
@@ -166,7 +167,7 @@ export default function Layout({ user, profile }: LayoutProps) {
         </div>
       </main>
       <ZentraAIChat />
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-6 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-7 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
         {[...navItems, ...secondaryItems].map((item) => (
           <Link
             key={item.path}

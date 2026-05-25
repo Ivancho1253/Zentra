@@ -140,6 +140,7 @@ export default function MarketExplorer() {
   const [isHeatMapFullscreen, setIsHeatMapFullscreen] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [dataSource, setDataSource] = useState('Loading');
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -192,9 +193,11 @@ export default function MarketExplorer() {
         setStocks((stocksData.data || []).map((item: any) => normalize(item, 'stock')));
         setCryptos((cryptosData.data || []).map((item: any) => normalize(item, 'crypto')));
         setHotAssets((hotData.data || []).map((item: any) => normalize(item, item.type || (['BTC', 'ETH', 'SOL'].includes(item.symbol) ? 'crypto' : 'stock'))));
+        setDataSource(`${stocksData.source || (stocksData.fallback ? 'fallback' : 'market')} / ${cryptosData.source || (cryptosData.fallback ? 'fallback' : 'crypto')}`);
       } catch (fetchError) {
         console.error('Error fetching market data:', fetchError);
         setError(fetchError instanceof Error ? fetchError.message : 'Unable to load market data.');
+        setDataSource('Unavailable');
       } finally {
         setLoading(false);
       }
@@ -329,7 +332,10 @@ export default function MarketExplorer() {
             </button>
           ))}
         </div>
-        <div className="quiet-chip">{filteredAssets.length} visible assets</div>
+        <div className="flex flex-wrap gap-2">
+          <div className="quiet-chip">{filteredAssets.length} visible assets</div>
+          <div className="quiet-chip">Source: {dataSource}</div>
+        </div>
       </motion.div>
 
       {!loading && hotAssets.length > 0 && (

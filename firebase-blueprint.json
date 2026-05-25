@@ -53,6 +53,21 @@
         "addedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["symbol", "name", "type"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "A user-defined price alert",
+      "type": "object",
+      "properties": {
+        "symbol": { "type": "string" },
+        "type": { "type": "string", "enum": ["stock", "crypto"] },
+        "condition": { "type": "string", "enum": ["above", "below"] },
+        "targetPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "paused", "triggered"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastCheckedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["symbol", "type", "condition", "targetPrice", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -71,6 +86,10 @@
     "/users/{userId}/favorites/{favoriteId}": {
       "schema": "Favorite",
       "description": "User's favorite assets"
+    },
+    "/users/{userId}/alerts/{alertId}": {
+      "schema": "Alert",
+      "description": "User-defined price alerts"
     }
   }
 }

@@ -172,7 +172,7 @@ export default function NewsFeed() {
               <p className="text-xs text-text-dim">Signals from high-velocity market conversations.</p>
             </div>
           </div>
-          <span className="accent-chip"><TrendingUp className="h-3.5 w-3.5" /> Live sample</span>
+          <span className="quiet-chip"><TrendingUp className="h-3.5 w-3.5" /> Demo sample</span>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           {[

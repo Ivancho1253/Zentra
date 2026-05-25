@@ -33,3 +33,14 @@ export interface NewsArticle {
   publishedAt: string;
   source: { name: string };
 }
+
+export interface PriceAlert {
+  id: string;
+  symbol: string;
+  type: 'stock' | 'crypto';
+  condition: 'above' | 'below';
+  targetPrice: number;
+  status: 'active' | 'paused' | 'triggered';
+  createdAt: string;
+  lastCheckedAt?: string;
+}

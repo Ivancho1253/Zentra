@@ -7,6 +7,7 @@ import { AlertCircle, ArrowLeft, ArrowUpRight, Camera, Check, FileText, Filter, 
 import { auth, db } from '../lib/firebase';
 import { Asset, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
+import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
 
 declare global {
   interface Window {
@@ -85,6 +86,7 @@ export default function Portfolio() {
   const [screenshotStatus, setScreenshotStatus] = useState('');
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([]);
+  const [priceSnapshots, setPriceSnapshots] = useState<Record<string, PortfolioPriceSnapshot>>({});
 
   useEffect(() => {
     if (searchParams.get('addAsset') !== '1') return;
@@ -156,9 +158,53 @@ export default function Portfolio() {
     fetchSuggestions();
   }, [isAdding, marketSuggestions.length]);
 
-  const totalValue = assets.reduce((acc, asset) => acc + Number(asset.averagePrice || 0) * Number(asset.totalQuantity || 0), 0);
-  const savingsValue = totalValue * 0.25;
-  const investmentValue = totalValue - savingsValue;
+  useEffect(() => {
+    if (assets.length === 0) {
+      setPriceSnapshots({});
+      return;
+    }
+
+    let cancelled = false;
+    const fetchPortfolioPrices = async () => {
+      const results = await Promise.allSettled(assets.map(async (asset) => {
+        const response = await fetch(`/api/market/asset?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&t=${Date.now()}`, { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Market snapshot failed');
+        return [asset.symbol.toUpperCase(), data] as const;
+      }));
+
+      if (cancelled) return;
+
+      const nextSnapshots: Record<string, PortfolioPriceSnapshot> = {};
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          const [assetSymbol, snapshot] = result.value;
+          nextSnapshots[assetSymbol] = snapshot;
+        }
+      });
+      setPriceSnapshots(nextSnapshots);
+    };
+
+    fetchPortfolioPrices().catch((error) => {
+      console.error('Could not refresh portfolio prices:', error);
+    });
+
+    const interval = window.setInterval(fetchPortfolioPrices, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [assets]);
+
+  const portfolioMetrics = calculatePortfolioMetrics(assets, priceSnapshots);
+  const totalValue = portfolioMetrics.totalCurrentValue;
+  const totalCost = portfolioMetrics.totalCost;
+  const totalPnl = portfolioMetrics.totalPnl;
+  const totalPnlPercent = portfolioMetrics.totalPnlPercent;
+  const dailyChange = portfolioMetrics.estimatedDailyChange;
+  const dailyChangePercent = portfolioMetrics.estimatedDailyChangePercent;
+  const hasLivePortfolioPrices = portfolioMetrics.livePricedCount > 0;
+  const holdingMetricsBySymbol = new Map(portfolioMetrics.holdings.map((holding) => [holding.asset.symbol.toUpperCase(), holding]));
   const chartData = [
     { name: 'Jan', value: Math.round(totalValue * 0.78) },
     { name: 'Feb', value: Math.round(totalValue * 0.86) },
@@ -171,6 +217,11 @@ export default function Portfolio() {
   const formatMoney = (value: number) => {
     if (!Number.isFinite(value)) return '$0.00';
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatPercent = (value: number | null) => {
+    if (value === null || !Number.isFinite(value)) return 'N/A';
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
   const symbolQuery = symbol.trim().toUpperCase();
@@ -562,7 +613,7 @@ export default function Portfolio() {
       {
         id: 'screenshot',
         label: 'AI import',
-        description: 'Upload screenshots, spreadsheets, CSV, TXT or Word files and review before saving.',
+                description: 'Upload screenshots, XLSX spreadsheets, CSV, TXT or Word files and review before saving.',
         icon: Sparkles,
       },
     ] as const;
@@ -789,12 +840,12 @@ export default function Portfolio() {
                   </div>
                   <div>
                     <div className="text-lg font-black uppercase tracking-widest">Upload a portfolio file</div>
-                    <div className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-text-dim">AI reads visible symbols, quantities and average buy prices from screenshots, CSV/TXT, Excel and Word files. You review every detected row before it enters your portfolio.</div>
+                    <div className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-text-dim">AI reads visible symbols, quantities and average buy prices from screenshots, CSV/TXT, XLSX and Word files. You review every detected row before it enters your portfolio.</div>
                   </div>
                   <div className="flex flex-wrap justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
-                    {['PNG/JPG', 'CSV/TXT', 'XLS/XLSX', 'DOCX'].map((item) => <span key={item} className="rounded-full border border-border-accent px-3 py-1">{item}</span>)}
+                    {['PNG/JPG', 'CSV/TXT', 'XLSX', 'DOCX'].map((item) => <span key={item} className="rounded-full border border-border-accent px-3 py-1">{item}</span>)}
                   </div>
-                  <input type="file" accept="image/*,.csv,.txt,.xls,.xlsx,.docx" className="hidden" onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)} />
+                  <input type="file" accept="image/*,.csv,.txt,.xlsx,.docx" className="hidden" onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)} />
                 </label>
                 {screenshotLoading && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">Reading file with AI...</div>}
                 {screenshotStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{screenshotStatus}</div>}
@@ -1092,9 +1143,28 @@ export default function Portfolio() {
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {[
-          { label: 'Total balance', value: formatMoney(totalValue), icon: TrendingUp, accent: true },
-          { label: 'Cash reserve', value: formatMoney(savingsValue), icon: Landmark },
-          { label: 'Invested capital', value: formatMoney(investmentValue), icon: WalletCards },
+          {
+            label: 'Market value',
+            value: formatMoney(totalValue),
+            icon: TrendingUp,
+            accent: true,
+            badge: hasLivePortfolioPrices ? `${portfolioMetrics.livePricedCount}/${assets.length} Live` : 'Estimated',
+            positive: true,
+          },
+          {
+            label: 'Cost basis',
+            value: formatMoney(totalCost),
+            icon: Landmark,
+            badge: 'User entries',
+            positive: true,
+          },
+          {
+            label: 'Unrealized P&L',
+            value: formatMoney(totalPnl),
+            icon: WalletCards,
+            badge: formatPercent(totalPnlPercent),
+            positive: totalPnl >= 0,
+          },
         ].map((card) => (
           <motion.div key={card.label} variants={motionItem} whileHover={{ y: -5 }} className={`panel-card p-6 ${card.accent ? 'border-accent/35 bg-accent/10' : ''}`}>
             <div className="mb-5 flex items-center justify-between">
@@ -1102,10 +1172,31 @@ export default function Portfolio() {
               <card.icon className="h-5 w-5 text-accent" />
             </div>
             <div className="data-value text-3xl font-black">{card.value}</div>
-            <div className="mt-4 inline-flex items-center gap-1 rounded-full bg-bg/60 px-3 py-1 text-[11px] font-black text-accent"><ArrowUpRight className="h-3.5 w-3.5" /> +1.5%</div>
+            <div className={`mt-4 inline-flex items-center gap-1 rounded-full bg-bg/60 px-3 py-1 text-[11px] font-black ${card.positive ? 'text-accent' : 'text-loss'}`}>
+              <ArrowUpRight className={`h-3.5 w-3.5 ${card.positive ? '' : 'rotate-90'}`} />
+              {card.badge}
+            </div>
           </motion.div>
         ))}
       </div>
+
+      <motion.div variants={motionItem} className="panel-card border-accent/20 bg-accent/5 p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs font-black uppercase tracking-widest">Portfolio data quality</div>
+            <p className="mt-1 text-xs leading-5 text-text-dim">
+              Market value uses live asset snapshots when available. Missing or fallback prices use the entry price as an estimate.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="accent-chip">{portfolioMetrics.livePricedCount} Live</span>
+            <span className="quiet-chip">{assets.length - portfolioMetrics.livePricedCount} Estimated</span>
+            <span className={`quiet-chip ${dailyChange >= 0 ? 'text-accent' : 'text-loss'}`}>
+              Daily: {formatMoney(dailyChange)} ({formatPercent(dailyChangePercent)})
+            </span>
+          </div>
+        </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <motion.div variants={motionItem} className="panel-card p-6 lg:col-span-1">
@@ -1114,18 +1205,26 @@ export default function Portfolio() {
             <span className="quiet-chip">{assets.length}</span>
           </div>
           <div className="space-y-3">
-            {assets.slice(0, 6).map((asset) => (
-              <Link key={asset.id} to={getAssetPath(asset)} className="flex items-center justify-between rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/10">
-                <div className="flex min-w-0 items-center gap-3">
-                  <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-black">{asset.symbol}</div>
-                    <div className="truncate text-[10px] text-text-dim">{asset.totalQuantity} units</div>
+            {assets.slice(0, 6).map((asset) => {
+              const holding = holdingMetricsBySymbol.get(asset.symbol.toUpperCase());
+              return (
+                <Link key={asset.id} to={getAssetPath(asset)} className="flex items-center justify-between gap-3 rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/10">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black">{asset.symbol}</div>
+                      <div className="truncate text-[10px] text-text-dim">{asset.totalQuantity} units · {holding?.isEstimated ? 'Estimated' : 'Live'}</div>
+                    </div>
                   </div>
-                </div>
-                <div className="data-value text-sm font-black">{formatMoney(asset.averagePrice * asset.totalQuantity)}</div>
-              </Link>
-            ))}
+                  <div className="shrink-0 text-right">
+                    <div className="data-value text-sm font-black">{formatMoney(holding?.currentValue ?? asset.averagePrice * asset.totalQuantity)}</div>
+                    <div className={`mt-1 text-[10px] font-black ${Number(holding?.pnl || 0) >= 0 ? 'text-accent' : 'text-loss'}`}>
+                      {formatPercent(holding?.pnlPercent ?? null)}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
             {assets.length === 0 && <div className="rounded-2xl border border-dashed border-border-accent p-8 text-center text-xs text-text-dim">Add your first position to unlock portfolio analytics.</div>}
           </div>
         </motion.div>
@@ -1133,10 +1232,10 @@ export default function Portfolio() {
         <motion.div variants={motionItem} className="panel-card p-6 lg:col-span-2">
           <div className="mb-5 flex items-start justify-between">
             <div>
-              <h3 className="text-sm font-black uppercase tracking-widest">Cash flow</h3>
-              <div className="mt-1 text-xs text-text-dim">{formatMoney(totalValue)} tracked across the portfolio</div>
+              <h3 className="text-sm font-black uppercase tracking-widest">Value path</h3>
+              <div className="mt-1 text-xs text-text-dim">{formatMoney(totalValue)} current market value · demo curve until daily snapshots exist</div>
             </div>
-            <span className="accent-chip">Yearly</span>
+            <span className="quiet-chip">Demo curve</span>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

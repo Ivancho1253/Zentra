@@ -464,8 +464,9 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-6 text-sm text-white/45">
-            <a href="#" className="hover:text-white transition-colors">{t('privacy')}</a>
-            <a href="#" className="hover:text-white transition-colors">{t('terms')}</a>
+            <button onClick={() => navigate('/privacy')} className="hover:text-white transition-colors">{t('privacy')}</button>
+            <button onClick={() => navigate('/security')} className="hover:text-white transition-colors">Security</button>
+            <button onClick={() => navigate('/pricing')} className="hover:text-white transition-colors">Pricing</button>
             <a
               href="https://x.com/0xKento_"
               target="_blank"

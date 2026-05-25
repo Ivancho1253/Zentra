@@ -12,10 +12,14 @@ const Portfolio = lazy(() => import('./components/Portfolio'));
 const NewsFeed = lazy(() => import('./components/NewsFeed'));
 const MarketExplorer = lazy(() => import('./components/MarketExplorer'));
 const AssetDetail = lazy(() => import('./components/AssetDetail'));
+const Alerts = lazy(() => import('./components/Alerts'));
 const Auth = lazy(() => import('./components/Auth'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const Help = lazy(() => import('./components/Help'));
 const Info = lazy(() => import('./components/Info'));
+const Privacy = lazy(() => import('./components/Privacy'));
+const Security = lazy(() => import('./components/Security'));
+const Pricing = lazy(() => import('./components/Pricing'));
 
 function AppLoader({ label = 'Loading ZENTRA...' }: { label?: string }) {
   return (
@@ -77,19 +81,28 @@ export default function App() {
               <>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/security" element={<Security />} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </>
             ) : (
-              <Route element={<Layout user={user} profile={profile} />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/portfolio" element={<Portfolio />} />
-                <Route path="/market" element={<MarketExplorer />} />
-                <Route path="/market/:type/:symbol" element={<AssetDetail />} />
-                <Route path="/news" element={<NewsFeed />} />
-                <Route path="/help" element={<Help />} />
-                <Route path="/info" element={<Info />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Route>
+              <>
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/security" element={<Security />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route element={<Layout user={user} profile={profile} />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/portfolio" element={<Portfolio />} />
+                  <Route path="/market" element={<MarketExplorer />} />
+                  <Route path="/market/:type/:symbol" element={<AssetDetail />} />
+                  <Route path="/alerts" element={<Alerts />} />
+                  <Route path="/news" element={<NewsFeed />} />
+                  <Route path="/help" element={<Help />} />
+                  <Route path="/info" element={<Info />} />
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Route>
+              </>
             )}
           </Routes>
         </Suspense>

@@ -79,6 +79,16 @@ service cloud.firestore {
              data.type in ['stock', 'crypto'];
     }
 
+    function isValidAlert(data) {
+      return data.keys().hasAll(['symbol', 'type', 'condition', 'targetPrice', 'status', 'createdAt']) &&
+             data.symbol is string &&
+             data.type in ['stock', 'crypto'] &&
+             data.condition in ['above', 'below'] &&
+             data.targetPrice is number &&
+             data.targetPrice > 0 &&
+             data.status in ['active', 'paused', 'triggered'];
+    }
+
     // User Profiles
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -106,6 +116,14 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidFavorite(request.resource.data);
         allow update: if isOwner(userId) && isValidFavorite(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Alerts Subcollection
+      match /alerts/{alertId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidAlert(request.resource.data);
+        allow update: if isOwner(userId) && isValidAlert(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }
