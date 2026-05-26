@@ -465,6 +465,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-6 text-sm text-white/45">
             <button onClick={() => navigate('/privacy')} className="hover:text-white transition-colors">{t('privacy')}</button>
+            <button onClick={() => navigate('/terms')} className="hover:text-white transition-colors">{t('terms')}</button>
             <button onClick={() => navigate('/security')} className="hover:text-white transition-colors">Security</button>
             <button onClick={() => navigate('/pricing')} className="hover:text-white transition-colors">Pricing</button>
             <a

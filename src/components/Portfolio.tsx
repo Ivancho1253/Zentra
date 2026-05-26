@@ -8,6 +8,7 @@ import { auth, db } from '../lib/firebase';
 import { Asset, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
 import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
+import { apiFetch } from '../lib/api';
 
 declare global {
   interface Window {
@@ -205,6 +206,33 @@ export default function Portfolio() {
   const dailyChangePercent = portfolioMetrics.estimatedDailyChangePercent;
   const hasLivePortfolioPrices = portfolioMetrics.livePricedCount > 0;
   const holdingMetricsBySymbol = new Map(portfolioMetrics.holdings.map((holding) => [holding.asset.symbol.toUpperCase(), holding]));
+
+  useEffect(() => {
+    if (!auth.currentUser || assets.length === 0 || portfolioMetrics.totalCurrentValue <= 0) return;
+
+    const snapshotDate = new Date().toISOString().slice(0, 10);
+    const snapshotRef = doc(db, 'users', auth.currentUser.uid, 'snapshots', snapshotDate);
+
+    setDoc(snapshotRef, {
+      date: snapshotDate,
+      totalValue: portfolioMetrics.totalCurrentValue,
+      totalCost: portfolioMetrics.totalCost,
+      totalPnl: portfolioMetrics.totalPnl,
+      totalPnlPercent: portfolioMetrics.totalPnlPercent,
+      livePricedCount: portfolioMetrics.livePricedCount,
+      holdingsCount: assets.length,
+      createdAt: new Date().toISOString(),
+    }, { merge: true }).catch((error) => {
+      console.warn('Could not save daily portfolio snapshot:', error);
+    });
+  }, [
+    assets.length,
+    portfolioMetrics.totalCurrentValue,
+    portfolioMetrics.totalCost,
+    portfolioMetrics.totalPnl,
+    portfolioMetrics.totalPnlPercent,
+    portfolioMetrics.livePricedCount,
+  ]);
   const chartData = [
     { name: 'Jan', value: Math.round(totalValue * 0.78) },
     { name: 'Feb', value: Math.round(totalValue * 0.86) },
@@ -366,7 +394,7 @@ export default function Portfolio() {
   };
 
   const scanReadOnlyWallet = async (address: string, ecosystem: WalletEcosystem = walletEcosystem) => {
-    const response = await fetch(`/api/wallet/read-only?address=${encodeURIComponent(address)}&ecosystem=${ecosystem}&t=${Date.now()}`, { cache: 'no-store' });
+    const response = await apiFetch(`/api/wallet/read-only?address=${encodeURIComponent(address)}&ecosystem=${ecosystem}&t=${Date.now()}`, { cache: 'no-store' });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Wallet scan failed');
 
@@ -501,7 +529,7 @@ export default function Portfolio() {
         reader.readAsDataURL(file);
       });
 
-      const response = await fetch('/api/ai/import-file', {
+      const response = await apiFetch('/api/ai/import-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileBase64: imageBase64, mimeType: file.type || 'application/octet-stream', fileName: file.name }),

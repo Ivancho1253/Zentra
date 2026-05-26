@@ -4,6 +4,8 @@ export interface UserProfile {
   displayName?: string;
   photoURL?: string;
   currency: string;
+  pushTokens?: string[];
+  pushEnabledAt?: string;
 }
 
 export interface Asset {
@@ -43,4 +45,29 @@ export interface PriceAlert {
   status: 'active' | 'paused' | 'triggered';
   createdAt: string;
   lastCheckedAt?: string;
+}
+
+export interface PortfolioSnapshot {
+  id: string;
+  date: string;
+  totalValue: number;
+  totalCost: number;
+  totalPnl: number;
+  totalPnlPercent: number | null;
+  livePricedCount: number;
+  holdingsCount: number;
+  createdAt: string;
+}
+
+export interface UserNotification {
+  id: string;
+  type: 'price_alert';
+  symbol: string;
+  assetType?: 'stock' | 'crypto';
+  title: string;
+  message: string;
+  status: 'unread' | 'read';
+  createdAt: string;
+  targetPrice?: number;
+  currentPrice?: number;
 }

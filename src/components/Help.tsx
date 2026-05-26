@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, HelpCircle, Mail, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { apiFetch } from '../lib/api';
 
 export default function Help() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function Help() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/support', {
+      const response = await apiFetch('/api/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, subject, message }),

@@ -1,14 +1,21 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
 import dotenv from "dotenv";
-import rateLimit from "express-rate-limit";
-import helmet from "helmet";
 import { createPartFromBase64, GoogleGenAI } from "@google/genai";
 import mammoth from "mammoth";
 import readXlsxFile from "read-excel-file/node";
 import { z } from "zod";
+import { startAlertWorker } from "./server/services/alertWorker";
+import { requireFirebaseAuth } from "./server/services/authService";
+import { cacheJsonResponse } from "./server/services/cacheService";
+import { fetchGoogleNewsRss } from "./server/services/newsService";
+import { applyRateLimits, applySecurityMiddleware } from "./server/routes/middleware";
+import { registerDataRoutes } from "./server/routes/data";
+import { registerNewsRoutes } from "./server/routes/news";
+import { registerSupportRoutes } from "./server/routes/support";
 
 dotenv.config({ override: true });
 
@@ -380,79 +387,6 @@ const SUI_COIN_TYPES: Record<string, { symbol: string; name: string; decimals: n
   "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC": { symbol: "USDC", name: "USD Coin", decimals: 6 },
 };
 
-const fallbackNews = [
-  {
-    title: "Markets digest rate outlook as technology shares lead the session",
-    description: "Investors balanced earnings momentum with macro data while large-cap technology names remained in focus.",
-    url: "https://www.reuters.com/markets/",
-    urlToImage: "",
-    publishedAt: new Date().toISOString(),
-    source: { name: "ZENTRA Brief" },
-  },
-  {
-    title: "Crypto liquidity improves as Bitcoin and Ethereum hold key ranges",
-    description: "Digital asset traders watched volatility and institutional flows across major tokens.",
-    url: "https://www.coindesk.com/markets/",
-    urlToImage: "",
-    publishedAt: new Date().toISOString(),
-    source: { name: "ZENTRA Brief" },
-  },
-  {
-    title: "Portfolio managers rotate between defensive sectors and AI leaders",
-    description: "Market breadth remains a central signal as investors rebalance risk exposure.",
-    url: "https://www.marketwatch.com/markets",
-    urlToImage: "",
-    publishedAt: new Date().toISOString(),
-    source: { name: "ZENTRA Brief" },
-  },
-];
-
-const decodeXmlText = (value = "") =>
-  value
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/<[^>]*>/g, "")
-    .trim();
-
-const getXmlTag = (item: string, tag: string) => {
-  const match = item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
-  return decodeXmlText(match?.[1] || "");
-};
-
-const fetchGoogleNewsRss = async (query: string) => {
-  const response = await axios.get("https://news.google.com/rss/search", {
-    params: {
-      q: `${query} finance markets stocks crypto`,
-      hl: "en-US",
-      gl: "US",
-      ceid: "US:en",
-    },
-    timeout: 12000,
-    headers: { "User-Agent": "Mozilla/5.0" },
-  });
-
-  const items = String(response.data || "").match(/<item>[\s\S]*?<\/item>/gi) || [];
-  return items.slice(0, 18).map((item) => {
-    const title = getXmlTag(item, "title");
-    const link = getXmlTag(item, "link");
-    const description = getXmlTag(item, "description");
-    const publishedAt = getXmlTag(item, "pubDate");
-    const source = getXmlTag(item, "source");
-    return {
-      title,
-      description,
-      url: link,
-      urlToImage: "",
-      publishedAt: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
-      source: { name: source || "Google News" },
-    };
-  }).filter((article) => article.title && article.url);
-};
-
 const getStringParam = (value: unknown, fallback = "") => {
   const first = Array.isArray(value) ? value[0] : value;
   return typeof first === "string" ? first.trim() : fallback;
@@ -490,44 +424,14 @@ const importFileRequestSchema = z.object({
 }).refine((value) => Boolean(value.fileBase64 || value.imageBase64), {
   message: "A valid file is required",
 });
-
-type CacheEntry = {
-  expiresAt: number;
-  body: any;
-};
-
-const responseCache = new Map<string, CacheEntry>();
-
-const getStableQuery = (query: Record<string, unknown>) => {
-  const entries = Object.entries(query)
-    .filter(([key]) => key !== "t")
-    .map(([key, value]) => [key, Array.isArray(value) ? value.join(",") : String(value ?? "")])
-    .sort(([left], [right]) => left.localeCompare(right));
-  return new URLSearchParams(entries).toString();
-};
-
-const cacheJsonResponse = (ttlMs: number) => (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (req.method !== "GET") return next();
-
-  const query = getStableQuery(req.query as Record<string, unknown>);
-  const cacheKey = `${req.path}?${query}`;
-  const cached = responseCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    res.setHeader("X-Zentra-Cache", "HIT");
-    return res.json({ ...cached.body, cached: true });
-  }
-
-  const originalJson = res.json.bind(res);
-  res.json = ((body: any) => {
-    if (res.statusCode < 400) {
-      responseCache.set(cacheKey, { expiresAt: Date.now() + ttlMs, body });
-      res.setHeader("X-Zentra-Cache", "MISS");
-    }
-    return originalJson({ ...body, cached: false });
-  }) as typeof res.json;
-
-  return next();
-};
+const portfolioBriefingRequestSchema = z.object({
+  language: z.enum(["es", "en", "pt"]).optional().default("en"),
+  portfolio: z.array(z.any()).optional().default([]),
+  metrics: z.record(z.string(), z.any()).optional().default({}),
+  risk: z.record(z.string(), z.any()).optional().default({}),
+  alerts: z.array(z.any()).optional().default([]),
+  news: z.array(z.any()).optional().default([]),
+});
 
 const parseLooseNumber = (value: unknown) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -1091,57 +995,18 @@ const detectQuestionAsset = (question: string) => {
   return alias?.[1] || null;
 };
 
-async function startServer() {
+export async function createApp(options: { includeFrontend?: boolean; enableAlertWorker?: boolean } = {}) {
+  const includeFrontend = options.includeFrontend ?? true;
   const app = express();
-  const PORT = Number(process.env.PORT || 3000);
 
-  app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
-  }));
+  applySecurityMiddleware(app);
   app.use(express.json({ limit: "12mb" }));
+  applyRateLimits(app);
 
-  const marketLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    limit: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many market requests. Please slow down." },
-  });
-  const aiLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    limit: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many AI requests. Please slow down." },
-  });
-  const importLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000,
-    limit: 8,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many import attempts. Please try again later." },
-  });
-  const walletLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    limit: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many wallet scans. Please slow down." },
-  });
-  const supportLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000,
-    limit: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many support requests. Please try again later." },
-  });
-
-  app.use("/api/market", marketLimiter);
-  app.use("/api/ai", aiLimiter);
-  app.use("/api/ai/import-file", importLimiter);
-  app.use("/api/wallet", walletLimiter);
-  app.use("/api/support", supportLimiter);
+  app.use("/api/ai", requireFirebaseAuth);
+  app.use("/api/wallet", requireFirebaseAuth);
+  app.use("/api/support", requireFirebaseAuth);
+  app.use("/api/data", requireFirebaseAuth);
 
   app.use("/api/market/stocks", cacheJsonResponse(60_000));
   app.use("/api/market/cryptos", cacheJsonResponse(45_000));
@@ -1594,38 +1459,7 @@ async function startServer() {
     }
   });
 
-  // API Proxy for NewsAPI
-  app.get("/api/news", async (req, res) => {
-    const q = getStringParam(req.query.q, "finance");
-    const apiKey = process.env.NEWS_API_KEY;
-    res.setHeader("Cache-Control", "no-store");
-
-    if (!apiKey) {
-      try {
-        const articles = await fetchGoogleNewsRss(q);
-        if (articles.length > 0) return res.json({ articles, fallback: false, source: "google-news-rss" });
-      } catch (error) {
-        console.error("Google News RSS fallback failed:", error);
-      }
-      return res.json({ articles: fallbackNews, fallback: true, source: "fallback" });
-    }
-
-    try {
-      const response = await axios.get("https://newsapi.org/v2/everything", {
-        params: { q, sortBy: "publishedAt", language: "en", apiKey },
-        timeout: 12000,
-      });
-      res.json(response.data);
-    } catch (error) {
-      try {
-        const articles = await fetchGoogleNewsRss(q);
-        if (articles.length > 0) return res.json({ articles, fallback: false, source: "google-news-rss" });
-      } catch (rssError) {
-        console.error("Google News RSS fallback failed:", rssError);
-      }
-      res.json({ articles: fallbackNews, fallback: true, error: "Failed to fetch live news" });
-    }
-  });
+  registerNewsRoutes(app);
 
   app.get("/api/wallet/read-only", async (req, res) => {
     const address = getStringParam(req.query.address);
@@ -1671,49 +1505,8 @@ async function startServer() {
     }
   });
 
-  app.post("/api/support", async (req, res) => {
-    const supportEmail = "ivangonzalo1253@gmail.com";
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.SUPPORT_FROM_EMAIL || "ZENTRA Support <onboarding@resend.dev>";
-    const parsedSupport = supportRequestSchema.safeParse(req.body || {});
-
-    if (!parsedSupport.success) {
-      return res.status(400).json({ error: "A valid email and message are required" });
-    }
-
-    const { name, email, subject, message } = parsedSupport.data;
-
-    if (!resendApiKey) {
-      console.log("Support message received without RESEND_API_KEY configured:", {
-        hasName: Boolean(name),
-        emailDomain: email.includes("@") ? email.split("@").pop() : "invalid",
-        hasSubject: Boolean(subject),
-        messageLength: message.length,
-      });
-      return res.json({ fallback: true, ok: true, message: "Support message received locally. Configure RESEND_API_KEY to send email." });
-    }
-
-    try {
-      await axios.post("https://api.resend.com/emails", {
-        from: fromEmail,
-        to: supportEmail,
-        reply_to: email,
-        subject: subject || "ZENTRA support request",
-        text: `Name: ${name || "Not provided"}\nEmail: ${email}\n\n${message}`,
-      }, {
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 12000,
-      });
-
-      res.json({ ok: true });
-    } catch (error) {
-      console.error("Support email failed:", error);
-      res.status(500).json({ error: "Could not send support message" });
-    }
-  });
+  registerSupportRoutes(app);
+  registerDataRoutes(app);
 
   app.post("/api/ai/asset-chat", async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -1872,6 +1665,66 @@ User question: ${question}`,
     }
   });
 
+  app.post("/api/ai/portfolio-briefing", async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const parsedBriefing = portfolioBriefingRequestSchema.safeParse(req.body || {});
+
+    if (!parsedBriefing.success) {
+      return res.status(400).json({ error: "Valid briefing context is required" });
+    }
+
+    const language = parsedBriefing.data.language;
+    const portfolio = parsedBriefing.data.portfolio.slice(0, 30);
+    const metrics = parsedBriefing.data.metrics;
+    const risk = parsedBriefing.data.risk;
+    const alerts = parsedBriefing.data.alerts.slice(0, 20);
+    const news = parsedBriefing.data.news.slice(0, 10);
+
+    const fallbackAnswer = {
+      es: "Briefing rapido: revisa el valor actual, P&L, concentracion principal, exposicion crypto/stocks y alertas activas. La IA no esta disponible ahora, pero el panel de riesgo y portfolio ya muestran los datos clave.",
+      en: "Quick briefing: review current value, P&L, largest concentration, crypto/stocks exposure and active alerts. AI is unavailable right now, but the risk and portfolio panels show the key data.",
+      pt: "Briefing rapido: revise valor atual, P&L, maior concentracao, exposicao cripto/acoes e alertas ativos. A IA nao esta disponivel agora, mas os paineis de risco e carteira mostram os dados principais.",
+    }[language];
+
+    if (!apiKey) {
+      return res.json({ fallback: true, briefing: fallbackAnswer });
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `You are ZENTRA's portfolio briefing assistant.
+
+Rules:
+- Do not give personalized financial advice or buy/sell instructions.
+- Use only the provided JSON context.
+- Distinguish live, estimated and missing data.
+- Be concise, practical and direct.
+- Answer in this language: ${language}.
+- Format as plain text with short sections, no markdown tables.
+
+Portfolio holdings JSON: ${JSON.stringify(portfolio)}
+Portfolio metrics JSON: ${JSON.stringify(metrics)}
+Risk summary JSON: ${JSON.stringify(risk)}
+Alerts JSON: ${JSON.stringify(alerts)}
+Recent news JSON: ${JSON.stringify(news)}
+
+Write:
+1. What changed or matters today.
+2. Main portfolio risks.
+3. Alerts to watch.
+4. News context.
+5. Three things to inspect next.`,
+      });
+
+      res.json({ briefing: response.text || fallbackAnswer });
+    } catch (error) {
+      console.error("Portfolio briefing failed:", error);
+      res.json({ fallback: true, briefing: fallbackAnswer });
+    }
+  });
+
   app.post("/api/ai/import-file", async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
     const parsedImport = importFileRequestSchema.safeParse(req.body || {});
@@ -1990,7 +1843,19 @@ Rules:
     }
   });
 
+  if (options.enableAlertWorker) {
+    startAlertWorker({
+      getAssetSnapshot: (symbol, type) => type === "crypto"
+        ? getCryptoSnapshot(symbol)
+        : getStockSnapshot(symbol, process.env.TWELVE_DATA_API_KEY),
+    });
+  }
+
   // Vite middleware for development
+  if (!includeFrontend) {
+    return app;
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -2005,9 +1870,18 @@ Rules:
     });
   }
 
+  return app;
+}
+
+export async function startServer() {
+  const app = await createApp({ includeFrontend: true, enableAlertWorker: true });
+  const PORT = Number(process.env.PORT || 3000);
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  startServer();
+}

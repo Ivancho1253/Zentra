@@ -5,6 +5,7 @@ import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import CompanyLogo from './CompanyLogo';
 import { useLanguage } from '../contexts/LanguageContext';
+import { apiFetch } from '../lib/api';
 
 declare global {
   interface Window {
@@ -179,7 +180,7 @@ export default function AssetDetail() {
     setChatLoading(true);
 
     try {
-      const response = await fetch('/api/ai/asset-chat', {
+      const response = await apiFetch('/api/ai/asset-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

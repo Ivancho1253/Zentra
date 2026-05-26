@@ -5,12 +5,13 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { motion } from 'framer-motion';
 import { Activity, ArrowDownRight, ArrowUpRight, DollarSign, PieChart, Radar, Star, TrendingUp, Zap } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
-import { Asset } from '../types';
+import { Asset, PortfolioSnapshot } from '../types';
 import CompanyLogo from './CompanyLogo';
 
 export default function Dashboard() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
+  const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedRange, setSelectedRange] = useState<'1D' | '1W' | '1M' | '1Y'>('1M');
@@ -39,13 +40,35 @@ export default function Dashboard() {
       setFavorites(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
     });
 
+    const qSnapshots = query(collection(db, 'users', auth.currentUser.uid, 'snapshots'), limit(60));
+    const unsubscribeSnapshots = onSnapshot(qSnapshots, (snapshot) => {
+      setSnapshots(snapshot.docs
+        .map((doc) => ({ ...doc.data(), id: doc.id } as PortfolioSnapshot))
+        .sort((a, b) => a.date.localeCompare(b.date)));
+    });
+
     return () => {
       unsubscribeAssets();
       unsubscribeFavs();
+      unsubscribeSnapshots();
     };
   }, []);
 
-  const chartRanges = {
+  const snapshotChartData = snapshots.map((snapshot) => ({
+    name: new Date(`${snapshot.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    value: Math.round(snapshot.totalValue),
+  }));
+  const hasRealSnapshotChart = snapshotChartData.length >= 2;
+  const snapshotPerformance = snapshots.length >= 2 && snapshots[0].totalValue > 0
+    ? ((snapshots[snapshots.length - 1].totalValue - snapshots[0].totalValue) / snapshots[0].totalValue) * 100
+    : 0;
+
+  const chartRanges = hasRealSnapshotChart ? {
+    '1D': { label: 'Snapshot performance', performance: snapshotPerformance, data: snapshotChartData.slice(-2) },
+    '1W': { label: 'Snapshot performance', performance: snapshotPerformance, data: snapshotChartData.slice(-7) },
+    '1M': { label: 'Snapshot performance', performance: snapshotPerformance, data: snapshotChartData.slice(-30) },
+    '1Y': { label: 'Snapshot performance', performance: snapshotPerformance, data: snapshotChartData.slice(-365) },
+  } : {
     '1D': { label: 'Intraday performance', performance: 1.28, data: [{ name: '09:30', value: 3180 }, { name: '11:00', value: 3260 }, { name: '12:30', value: 3210 }, { name: '14:00', value: 3380 }, { name: '15:30', value: 3470 }, { name: 'Close', value: 3510 }] },
     '1W': { label: '7-day performance', performance: 4.76, data: [{ name: 'Mon', value: 3020 }, { name: 'Tue', value: 3180 }, { name: 'Wed', value: 3100 }, { name: 'Thu', value: 3340 }, { name: 'Fri', value: 3490 }, { name: 'Sat', value: 3440 }, { name: 'Sun', value: 3580 }] },
     '1M': { label: '30-day performance', performance: 12.42, data: [{ name: 'W1', value: 2840 }, { name: 'W2', value: 3180 }, { name: 'W3', value: 3040 }, { name: 'W4', value: 3490 }, { name: 'Now', value: 3710 }] },
@@ -114,7 +137,7 @@ export default function Dashboard() {
               <p className="mt-3 text-xs text-text-dim">Valoracion completa de todas tus posiciones.</p>
             </div>
             <div className="rounded-3xl border border-accent/20 bg-accent/10 p-4 text-right">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} demo performance</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} {hasRealSnapshotChart ? 'snapshot' : 'demo'} performance</div>
               <div className="mt-3 flex items-center justify-end gap-2">
                 {isPerformancePositive ? <ArrowUpRight className="h-5 w-5 text-accent" /> : <ArrowDownRight className="h-5 w-5 text-loss" />}
                 <span className={`stat-badge ${isPerformancePositive ? 'stat-up' : 'stat-down'} text-base`}>
@@ -144,7 +167,9 @@ export default function Dashboard() {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="accent-chip mb-2"><TrendingUp className="h-3.5 w-3.5" /> Portfolio growth</div>
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{activeChart.label} · Demo curve until daily snapshots exist</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">
+                {activeChart.label} · {hasRealSnapshotChart ? `${snapshots.length} saved snapshots` : 'Demo curve until daily snapshots exist'}
+              </div>
             </div>
             <div className="flex gap-2">
               {(['1D', '1W', '1M', '1Y'] as const).map((range) => (

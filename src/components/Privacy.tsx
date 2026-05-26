@@ -1,16 +1,19 @@
 import React from 'react';
 import { ArrowLeft, Database, FileText, ShieldCheck, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DataControls from './DataControls';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function Privacy() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-bg px-5 py-8 text-text-main">
       <div className="mx-auto max-w-5xl space-y-6">
         <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-accent">
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {t('back')}
         </button>
 
         <section className="app-hero">
@@ -53,6 +56,7 @@ export default function Privacy() {
             </article>
           ))}
         </div>
+        <DataControls />
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ const NewsFeed = lazy(() => import('./components/NewsFeed'));
 const MarketExplorer = lazy(() => import('./components/MarketExplorer'));
 const AssetDetail = lazy(() => import('./components/AssetDetail'));
 const Alerts = lazy(() => import('./components/Alerts'));
+const Risk = lazy(() => import('./components/Risk'));
+const Briefing = lazy(() => import('./components/Briefing'));
 const Auth = lazy(() => import('./components/Auth'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const Help = lazy(() => import('./components/Help'));
@@ -20,6 +22,7 @@ const Info = lazy(() => import('./components/Info'));
 const Privacy = lazy(() => import('./components/Privacy'));
 const Security = lazy(() => import('./components/Security'));
 const Pricing = lazy(() => import('./components/Pricing'));
+const Terms = lazy(() => import('./components/Terms'));
 
 function AppLoader({ label = 'Loading ZENTRA...' }: { label?: string }) {
   return (
@@ -84,6 +87,7 @@ export default function App() {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/security" element={<Security />} />
                 <Route path="/pricing" element={<Pricing />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </>
             ) : (
@@ -91,12 +95,15 @@ export default function App() {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/security" element={<Security />} />
                 <Route path="/pricing" element={<Pricing />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route element={<Layout user={user} profile={profile} />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/portfolio" element={<Portfolio />} />
                   <Route path="/market" element={<MarketExplorer />} />
                   <Route path="/market/:type/:symbol" element={<AssetDetail />} />
                   <Route path="/alerts" element={<Alerts />} />
+                  <Route path="/risk" element={<Risk />} />
+                  <Route path="/briefing" element={<Briefing />} />
                   <Route path="/news" element={<NewsFeed />} />
                   <Route path="/help" element={<Help />} />
                   <Route path="/info" element={<Info />} />

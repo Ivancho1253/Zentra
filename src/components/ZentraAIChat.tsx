@@ -4,6 +4,7 @@ import { collection, getDocs, query } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
 import { useLanguage } from '../contexts/LanguageContext';
+import { apiFetch } from '../lib/api';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -58,7 +59,7 @@ export default function ZentraAIChat() {
 
     try {
       const context = await loadContext();
-      const response = await fetch('/api/ai/zentra-chat', {
+      const response = await apiFetch('/api/ai/zentra-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

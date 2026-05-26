@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, deleteDoc, doc, onSnapshot, query, updateDoc } from 'firebase/firestore';
-import { AlertCircle, ArrowLeft, BellRing, Pause, Play, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { AlertCircle, ArrowLeft, BellRing, CheckCheck, Mail, Pause, Play, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
-import { PriceAlert } from '../types';
+import { registerPushNotifications } from '../lib/notifications';
+import { PriceAlert, UserNotification } from '../types';
 import CompanyLogo from './CompanyLogo';
 
 interface AlertSnapshot {
@@ -28,8 +29,10 @@ export default function Alerts() {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, AlertSnapshot>>({});
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pushStatus, setPushStatus] = useState('');
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -41,6 +44,22 @@ export default function Alerts() {
       console.error('Could not load alerts:', snapshotError);
       setError('Could not load alerts. Check Firestore permissions.');
       setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const notificationsQuery = query(
+      collection(db, 'users', auth.currentUser.uid, 'notifications'),
+      orderBy('createdAt', 'desc'),
+    );
+    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+      setNotifications(snapshot.docs.map((item) => ({ ...item.data(), id: item.id } as UserNotification)).slice(0, 10));
+    }, (snapshotError) => {
+      console.error('Could not load notifications:', snapshotError);
     });
 
     return () => unsubscribe();
@@ -112,6 +131,19 @@ export default function Alerts() {
     await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'alerts', alert.id));
   };
 
+  const markNotificationRead = async (notification: UserNotification) => {
+    if (!auth.currentUser) return;
+    await updateDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notification.id), {
+      status: 'read',
+    });
+  };
+
+  const enablePushNotifications = async () => {
+    setPushStatus('');
+    const result = await registerPushNotifications();
+    setPushStatus(result.ok ? 'Push notifications enabled.' : `Push unavailable: ${result.reason}`);
+  };
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -135,23 +167,63 @@ export default function Alerts() {
               <div className="accent-chip mb-4"><BellRing className="h-3.5 w-3.5" /> Alerts</div>
               <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">Price alert center</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-text-dim">
-                Track active price thresholds for stocks and crypto. Delivery notifications are still pending; this screen evaluates current status while the app is open.
+                Track price thresholds for stocks and crypto. The server worker can trigger alerts even when the app is closed, create in-app notifications and send email when Resend is configured.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="accent-chip">{summary.active} Active</span>
             <span className={summary.triggeredNow > 0 ? 'accent-chip' : 'quiet-chip'}>{summary.triggeredNow} Triggered now</span>
+            <button onClick={enablePushNotifications} className="quiet-chip transition-all hover:border-accent hover:text-accent">Enable push</button>
           </div>
         </div>
         <div className="absolute bottom-0 left-0 h-px w-full scanline" />
       </section>
+
+      {pushStatus && (
+        <div className="rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-bold text-text-dim">
+          {pushStatus}
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-3 rounded-2xl border border-loss/40 bg-loss/10 px-4 py-3 text-xs font-bold text-loss">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
+      )}
+
+      {notifications.length > 0 && (
+        <section className="panel-card p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="accent-chip mb-2"><Mail className="h-3.5 w-3.5" /> Notifications</div>
+              <h2 className="text-xl font-black uppercase tracking-tight">Recent alert deliveries</h2>
+            </div>
+            <span className="quiet-chip">{notifications.filter((item) => item.status === 'unread').length} unread</span>
+          </div>
+          <div className="grid gap-3">
+            {notifications.map((notification) => (
+              <article key={notification.id} className="rounded-2xl border border-border-accent bg-bg/45 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={notification.status === 'unread' ? 'accent-chip' : 'quiet-chip'}>{notification.status}</span>
+                      <span className="quiet-chip">{notification.symbol}</span>
+                    </div>
+                    <h3 className="mt-3 text-sm font-black">{notification.title}</h3>
+                    <p className="mt-2 whitespace-pre-line text-xs leading-5 text-text-dim">{notification.message}</p>
+                  </div>
+                  {notification.status === 'unread' && (
+                    <button onClick={() => markNotificationRead(notification)} className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent" title="Mark notification read">
+                      <CheckCheck className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
 
       {alerts.length === 0 ? (

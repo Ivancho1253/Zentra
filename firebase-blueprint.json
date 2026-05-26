@@ -10,7 +10,9 @@
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP"] }
+        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP"] },
+        "pushTokens": { "type": "array", "items": { "type": "string" } },
+        "pushEnabledAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email"]
     },
@@ -68,6 +70,39 @@
         "lastCheckedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["symbol", "type", "condition", "targetPrice", "status", "createdAt"]
+    },
+    "PortfolioSnapshot": {
+      "title": "Portfolio Snapshot",
+      "description": "Daily portfolio value snapshot",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "totalValue": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "totalPnl": { "type": "number" },
+        "totalPnlPercent": { "type": ["number", "null"] },
+        "livePricedCount": { "type": "number" },
+        "holdingsCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "totalValue", "totalCost", "totalPnl", "livePricedCount", "holdingsCount", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Server-generated in-app user notification",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["price_alert"] },
+        "symbol": { "type": "string" },
+        "assetType": { "type": "string", "enum": ["stock", "crypto"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["unread", "read"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "targetPrice": { "type": "number" },
+        "currentPrice": { "type": "number" }
+      },
+      "required": ["type", "symbol", "title", "message", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -90,6 +125,14 @@
     "/users/{userId}/alerts/{alertId}": {
       "schema": "Alert",
       "description": "User-defined price alerts"
+    },
+    "/users/{userId}/snapshots/{snapshotId}": {
+      "schema": "PortfolioSnapshot",
+      "description": "Daily portfolio value snapshots"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Server-generated alert notifications"
     }
   }
 }

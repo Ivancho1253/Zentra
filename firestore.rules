@@ -53,7 +53,9 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
-             (data.currency in ['USD', 'EUR', 'GBP']);
+             (data.currency in ['USD', 'EUR', 'GBP']) &&
+             (!('pushTokens' in data) || data.pushTokens is list) &&
+             (!('pushEnabledAt' in data) || data.pushEnabledAt is string);
     }
 
     function isValidAsset(data) {
@@ -87,6 +89,27 @@ service cloud.firestore {
              data.targetPrice is number &&
              data.targetPrice > 0 &&
              data.status in ['active', 'paused', 'triggered'];
+    }
+
+    function isValidSnapshot(data) {
+      return data.keys().hasAll(['date', 'totalValue', 'totalCost', 'totalPnl', 'livePricedCount', 'holdingsCount', 'createdAt']) &&
+             data.date is string &&
+             data.totalValue is number &&
+             data.totalCost is number &&
+             data.totalPnl is number &&
+             data.livePricedCount is number &&
+             data.holdingsCount is number &&
+             data.createdAt is string;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['type', 'symbol', 'title', 'message', 'status', 'createdAt']) &&
+             data.type in ['price_alert'] &&
+             data.symbol is string &&
+             data.title is string &&
+             data.message is string &&
+             data.status in ['unread', 'read'] &&
+             data.createdAt is string;
     }
 
     // User Profiles
@@ -124,6 +147,24 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidAlert(request.resource.data);
         allow update: if isOwner(userId) && isValidAlert(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Portfolio Snapshots Subcollection
+      match /snapshots/{snapshotId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSnapshot(request.resource.data);
+        allow update: if isOwner(userId) && isValidSnapshot(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // In-App Notifications
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if false;
+        allow update: if isOwner(userId) &&
+          isValidNotification(request.resource.data) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
         allow delete: if isOwner(userId);
       }
     }

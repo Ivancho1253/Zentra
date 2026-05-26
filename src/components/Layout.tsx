@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../types';
-import { BellRing, LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon, HelpCircle, Info } from 'lucide-react';
+import { BellRing, Brain, LayoutDashboard, Wallet, Newspaper, LogOut, Compass, Sun, Moon, HelpCircle, Info, Radar, MoreHorizontal } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import TickerTape from './TickerTape';
@@ -19,6 +19,7 @@ export default function Layout({ user, profile }: LayoutProps) {
   const location = useLocation();
   const { t } = useLanguage();
   const [isLight, setIsLight] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -44,13 +45,17 @@ export default function Layout({ user, profile }: LayoutProps) {
     { path: '/', icon: LayoutDashboard, label: t('dashboard') },
     { path: '/portfolio', icon: Wallet, label: t('portfolio') },
     { path: '/market', icon: Compass, label: t('market') },
-    { path: '/alerts', icon: BellRing, label: 'Alerts' },
+    { path: '/alerts', icon: BellRing, label: t('alerts') },
+    { path: '/risk', icon: Radar, label: t('risk') },
+    { path: '/briefing', icon: Brain, label: t('briefing') },
     { path: '/news', icon: Newspaper, label: t('marketNews') },
   ];
   const secondaryItems = [
     { path: '/help', icon: HelpCircle, label: t('help') },
     { path: '/info', icon: Info, label: t('info') },
   ];
+  const mobilePrimaryItems = navItems.slice(0, 4);
+  const mobileMoreItems = [...navItems.slice(4), ...secondaryItems];
 
   return (
     <div className="flex h-screen bg-bg text-text-main font-sans">
@@ -167,20 +172,51 @@ export default function Layout({ user, profile }: LayoutProps) {
         </div>
       </main>
       <ZentraAIChat />
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-7 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
-        {[...navItems, ...secondaryItems].map((item) => (
+      {mobileMoreOpen && (
+        <div className="fixed bottom-[4.35rem] left-3 right-3 z-40 rounded-2xl border border-border-accent bg-bg/95 p-3 shadow-2xl backdrop-blur md:hidden">
+          <div className="grid grid-cols-3 gap-2">
+            {mobileMoreItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setMobileMoreOpen(false)}
+                className={cn(
+                  "flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border border-border-accent px-2 py-2 text-center text-[10px] font-bold",
+                  location.pathname === item.path ? "border-accent bg-accent/10 text-accent" : "text-text-dim"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                <span className="max-w-full truncate">{item.label.replace('Market ', '').replace('Mercado ', '')}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
+        {mobilePrimaryItems.map((item) => (
           <Link
             key={item.path}
             to={item.path}
+            onClick={() => setMobileMoreOpen(false)}
             className={cn(
-              "flex flex-col items-center gap-1 px-2 py-3 text-[10px] font-bold",
+              "flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-bold",
               location.pathname === item.path ? "text-accent" : "text-text-dim"
             )}
           >
             <item.icon className="w-4 h-4" />
-            {item.label.replace('Market ', '').replace('Mercado ', '')}
+            <span className="max-w-full truncate">{item.label.replace('Market ', '').replace('Mercado ', '')}</span>
           </Link>
         ))}
+        <button
+          onClick={() => setMobileMoreOpen((open) => !open)}
+          className={cn(
+            "flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-bold",
+            mobileMoreOpen || mobileMoreItems.some((item) => location.pathname === item.path) ? "text-accent" : "text-text-dim"
+          )}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+          <span>{t('more')}</span>
+        </button>
       </nav>
     </div>
   );
