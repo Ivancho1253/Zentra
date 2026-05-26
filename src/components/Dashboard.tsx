@@ -58,6 +58,8 @@ export default function Dashboard() {
     name: new Date(`${snapshot.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     value: Math.round(snapshot.totalValue),
   }));
+  const latestSnapshot = snapshots[snapshots.length - 1];
+  const displayedTotalValue = latestSnapshot?.totalValue ?? totalValue;
   const hasRealSnapshotChart = snapshotChartData.length >= 2;
   const snapshotPerformance = snapshots.length >= 2 && snapshots[0].totalValue > 0
     ? ((snapshots[snapshots.length - 1].totalValue - snapshots[0].totalValue) / snapshots[0].totalValue) * 100
@@ -69,10 +71,10 @@ export default function Dashboard() {
     '1M': { label: 'Snapshot performance', performance: snapshotPerformance, data: snapshotChartData.slice(-30) },
     '1Y': { label: 'Snapshot performance', performance: snapshotPerformance, data: snapshotChartData.slice(-365) },
   } : {
-    '1D': { label: 'Intraday performance', performance: 1.28, data: [{ name: '09:30', value: 3180 }, { name: '11:00', value: 3260 }, { name: '12:30', value: 3210 }, { name: '14:00', value: 3380 }, { name: '15:30', value: 3470 }, { name: 'Close', value: 3510 }] },
-    '1W': { label: '7-day performance', performance: 4.76, data: [{ name: 'Mon', value: 3020 }, { name: 'Tue', value: 3180 }, { name: 'Wed', value: 3100 }, { name: 'Thu', value: 3340 }, { name: 'Fri', value: 3490 }, { name: 'Sat', value: 3440 }, { name: 'Sun', value: 3580 }] },
-    '1M': { label: '30-day performance', performance: 12.42, data: [{ name: 'W1', value: 2840 }, { name: 'W2', value: 3180 }, { name: 'W3', value: 3040 }, { name: 'W4', value: 3490 }, { name: 'Now', value: 3710 }] },
-    '1Y': { label: '12-month performance', performance: 38.9, data: [{ name: 'Jan', value: 2100 }, { name: 'Mar', value: 2450 }, { name: 'May', value: 2380 }, { name: 'Jul', value: 2860 }, { name: 'Sep', value: 3220 }, { name: 'Nov', value: 3510 }, { name: 'Now', value: 3920 }] },
+    '1D': { label: 'No real history yet', performance: 0, data: [] },
+    '1W': { label: 'No real history yet', performance: 0, data: [] },
+    '1M': { label: 'No real history yet', performance: 0, data: [] },
+    '1Y': { label: 'No real history yet', performance: 0, data: [] },
   };
 
   const activeChart = chartRanges[selectedRange];
@@ -130,14 +132,16 @@ export default function Dashboard() {
               <div className="quiet-chip mb-4"><DollarSign className="h-3.5 w-3.5" /> Overall balance</div>
               <div className="flex flex-wrap items-end gap-3">
                 <h2 className="data-value text-4xl md:text-6xl font-black tracking-tighter">
-                  ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${displayedTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h2>
                 <span className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-text-dim">USD</span>
               </div>
-              <p className="mt-3 text-xs text-text-dim">Valoracion completa de todas tus posiciones.</p>
+              <p className="mt-3 text-xs text-text-dim">
+                {latestSnapshot ? `Latest saved market snapshot from ${latestSnapshot.date}.` : 'Estimated from entry cost until the first market snapshot is saved.'}
+              </p>
             </div>
             <div className="rounded-3xl border border-accent/20 bg-accent/10 p-4 text-right">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} {hasRealSnapshotChart ? 'snapshot' : 'demo'} performance</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{selectedRange} {hasRealSnapshotChart ? 'snapshot' : 'pending'} performance</div>
               <div className="mt-3 flex items-center justify-end gap-2">
                 {isPerformancePositive ? <ArrowUpRight className="h-5 w-5 text-accent" /> : <ArrowDownRight className="h-5 w-5 text-loss" />}
                 <span className={`stat-badge ${isPerformancePositive ? 'stat-up' : 'stat-down'} text-base`}>
@@ -168,7 +172,7 @@ export default function Dashboard() {
             <div>
               <div className="accent-chip mb-2"><TrendingUp className="h-3.5 w-3.5" /> Portfolio growth</div>
               <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">
-                {activeChart.label} · {hasRealSnapshotChart ? `${snapshots.length} saved snapshots` : 'Demo curve until daily snapshots exist'}
+                {activeChart.label} · {hasRealSnapshotChart ? `${snapshots.length} saved snapshots` : 'Chart appears after two saved snapshots'}
               </div>
             </div>
             <div className="flex gap-2">
@@ -179,23 +183,33 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          <div className="h-[310px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activeChart.data}>
-                <defs>
-                  <linearGradient id="dashboardValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.42} />
-                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-accent)" opacity={0.5} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700 }} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)' }} itemStyle={{ color: 'var(--accent)', fontWeight: 800 }} cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#dashboardValue)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {hasRealSnapshotChart ? (
+            <div className="h-[310px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={activeChart.data}>
+                  <defs>
+                    <linearGradient id="dashboardValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.42} />
+                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-accent)" opacity={0.5} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10, fontWeight: 700 }} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)' }} itemStyle={{ color: 'var(--accent)', fontWeight: 800 }} cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                  <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#dashboardValue)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-[310px] flex-col items-center justify-center rounded-2xl border border-dashed border-border-accent bg-bg/35 p-8 text-center">
+              <TrendingUp className="h-8 w-8 text-accent opacity-70" />
+              <div className="mt-4 text-sm font-black uppercase tracking-widest">No synthetic performance</div>
+              <p className="mt-2 max-w-md text-xs leading-6 text-text-dim">
+                Zentra will draw this chart only from saved portfolio snapshots. Add holdings and return after daily snapshots exist.
+              </p>
+            </div>
+          )}
         </motion.div>
 
         <motion.div variants={motionItem} className="panel-card flex flex-col p-6 md:col-span-4">
@@ -252,9 +266,9 @@ export default function Dashboard() {
           </motion.div>
 
           {[
-            { tag: 'Demo Signal', source: 'Sample feed', content: 'SOL muestra volumen institucional creciente y rompe su media de 30 dias.', meta: 'Demo only' },
-            { tag: 'Demo Markets', source: 'Sample feed', content: 'La Reserva Federal mantiene tasas estables; Wall Street responde con apetito por riesgo.', meta: 'Demo only' },
-            { tag: 'Demo Sentiment', source: 'Sample feed', content: 'AAPL sube en sentimiento tras nuevas guias de IA y fuerte demanda de servicios.', meta: 'Demo only' },
+            { tag: 'Next action', source: 'Portfolio', content: assets.length === 0 ? 'Add or import your first holding to unlock risk, alerts and daily snapshots.' : 'Open the Risk page to review concentration and top exposure before adding more positions.', meta: assets.length === 0 ? 'Setup required' : 'Based on holdings' },
+            { tag: 'Data quality', source: 'Snapshots', content: hasRealSnapshotChart ? `Zentra has ${snapshots.length} saved snapshots for historical performance.` : 'Performance charts stay hidden until enough real snapshots exist.', meta: hasRealSnapshotChart ? 'Live history' : 'No synthetic data' },
+            { tag: 'Retention hook', source: 'Alerts', content: 'Create price alerts for top holdings so Zentra can notify you when thresholds are crossed.', meta: 'Actionable workflow' },
           ].map((item) => (
             <motion.div key={item.tag} variants={motionItem} whileHover={{ y: -5 }} className="panel-card p-6">
               <div className="mb-4 flex items-start justify-between">

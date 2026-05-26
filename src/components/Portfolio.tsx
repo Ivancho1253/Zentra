@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { addDoc, collection, doc, getDoc, onSnapshot, query, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, limit, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, ArrowUpRight, Camera, Check, FileText, Filter, KeyRound, Landmark, Plus, Search, Shield, Sparkles, TrendingUp, Upload, Wallet, WalletCards } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
-import { Asset, Transaction } from '../types';
+import { Asset, PortfolioSnapshot, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
 import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
 import { apiFetch } from '../lib/api';
@@ -88,6 +88,7 @@ export default function Portfolio() {
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([]);
   const [priceSnapshots, setPriceSnapshots] = useState<Record<string, PortfolioPriceSnapshot>>({});
+  const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
 
   useEffect(() => {
     if (searchParams.get('addAsset') !== '1') return;
@@ -123,9 +124,20 @@ export default function Portfolio() {
       setLoading(false);
     });
 
+    const unsubSnapshots = onSnapshot(
+      query(collection(db, 'users', auth.currentUser.uid, 'snapshots'), orderBy('date', 'asc'), limit(365)),
+      (snapshot) => {
+        setSnapshots(snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as PortfolioSnapshot)));
+      },
+      (error) => {
+        console.warn('Could not load portfolio snapshots:', error);
+      },
+    );
+
     return () => {
       unsubAssets();
       unsubTx();
+      unsubSnapshots();
     };
   }, []);
 
@@ -233,14 +245,11 @@ export default function Portfolio() {
     portfolioMetrics.totalPnlPercent,
     portfolioMetrics.livePricedCount,
   ]);
-  const chartData = [
-    { name: 'Jan', value: Math.round(totalValue * 0.78) },
-    { name: 'Feb', value: Math.round(totalValue * 0.86) },
-    { name: 'Mar', value: Math.round(totalValue * 0.92) },
-    { name: 'Apr', value: Math.round(totalValue * 1.04) },
-    { name: 'May', value: Math.round(totalValue * 1.01) },
-    { name: 'Jun', value: Math.round(totalValue * 1.12) },
-  ];
+  const chartData = snapshots.map((snapshot) => ({
+    name: new Date(`${snapshot.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    value: Math.round(snapshot.totalValue),
+  }));
+  const hasValueHistory = chartData.length >= 2;
 
   const formatMoney = (value: number) => {
     if (!Number.isFinite(value)) return '$0.00';
@@ -1261,27 +1270,39 @@ export default function Portfolio() {
           <div className="mb-5 flex items-start justify-between">
             <div>
               <h3 className="text-sm font-black uppercase tracking-widest">Value path</h3>
-              <div className="mt-1 text-xs text-text-dim">{formatMoney(totalValue)} current market value · demo curve until daily snapshots exist</div>
+              <div className="mt-1 text-xs text-text-dim">
+                {formatMoney(totalValue)} current market value · {hasValueHistory ? `${chartData.length} saved daily snapshots` : 'history starts after two daily snapshots'}
+              </div>
             </div>
-            <span className="quiet-chip">Demo curve</span>
+            <span className={hasValueHistory ? 'accent-chip' : 'quiet-chip'}>{hasValueHistory ? 'Live history' : 'No synthetic curve'}</span>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="portfolioFlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-accent)" opacity={0.4} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)' }} />
-                <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#portfolioFlow)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {hasValueHistory ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="portfolioFlow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-accent)" opacity={0.4} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)' }} />
+                  <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#portfolioFlow)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border-accent bg-bg/35 p-8 text-center">
+              <TrendingUp className="h-8 w-8 text-accent opacity-70" />
+              <h4 className="mt-4 text-sm font-black uppercase tracking-widest">Waiting for real history</h4>
+              <p className="mt-2 max-w-md text-xs leading-6 text-text-dim">
+                Zentra saves one portfolio snapshot per day. The chart appears after two real snapshots instead of using a fake performance curve.
+              </p>
+            </div>
+          )}
         </motion.div>
       </div>
 

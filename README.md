@@ -1,6 +1,6 @@
 # ZENTRA
 
-**Know before it moves.**
+**Understand what moved your portfolio today.**
 
 ZENTRA is a modern market intelligence terminal for tracking portfolios, exploring stocks and crypto, reading live market context, and asking an AI assistant questions about specific assets. It combines a React frontend, an Express/Vite backend, Firebase Auth + Firestore persistence, live market data proxies, local asset logos, heat maps, news, and Gemini-powered analysis.
 
@@ -8,13 +8,14 @@ The product is designed around one idea: make market research feel fast, visual,
 
 ## What It Does
 
-- Tracks portfolio holdings and transaction history in Firestore.
+- Tracks portfolio holdings, transaction history, daily snapshots, alerts, and in-app notifications in Firestore.
 - Explores stocks and crypto with local logos, prices, percentage change, favorites, and detail pages.
 - Shows a TradingView-style asset detail page with current price, fundamentals, technical summary, chart widget, favorites, and portfolio handoff.
 - Opens the Portfolio add-position form from a specific asset with symbol, type, name, and current price prefilled.
 - Provides a navigable heat map for stocks and crypto, sized by market capitalization.
 - Shows a constantly refreshed market ticker.
-- Integrates an AI asset chat backed by Gemini from the server.
+- Integrates Gemini-backed AI routes from the server for asset chat, portfolio briefing, and import review.
+- Marks market data as live, cached, fallback, estimated, or delayed instead of presenting every number as equally reliable.
 - Supports English, Spanish, and Portuguese through the app language selector.
 - Uses local logo assets for stable, fast rendering.
 
@@ -61,6 +62,9 @@ Zentra/
   firebase-applet-config.json
   firestore.rules
   server.ts
+  server/
+    routes/
+    services/
   package.json
 ```
 
@@ -76,10 +80,21 @@ Zentra/
 
 Create a local `.env` file in the project root. This file is intentionally ignored by Git and must never be committed.
 
+Use `.env.example` as the install template:
+
 ```env
-GEMINI_API_KEY="your_gemini_api_key"
-TWELVE_DATA_API_KEY="your_twelve_data_api_key"
-NEWS_API_KEY="your_news_api_key"
+GEMINI_API_KEY=
+TWELVE_DATA_API_KEY=
+NEWS_API_KEY=
+RESEND_API_KEY=
+SUPPORT_FROM_EMAIL=
+PORT=3000
+FIREBASE_PROJECT_ID=
+FIREBASE_SERVICE_ACCOUNT_JSON=
+GOOGLE_APPLICATION_CREDENTIALS=
+ALERT_WORKER_INTERVAL_MS=60000
+ALERT_NOTIFY_COOLDOWN_MS=3600000
+VITE_FIREBASE_MESSAGING_VAPID_KEY=
 ```
 
 ### Required
@@ -98,6 +113,14 @@ Used for stock quotes, crypto quote fallback, and time series endpoints. If miss
 
 Used by `/api/news`. If missing, ZENTRA returns curated fallback news.
 
+`FIREBASE_SERVICE_ACCOUNT_JSON` or `GOOGLE_APPLICATION_CREDENTIALS`
+
+Required for server-side Firebase Admin features: verifying ID tokens, account deletion, alert worker checks, in-app notifications, and push delivery.
+
+`RESEND_API_KEY` and `SUPPORT_FROM_EMAIL`
+
+Required for support email and alert email delivery. Without them, the app still creates in-app notifications where Firebase Admin is configured.
+
 ## Firebase Setup
 
 The frontend loads Firebase config from:
@@ -115,6 +138,9 @@ The app expects:
   - `users/{uid}/assets`
   - `users/{uid}/transactions`
   - `users/{uid}/favorites`
+  - `users/{uid}/alerts`
+  - `users/{uid}/snapshots`
+  - `users/{uid}/notifications`
 
 Security rules live in:
 
@@ -169,6 +195,26 @@ This project uses TypeScript's compiler as the lint/type validation step:
 ```text
 tsc --noEmit
 ```
+
+## Tests
+
+```powershell
+npm.cmd test
+npm.cmd run test:e2e
+npm.cmd run test:rules
+```
+
+`test:rules` runs the emulator-ready Firestore rules suite when `FIRESTORE_EMULATOR_HOST` is set and skips those emulator-only assertions otherwise.
+
+## Data Quality Policy
+
+ZENTRA is strict about not hiding fake financial data:
+
+- Portfolio value uses live market snapshots when available.
+- Missing prices fall back to entry cost and are marked as estimated.
+- Dashboard and Portfolio charts use saved daily snapshots only.
+- If there are not enough real snapshots, the chart shows an empty state instead of a synthetic performance curve.
+- Market endpoints return `source`, `fallback`, `stale`, `cached`, or `updatedAt` metadata where available.
 
 ## Clean Build Output
 
