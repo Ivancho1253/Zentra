@@ -6,6 +6,7 @@ import { db, auth } from '../lib/firebase';
 import CompanyLogo from './CompanyLogo';
 import { useLanguage } from '../contexts/LanguageContext';
 import { apiFetch } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 declare global {
   interface Window {
@@ -164,8 +165,10 @@ export default function AssetDetail() {
       });
       setAlertStatus(`Alert saved: ${normalizedSymbol} ${alertCondition} ${formattedPrice.startsWith('$') ? '$' : ''}${targetPrice.toLocaleString()}.`);
       setAlertTarget('');
+      trackEvent('alert_created', { symbol: normalizedSymbol, type: assetKind, condition: alertCondition });
     } catch (error) {
       console.error('Could not save price alert:', error);
+      trackEvent('alert_create_failed', { symbol: normalizedSymbol, type: assetKind, condition: alertCondition });
       setAlertStatus('Could not save the alert. Check permissions or try again.');
     }
   };
@@ -195,8 +198,10 @@ export default function AssetDetail() {
       if (!response.ok || text.trim().startsWith('<')) throw new Error('AI route unavailable');
       const data = JSON.parse(text);
       setChatMessages((messages) => [...messages, { role: 'assistant', text: data.answer || data.error || t('aiResponseUnavailable') }]);
+      trackEvent('ai_asset_chat_asked', { symbol: normalizedSymbol, type: assetKind });
     } catch (error) {
       setChatMessages((messages) => [...messages, { role: 'assistant', text: t('aiUnavailable') }]);
+      trackEvent('ai_asset_chat_failed', { symbol: normalizedSymbol, type: assetKind });
     } finally {
       setChatLoading(false);
     }

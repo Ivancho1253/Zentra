@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Layout from './components/Layout';
 import { UserProfile } from './types';
 import { LanguageProvider } from './contexts/LanguageContext';
+import AnalyticsTracker from './components/AnalyticsTracker';
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Portfolio = lazy(() => import('./components/Portfolio'));
@@ -78,6 +79,7 @@ export default function App() {
   return (
     <LanguageProvider>
       <Router>
+        <AnalyticsTracker />
         <Suspense fallback={<AppLoader />}>
           <Routes>
             {!user ? (

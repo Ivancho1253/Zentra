@@ -95,6 +95,9 @@ GOOGLE_APPLICATION_CREDENTIALS=
 ALERT_WORKER_INTERVAL_MS=60000
 ALERT_NOTIFY_COOLDOWN_MS=3600000
 VITE_FIREBASE_MESSAGING_VAPID_KEY=
+STRICT_HEALTHCHECK=false
+ANALYTICS_LOG_EVENTS=false
+VITE_ANALYTICS_ENABLED=false
 ```
 
 ### Required
@@ -120,6 +123,14 @@ Required for server-side Firebase Admin features: verifying ID tokens, account d
 `RESEND_API_KEY` and `SUPPORT_FROM_EMAIL`
 
 Required for support email and alert email delivery. Without them, the app still creates in-app notifications where Firebase Admin is configured.
+
+`STRICT_HEALTHCHECK`
+
+When set to `true`, `/api/ready` returns HTTP 503 if beta-critical services are degraded. Keep it `false` for early beta unless your hosting platform requires strict readiness checks.
+
+`ANALYTICS_LOG_EVENTS` and `VITE_ANALYTICS_ENABLED`
+
+Enable privacy-safe beta analytics events. Events do not include emails, raw messages, tokens, or portfolio values.
 
 ## Firebase Setup
 
@@ -202,9 +213,13 @@ tsc --noEmit
 npm.cmd test
 npm.cmd run test:e2e
 npm.cmd run test:rules
+npm.cmd run test:rules:emulator
+npm.cmd run validate:beta
 ```
 
 `test:rules` runs the emulator-ready Firestore rules suite when `FIRESTORE_EMULATOR_HOST` is set and skips those emulator-only assertions otherwise.
+
+`test:rules:emulator` starts the Firestore emulator and runs the rule tests end-to-end. It requires Java 11 or newer locally. GitHub Actions installs Java 21 automatically.
 
 ## Data Quality Policy
 
@@ -223,6 +238,15 @@ npm.cmd run clean
 ```
 
 ## API Routes
+
+### Operations
+
+```http
+GET /api/health
+GET /api/ready
+GET /api/providers
+POST /api/analytics/events
+```
 
 ### Market
 
@@ -401,18 +425,32 @@ Set these environment variables in the hosting provider:
 GEMINI_API_KEY
 TWELVE_DATA_API_KEY
 NEWS_API_KEY
+RESEND_API_KEY
+SUPPORT_FROM_EMAIL
+FIREBASE_PROJECT_ID
+FIREBASE_SERVICE_ACCOUNT_JSON
+ALERT_WORKER_INTERVAL_MS
+ALERT_NOTIFY_COOLDOWN_MS
+STRICT_HEALTHCHECK
+ANALYTICS_LOG_EVENTS
+VITE_FIREBASE_MESSAGING_VAPID_KEY
+VITE_ANALYTICS_ENABLED
 ```
 
-## Product Direction
+## Beta Operations
 
-Good next steps for ZENTRA:
+Before deploying a private beta, read:
 
-- Add watchlist alerts.
-- Add richer asset fundamentals.
-- Add AI responses grounded in live news and portfolio exposure.
-- Add portfolio performance using live mark-to-market prices.
-- Add model/provider selector for Gemini, OpenAI, or Anthropic.
-- Add end-to-end tests for the market and portfolio flows.
+- `docs/beta-operations.md`
+- `docs/provider-strategy.md`
+
+The beta standard is:
+
+- CI must pass lint, tests, Firestore rules emulator tests, build, and audit.
+- `/api/health` must return `ok: true`.
+- `/api/ready` must not show missing services required by the beta scope.
+- API keys and Firebase Admin credentials must live in the deploy provider, never in Git.
+- Financial data must keep visible live/fallback/estimated context.
 
 ## Disclaimer
 

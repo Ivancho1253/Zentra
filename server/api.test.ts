@@ -56,4 +56,40 @@ describe("API endpoints", () => {
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body.articles)).toBe(true);
   });
+
+  it("serves a public health check", async () => {
+    const app = await createApp({ includeFrontend: false });
+
+    const response = await request(app).get("/api/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.service).toBe("zentra");
+  });
+
+  it("serves provider strategy metadata", async () => {
+    const app = await createApp({ includeFrontend: false });
+
+    const response = await request(app).get("/api/providers");
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.providers)).toBe(true);
+    expect(response.body.providers.some((provider: any) => provider.domain === "stocks")).toBe(true);
+  });
+
+  it("accepts sanitized analytics events", async () => {
+    const app = await createApp({ includeFrontend: false });
+
+    const response = await request(app)
+      .post("/api/analytics/events")
+      .send({
+        name: "page_view",
+        sessionId: "test-session-123",
+        route: "/",
+        properties: { path: "/", loggedIn: false },
+      });
+
+    expect(response.status).toBe(202);
+    expect(response.body.ok).toBe(true);
+  });
 });

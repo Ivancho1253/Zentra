@@ -6,6 +6,7 @@ import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, create
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSelector from './LanguageSelector';
+import { trackEvent } from '../lib/analytics';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -25,12 +26,15 @@ export default function Auth() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      trackEvent('auth_google_success');
     } catch (err: any) {
       if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         const provider = new GoogleAuthProvider();
+        trackEvent('auth_google_redirect');
         await signInWithRedirect(auth, provider);
         return;
       }
+      trackEvent('auth_google_failed', { code: err.code || 'unknown' });
       setError(err.message);
     }
   };
@@ -41,10 +45,13 @@ export default function Auth() {
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
+        trackEvent('auth_email_login_success');
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
+        trackEvent('auth_email_register_success');
       }
     } catch (err: any) {
+      trackEvent(isLogin ? 'auth_email_login_failed' : 'auth_email_register_failed', { code: err.code || 'unknown' });
       setError(err.message);
     }
   };

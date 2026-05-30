@@ -13,6 +13,8 @@
     "validate": "npm run lint && npm test && npm run build",
     "test:e2e": "vitest run server/mobileSmoke.test.ts",
     "test:rules": "vitest run server/firestoreRules.emulator.test.ts",
+    "test:rules:emulator": "npx firebase-tools@13 emulators:exec --only firestore --project zentra-rules-test \"npm run test:rules\"",
+    "validate:beta": "npm run lint && npm test && npm run build && npm audit --audit-level=moderate",
     "start": "tsx server.ts"
   },
   "dependencies": {

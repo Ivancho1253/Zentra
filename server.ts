@@ -8,17 +8,21 @@ import { startAlertWorker } from "./server/services/alertWorker";
 import { requireFirebaseAuth } from "./server/services/authService";
 import { cacheJsonResponse } from "./server/services/cacheService";
 import { extractJsonObject, heuristicPortfolioExtract, parseLooseNumber } from "./server/services/importParser";
+import { requestLogger } from "./server/services/logger";
 import { fetchGoogleNewsRss } from "./server/services/newsService";
+import { registerAnalyticsRoutes } from "./server/routes/analytics";
 import { applyRateLimits, applySecurityMiddleware } from "./server/routes/middleware";
 import { registerAiAssetChatRoutes } from "./server/routes/aiAssetChat";
 import { registerAiImportRoutes } from "./server/routes/aiImport";
 import { registerAiBriefingRoutes } from "./server/routes/aiBriefing";
 import { registerAiZentraChatRoutes } from "./server/routes/aiZentraChat";
 import { registerDataRoutes } from "./server/routes/data";
+import { registerHealthRoutes } from "./server/routes/health";
 import { registerMarketAssetRoutes } from "./server/routes/marketAssets";
 import { registerMarketListRoutes } from "./server/routes/marketLists";
 import { registerMarketProxyRoutes } from "./server/routes/marketProxy";
 import { registerNewsRoutes } from "./server/routes/news";
+import { registerProviderRoutes } from "./server/routes/providers";
 import { registerSupportRoutes } from "./server/routes/support";
 import { registerWalletRoutes } from "./server/routes/wallet";
 
@@ -877,6 +881,7 @@ export async function createApp(options: { includeFrontend?: boolean; enableAler
   const app = express();
 
   applySecurityMiddleware(app);
+  app.use(requestLogger);
   app.use(express.json({ limit: "12mb" }));
   applyRateLimits(app);
 
@@ -890,6 +895,9 @@ export async function createApp(options: { includeFrontend?: boolean; enableAler
   app.use("/api/market/hot", cacheJsonResponse(15_000));
   app.use("/api/market/asset", cacheJsonResponse(15_000));
   app.use("/api/news", cacheJsonResponse(120_000));
+  registerHealthRoutes(app);
+  registerProviderRoutes(app);
+  registerAnalyticsRoutes(app);
   registerMarketProxyRoutes(app);
 
   registerMarketListRoutes(app, {

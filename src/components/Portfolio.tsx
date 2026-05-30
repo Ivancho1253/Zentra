@@ -9,6 +9,7 @@ import { Asset, PortfolioSnapshot, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
 import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
 import { apiFetch } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 declare global {
   interface Window {
@@ -371,8 +372,10 @@ export default function Portfolio() {
       setQuantity('');
       setPrice('');
       setIsAdding(false);
+      trackEvent('portfolio_position_added', { type, source: 'manual' });
     } catch (error) {
       console.error('Error adding asset:', error);
+      trackEvent('portfolio_position_add_failed', { type, source: 'manual' });
       setFormError('Could not save the position. Please try again.');
     }
   };
@@ -426,6 +429,7 @@ export default function Portfolio() {
         ? `Read-only ${ecosystemLabel} scan found ${candidates.length} crypto position${candidates.length === 1 ? '' : 's'} across ${networkCount} network${networkCount === 1 ? '' : 's'}. Review quantities and prices before importing.`
         : `Wallet linked in read-only mode, but no supported ZENTRA crypto balances were detected yet. Scanned ${networkCount} ${ecosystemLabel} network${networkCount === 1 ? '' : 's'} for ${symbolList}.`
     );
+    trackEvent('wallet_scan_completed', { ecosystem, positions: candidates.length, networks: networkCount });
   };
 
   const connectReadOnlyWallet = async () => {
@@ -482,6 +486,7 @@ export default function Portfolio() {
       await scanReadOnlyWallet(account, 'sui');
     } catch (error) {
       console.error('Wallet import failed:', error);
+      trackEvent('wallet_scan_failed', { ecosystem: walletEcosystem, mode: 'connect' });
       setWalletStatus('Could not scan the wallet. No transaction, signature or token approval was requested.');
     } finally {
       setWalletLoading(false);
@@ -508,6 +513,7 @@ export default function Portfolio() {
       await scanReadOnlyWallet(cleanAddress, walletEcosystem);
     } catch (error) {
       console.error('Manual wallet scan failed:', error);
+      trackEvent('wallet_scan_failed', { ecosystem: walletEcosystem, mode: 'manual_address' });
       setWalletStatus('Could not scan that address right now. No transaction, signature or wallet access was requested.');
     } finally {
       setWalletLoading(false);
@@ -562,8 +568,14 @@ export default function Portfolio() {
           ? `${data.source === 'fallback-parser' ? 'Fallback parser' : 'AI'} detected ${candidates.length} position${candidates.length === 1 ? '' : 's'}. Review every row before importing.`
           : 'No positions were detected. Make sure the file shows ticker/symbol, quantity and buy or average price.'
       );
+      trackEvent('portfolio_import_file_analyzed', {
+        source: data.source || 'unknown',
+        positions: candidates.length,
+        mimeType: file.type || 'unknown',
+      });
     } catch (error) {
       console.error('Screenshot analysis failed:', error);
+      trackEvent('portfolio_import_file_failed', { mimeType: file.type || 'unknown' });
       setScreenshotStatus('Could not read that file. Try a clearer screenshot, CSV, Excel or Word document with symbols, quantities and average prices visible.');
     } finally {
       setScreenshotLoading(false);
@@ -605,8 +617,10 @@ export default function Portfolio() {
       setScreenshotStatus('');
       setWalletStatus('');
       setIsAdding(false);
+      trackEvent('portfolio_import_positions_saved', { positions: validCandidates.length });
     } catch (error) {
       console.error('Bulk import failed:', error);
+      trackEvent('portfolio_import_positions_failed', { positions: validCandidates.length });
       setFormError('Could not import the detected positions. Please try again.');
     }
   };

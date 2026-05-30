@@ -56,6 +56,13 @@ export function applyRateLimits(app: express.Express) {
     legacyHeaders: false,
     message: { error: "Too many account data requests. Please try again later." },
   });
+  const analyticsLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 80,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many analytics events. Please slow down." },
+  });
 
   app.use("/api/market", marketLimiter);
   app.use("/api/ai", aiLimiter);
@@ -63,4 +70,5 @@ export function applyRateLimits(app: express.Express) {
   app.use("/api/wallet", walletLimiter);
   app.use("/api/support", supportLimiter);
   app.use("/api/data", dataLimiter);
+  app.use("/api/analytics", analyticsLimiter);
 }
