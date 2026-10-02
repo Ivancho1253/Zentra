@@ -29,7 +29,10 @@ const roundPercent = (value: number) => Math.round(value * 100) / 100;
 
 export function calculateRiskSummary(metrics: PortfolioMetrics): RiskSummary {
   const total = metrics.totalCurrentValue;
-  const holdings = metrics.holdings.filter((holding) => holding.currentValue > 0);
+  const holdings = metrics.holdings.filter(
+    (holding) =>
+      holding.currentValue > 0 && (!holding.asset.currency || holding.asset.currency === 'USD'),
+  );
   const byTypeMap = new Map<string, number>();
 
   holdings.forEach((holding) => {
@@ -42,7 +45,11 @@ export function calculateRiskSummary(metrics: PortfolioMetrics): RiskSummary {
     .reduce((sum, holding) => sum + holding.currentValue, 0);
 
   const byType = [...byTypeMap.entries()]
-    .map(([label, value]) => ({ label, value, percent: total > 0 ? roundPercent((value / total) * 100) : 0 }))
+    .map(([label, value]) => ({
+      label,
+      value,
+      percent: total > 0 ? roundPercent((value / total) * 100) : 0,
+    }))
     .sort((a, b) => b.value - a.value);
 
   const topHoldings = holdings
@@ -60,9 +67,12 @@ export function calculateRiskSummary(metrics: PortfolioMetrics): RiskSummary {
 
   const concentrationRisk = Math.min(largestHoldingPercent * 1.4, 55);
   const cryptoRisk = Math.min(cryptoPercent * 0.45, 35);
-  const dataQualityRisk = metrics.livePricedCount < holdings.length ? 10 : 0;
+  const dataQualityRisk = holdings.some((h) => h.isEstimated) ? 10 : 0;
   const stablecoinOffset = Math.min(stablecoinPercent * 0.2, 10);
-  const riskScore = Math.max(0, Math.min(100, Math.round(concentrationRisk + cryptoRisk + dataQualityRisk - stablecoinOffset)));
+  const riskScore = Math.max(
+    0,
+    Math.min(100, Math.round(concentrationRisk + cryptoRisk + dataQualityRisk - stablecoinOffset)),
+  );
 
   const insights: RiskInsight[] = [];
   if (largestHoldingPercent >= 40) {
@@ -107,11 +117,12 @@ export function calculateRiskSummary(metrics: PortfolioMetrics): RiskSummary {
     });
   }
 
-  if (metrics.livePricedCount < holdings.length && holdings.length > 0) {
+  if (holdings.some((h) => h.isEstimated)) {
     insights.push({
       level: 'medium',
       title: 'Some prices are estimated',
-      description: 'One or more holdings could not be priced live, so risk metrics use entry price as an estimate.',
+      description:
+        'One or more holdings could not be priced live, so risk metrics use entry price as an estimate.',
     });
   }
 

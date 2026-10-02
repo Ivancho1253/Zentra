@@ -1,5 +1,5 @@
-import type express from "express";
-import { z } from "zod";
+import type express from 'express';
+import { z } from 'zod';
 
 type WalletChain = {
   name: string;
@@ -14,27 +14,32 @@ type RegisterWalletRoutesOptions = {
   getReadOnlyPositionsByEcosystem: (address: string, ecosystem: string) => Promise<unknown[]>;
 };
 
-const walletEcosystemSchema = z.enum(["evm", "solana", "sui"]);
+const walletEcosystemSchema = z.enum(['evm', 'solana', 'sui']);
 
-const getStringParam = (value: unknown, fallback = "") => {
+const getStringParam = (value: unknown, fallback = '') => {
   const first = Array.isArray(value) ? value[0] : value;
-  return typeof first === "string" ? first.trim() : fallback;
+  return typeof first === 'string' ? first.trim() : fallback;
 };
 
 export function registerWalletRoutes(app: express.Express, options: RegisterWalletRoutesOptions) {
-  app.get("/api/wallet/read-only", async (req, res) => {
+  app.get('/api/wallet/read-only', async (req, res) => {
     const address = getStringParam(req.query.address);
-    const ecosystemResult = walletEcosystemSchema.safeParse(getStringParam(req.query.ecosystem, "evm").toLowerCase());
-    const ecosystem = ecosystemResult.success ? ecosystemResult.data : "evm";
+    const ecosystemResult = walletEcosystemSchema.safeParse(
+      getStringParam(req.query.ecosystem, 'evm').toLowerCase(),
+    );
+    const ecosystem = ecosystemResult.success ? ecosystemResult.data : 'evm';
 
-    const isValidAddress = ecosystem === "solana"
-      ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
-      : ecosystem === "sui"
-        ? /^0x[a-fA-F0-9]{64}$/.test(address)
-        : /^0x[a-fA-F0-9]{40}$/.test(address);
+    const isValidAddress =
+      ecosystem === 'solana'
+        ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
+        : ecosystem === 'sui'
+          ? /^0x[a-fA-F0-9]{64}$/.test(address)
+          : /^0x[a-fA-F0-9]{40}$/.test(address);
 
     if (!isValidAddress) {
-      return res.status(400).json({ error: `A valid ${ecosystem.toUpperCase()} wallet address is required` });
+      return res
+        .status(400)
+        .json({ error: `A valid ${ecosystem.toUpperCase()} wallet address is required` });
     }
 
     try {
@@ -43,14 +48,19 @@ export function registerWalletRoutes(app: express.Express, options: RegisterWall
         chain.native.symbol,
         ...chain.tokens.map((token) => token.symbol),
       ]);
-      const solanaSymbols = ["SOL", ...Object.values(options.solanaTokenMints).map((token) => token.symbol)];
+      const solanaSymbols = [
+        'SOL',
+        ...Object.values(options.solanaTokenMints).map((token) => token.symbol),
+      ];
       const suiSymbols = Object.values(options.suiCoinTypes).map((coin) => coin.symbol);
-      const networks = ecosystem === "solana"
-        ? ["Solana"]
-        : ecosystem === "sui"
-          ? ["Sui"]
-          : options.evmWalletChains.map((chain) => chain.name);
-      const supportedSymbols = ecosystem === "solana" ? solanaSymbols : ecosystem === "sui" ? suiSymbols : evmSymbols;
+      const networks =
+        ecosystem === 'solana'
+          ? ['Solana']
+          : ecosystem === 'sui'
+            ? ['Sui']
+            : options.evmWalletChains.map((chain) => chain.name);
+      const supportedSymbols =
+        ecosystem === 'solana' ? solanaSymbols : ecosystem === 'sui' ? suiSymbols : evmSymbols;
 
       res.json({
         address,
@@ -61,8 +71,8 @@ export function registerWalletRoutes(app: express.Express, options: RegisterWall
         readOnly: true,
       });
     } catch (error) {
-      console.error("Read-only wallet scan failed:", error);
-      res.status(500).json({ error: "Could not scan that wallet in read-only mode" });
+      console.error('Read-only wallet scan failed:');
+      res.status(500).json({ error: 'Could not scan that wallet in read-only mode' });
     }
   });
 }

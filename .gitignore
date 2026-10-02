@@ -1,7 +1,11 @@
 node_modules/
 build/
 dist/
+dist-server/
 coverage/
+.codex-runtime/
+playwright-report/
+test-results/
 .DS_Store
 *.log
 .env*

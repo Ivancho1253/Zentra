@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowLeft, BadgeAlert, FileText, Scale, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,15 +32,23 @@ export default function Terms() {
   return (
     <div className="min-h-screen bg-bg px-5 py-8 text-text-main">
       <div className="mx-auto max-w-5xl space-y-6">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-accent">
+        <button
+          aria-label="Back"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-accent"
+        >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </button>
 
         <section className="app-hero">
           <div className="relative z-10">
-            <div className="accent-chip mb-4"><Scale className="h-3.5 w-3.5" /> {t('terms')}</div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter md:text-6xl">{t('termsTitle')}</h1>
+            <div className="accent-chip mb-4">
+              <Scale className="h-3.5 w-3.5" /> {t('terms')}
+            </div>
+            <h1 className="text-4xl font-black uppercase tracking-tighter md:text-6xl">
+              {t('termsTitle')}
+            </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-text-dim">{t('termsIntro')}</p>
           </div>
         </section>

@@ -1,12 +1,16 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import { UserProfile } from './types';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from 'react-router-dom';
+import { brand } from '../shared/brand';
 import AnalyticsTracker from './components/AnalyticsTracker';
+import ErrorBoundary from './components/ErrorBoundary';
+import Layout from './components/Layout';
+import { LanguageProvider } from './contexts/LanguageContext';
+import { auth, db } from './lib/firebase';
+import { accountPaths, postLoginPath } from './lib/authNavigation';
+import { queryClient } from './lib/query';
+import { UserProfile } from './types';
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Portfolio = lazy(() => import('./components/Portfolio'));
@@ -24,13 +28,31 @@ const Privacy = lazy(() => import('./components/Privacy'));
 const Security = lazy(() => import('./components/Security'));
 const Pricing = lazy(() => import('./components/Pricing'));
 const Terms = lazy(() => import('./components/Terms'));
+const Watchlists = lazy(() => import('./components/Watchlists'));
+const TransactionLedger = lazy(() => import('./components/TransactionLedger'));
+const SocialIntelligence = lazy(() => import('./components/SocialIntelligence'));
+const PortfolioAnalytics = lazy(() => import('./components/PortfolioAnalytics'));
+const DemoTerminal = lazy(() => import('./components/DemoTerminal'));
 
-function AppLoader({ label = 'Loading ZENTRA...' }: { label?: string }) {
+function AuthRedirect({ signedIn = false }: { signedIn?: boolean }) {
+  const location = useLocation();
+  return signedIn ? (
+    <Navigate to={postLoginPath(location.state)} replace />
+  ) : (
+    <Navigate
+      to="/auth"
+      replace
+      state={{ from: `${location.pathname}${location.search}${location.hash}` }}
+    />
+  );
+}
+
+function AppLoader({ label = `Loading ${brand.name}...` }: { label?: string }) {
   return (
     <div className="flex flex-col h-screen items-center justify-center bg-bg gap-6">
       <img
-        src="/logo.png"
-        alt="ZENTRA Logo"
+        src={brand.icon}
+        alt={`${brand.name} logo`}
         className="w-20 h-20 object-contain animate-pulse"
         referrerPolicy="no-referrer"
       />
@@ -46,75 +68,94 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+      queryClient.clear();
+      try {
+        setUser(user);
+        if (user) {
+          const docRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setProfile(docSnap.data() as UserProfile);
+          } else {
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || '',
+              photoURL: user.photoURL || '',
+              currency: 'USD',
+            };
+            await setDoc(docRef, newProfile);
+            setProfile(newProfile);
+          }
         } else {
-          const newProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || '',
-            photoURL: user.photoURL || '',
-            currency: 'USD',
-          };
-          await setDoc(docRef, newProfile);
-          setProfile(newProfile);
+          setProfile(null);
         }
-      } else {
+      } catch (error) {
+        console.error('Auth profile bootstrap failed:', error);
         setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
   if (loading) {
-    return <AppLoader label="ZENTRA initializing..." />;
+    return <AppLoader label={`${brand.name} initializing...`} />;
   }
 
   return (
     <LanguageProvider>
       <Router>
         <AnalyticsTracker />
-        <Suspense fallback={<AppLoader />}>
-          <Routes>
-            {!user ? (
-              <>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/security" element={<Security />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </>
-            ) : (
-              <>
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/security" element={<Security />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route element={<Layout user={user} profile={profile} />}>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/portfolio" element={<Portfolio />} />
-                  <Route path="/market" element={<MarketExplorer />} />
-                  <Route path="/market/:type/:symbol" element={<AssetDetail />} />
-                  <Route path="/alerts" element={<Alerts />} />
-                  <Route path="/risk" element={<Risk />} />
-                  <Route path="/briefing" element={<Briefing />} />
-                  <Route path="/news" element={<NewsFeed />} />
-                  <Route path="/help" element={<Help />} />
-                  <Route path="/info" element={<Info />} />
+        <ErrorBoundary>
+          <Suspense fallback={<AppLoader />}>
+            <Routes>
+              <Route path="/demo" element={<DemoTerminal />} />
+              <Route path="/landing" element={<LandingPage />} />
+              {!user ? (
+                <>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/security" element={<Security />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/terms" element={<Terms />} />
+                  {accountPaths.map((path) => (
+                    <Route key={path} path={path} element={<AuthRedirect />} />
+                  ))}
                   <Route path="*" element={<Navigate to="/" />} />
-                </Route>
-              </>
-            )}
-          </Routes>
-        </Suspense>
+                </>
+              ) : (
+                <>
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/security" element={<Security />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/auth" element={<AuthRedirect signedIn />} />
+                  <Route element={<Layout user={user} profile={profile} />}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/portfolio" element={<Portfolio />} />
+                    <Route path="/market" element={<MarketExplorer />} />
+                    <Route path="/market/:type/:symbol" element={<AssetDetail />} />
+                    <Route path="/alerts" element={<Alerts />} />
+                    <Route path="/risk" element={<Risk />} />
+                    <Route path="/briefing" element={<Briefing />} />
+                    <Route path="/news" element={<NewsFeed />} />
+                    <Route path="/watchlists" element={<Watchlists />} />
+                    <Route path="/transactions" element={<TransactionLedger />} />
+                    <Route path="/social" element={<SocialIntelligence />} />
+                    <Route path="/analytics" element={<PortfolioAnalytics />} />
+                    <Route path="/help" element={<Help />} />
+                    <Route path="/info" element={<Info />} />
+                    <Route path="*" element={<Navigate to="/" />} />
+                  </Route>
+                </>
+              )}
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </Router>
     </LanguageProvider>
   );

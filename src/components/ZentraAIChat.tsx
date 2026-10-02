@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import { brand } from '../../shared/brand';
 import { Bot, Send, X } from 'lucide-react';
-import { collection, getDocs, query } from 'firebase/firestore';
+import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { auth, db } from '../lib/firebase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { apiFetch } from '../lib/api';
+import InsightSources, { type InsightSource } from './InsightSources';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
+  sources?: InsightSource[];
+  aiGenerated?: boolean;
 }
 
 const cleanAssistantText = (text: string) =>
@@ -28,26 +30,6 @@ export default function ZentraAIChat() {
   ]);
   const isAssetDetailRoute = /^\/market\/(stocks|cryptos)\//.test(location.pathname);
 
-  const loadContext = async () => {
-    const [portfolio, hotAssets, news] = await Promise.all([
-      (async () => {
-        if (!auth.currentUser) return [];
-        const snapshot = await getDocs(query(collection(db, 'users', auth.currentUser.uid, 'assets')));
-        return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      })(),
-      fetch(`/api/market/hot?t=${Date.now()}`, { cache: 'no-store' })
-        .then((response) => response.ok ? response.json() : { data: [] })
-        .then((data) => data.data || [])
-        .catch(() => []),
-      fetch(`/api/news?q=markets&t=${Date.now()}`, { cache: 'no-store' })
-        .then((response) => response.ok ? response.json() : { articles: [] })
-        .then((data) => data.articles || [])
-        .catch(() => []),
-    ]);
-
-    return { portfolio, hotAssets, news };
-  };
-
   const askZentra = async (event: React.FormEvent) => {
     event.preventDefault();
     const cleanQuestion = question.trim();
@@ -58,7 +40,6 @@ export default function ZentraAIChat() {
     setLoading(true);
 
     try {
-      const context = await loadContext();
       const response = await apiFetch('/api/ai/zentra-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,13 +47,21 @@ export default function ZentraAIChat() {
           question: cleanQuestion,
           language,
           route: location.pathname,
-          ...context,
         }),
       });
       const text = await response.text();
-      if (!response.ok || text.trim().startsWith('<')) throw new Error('ZENTRA chat unavailable');
+      if (!response.ok || text.trim().startsWith('<'))
+        throw new Error(brand.name + ' chat unavailable');
       const data = JSON.parse(text);
-      setMessages((items) => [...items, { role: 'assistant', text: cleanAssistantText(data.answer || t('zentraChatUnavailable')) }]);
+      setMessages((items) => [
+        ...items,
+        {
+          role: 'assistant',
+          text: cleanAssistantText(data.answer || t('zentraChatUnavailable')),
+          sources: data.sources || [],
+          aiGenerated: data.aiGenerated,
+        },
+      ]);
     } catch (error) {
       setMessages((items) => [...items, { role: 'assistant', text: t('zentraChatUnavailable') }]);
     } finally {
@@ -83,14 +72,18 @@ export default function ZentraAIChat() {
   return (
     <>
       {open && (
-        <div className={`fixed right-4 z-[60] w-[calc(100vw-2rem)] max-w-[420px] overflow-hidden rounded-3xl border border-border-accent bg-surface shadow-2xl ${isAssetDetailRoute ? 'bottom-40' : 'bottom-24'}`}>
+        <div
+          className={`fixed right-4 z-[60] w-[calc(100vw-2rem)] max-w-[420px] overflow-hidden rounded-3xl border border-border-accent bg-surface shadow-2xl ${isAssetDetailRoute ? 'bottom-40' : 'bottom-24'}`}
+        >
           <div className="flex items-center justify-between border-b border-border-accent px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-accent text-black">
                 <Bot className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-bold tracking-tight">{t('zentraChatTitle')}</div>
+                <div className="truncate text-sm font-bold tracking-tight">
+                  {t('zentraChatTitle')}
+                </div>
                 <div className="truncate text-[10px] text-text-dim">{t('zentraChatSubtitle')}</div>
               </div>
             </div>
@@ -114,6 +107,9 @@ export default function ZentraAIChat() {
                 }`}
               >
                 {message.text}
+                {message.role === 'assistant' && message.sources && (
+                  <InsightSources sources={message.sources} aiGenerated={message.aiGenerated} />
+                )}
               </div>
             ))}
             {loading && (

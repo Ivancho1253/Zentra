@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { brand } from '../../shared/brand';
 
 export type Language = 'es' | 'en' | 'pt';
 
@@ -6,7 +7,11 @@ type Translations = Record<string, Record<Language, string>>;
 
 const translations: Translations = {
   brandName: { es: 'ZENTRA', en: 'ZENTRA', pt: 'ZENTRA' },
-  brandTagline: { es: 'Anticipa el movimiento', en: 'Know before it moves', pt: 'Antecipe o movimento' },
+  brandTagline: {
+    es: 'Anticipa el movimiento',
+    en: 'Know before it moves',
+    pt: 'Antecipe o movimento',
+  },
   navFeatures: { es: 'Funciones', en: 'Features', pt: 'Recursos' },
   navHow: { es: 'Como funciona', en: 'How it works', pt: 'Como funciona' },
   navProof: { es: 'Resultados', en: 'Results', pt: 'Resultados' },
@@ -14,8 +19,8 @@ const translations: Translations = {
   launchApp: { es: 'Entrar a la app', en: 'Launch app', pt: 'Abrir app' },
 
   liveMarkets: { es: 'Mercados en vivo', en: 'Live markets', pt: 'Mercados ao vivo' },
-  heroTitleA: { es: 'Saber antes de que', en: 'Know before', pt: 'Saber antes de' },
-  heroTitleB: { es: 'se mueva', en: 'it moves', pt: 'se mover' },
+  heroTitleA: { es: 'Saber antes de', en: 'Know before', pt: 'Saber antes de' },
+  heroTitleB: { es: 'que se mueva', en: 'it moves', pt: 'se mover' },
   heroSub: {
     es: 'ZENTRA combina portafolio, senales, noticias y analisis visual en una terminal pensada para anticipar movimientos con contexto y sin ruido.',
     en: 'ZENTRA combines portfolio tracking, signals, news and visual analytics in one terminal built to anticipate market moves with context.',
@@ -29,7 +34,11 @@ const translations: Translations = {
   },
 
   statMarketsDetail: { es: 'Acciones + crypto', en: 'Stocks + crypto', pt: 'Acoes + cripto' },
-  statSignalsDetail: { es: 'Eventos de mercado IA', en: 'AI market events', pt: 'Eventos de mercado IA' },
+  statSignalsDetail: {
+    es: 'Eventos de mercado IA',
+    en: 'AI market events',
+    pt: 'Eventos de mercado IA',
+  },
   statLatencyDetail: { es: 'Actualizacion rapida', en: 'Signal refresh', pt: 'Atualizacao rapida' },
   statCoverageDetail: { es: 'Siempre atento', en: 'Always watching', pt: 'Sempre atento' },
   scroll: { es: 'Desliza', en: 'Scroll', pt: 'Role' },
@@ -48,7 +57,11 @@ const translations: Translations = {
   fastReadsMetric: { es: 'Lecturas rapidas', en: 'Fast reads', pt: 'Leituras rapidas' },
   assetsMetric: { es: 'Activos', en: 'Assets', pt: 'Ativos' },
 
-  featuresKicker: { es: 'Todo lo que necesitas', en: 'Everything you need', pt: 'Tudo o que voce precisa' },
+  featuresKicker: {
+    es: 'Todo lo que necesitas',
+    en: 'Everything you need',
+    pt: 'Tudo o que voce precisa',
+  },
   featuresTitle: {
     es: 'Una terminal que convierte datos dispersos en decisiones claras.',
     en: 'One terminal that turns scattered data into clear decisions.',
@@ -65,19 +78,31 @@ const translations: Translations = {
     en: 'Positions, exposure and recent activity in a dense, readable view.',
     pt: 'Posicoes, exposicao e atividade recente em uma visualizacao densa e legivel.',
   },
-  featureSignalsTitle: { es: 'Senales con contexto', en: 'Contextual signals', pt: 'Sinais com contexto' },
+  featureSignalsTitle: {
+    es: 'Senales con contexto',
+    en: 'Contextual signals',
+    pt: 'Sinais com contexto',
+  },
   featureSignalsDesc: {
     es: 'Precios, momentum, sentimiento y noticias alineados para no operar a ciegas.',
     en: 'Prices, momentum, sentiment and news aligned so you never trade blind.',
     pt: 'Precos, momentum, sentimento e noticias alinhados para nao operar as cegas.',
   },
-  featureWatchlistTitle: { es: 'Watchlist inteligente', en: 'Smart watchlist', pt: 'Watchlist inteligente' },
+  featureWatchlistTitle: {
+    es: 'Watchlist inteligente',
+    en: 'Smart watchlist',
+    pt: 'Watchlist inteligente',
+  },
   featureWatchlistDesc: {
     es: 'Favoritos, tendencias y activos calientes listos para inspeccion inmediata.',
     en: 'Favorites, trends and hot assets ready for immediate inspection.',
     pt: 'Favoritos, tendencias e ativos em destaque prontos para inspecao imediata.',
   },
-  featureFlowTitle: { es: 'Flujo sin distracciones', en: 'Distraction-free flow', pt: 'Fluxo sem distracoes' },
+  featureFlowTitle: {
+    es: 'Flujo sin distracciones',
+    en: 'Distraction-free flow',
+    pt: 'Fluxo sem distracoes',
+  },
   featureFlowDesc: {
     es: 'Interfaz oscura, visual y directa para sesiones largas de analisis.',
     en: 'A dark, visual, direct interface for long analysis sessions.',
@@ -85,18 +110,42 @@ const translations: Translations = {
   },
 
   howKicker: { es: 'Como funciona', en: 'How it works', pt: 'Como funciona' },
-  howTitle: { es: 'De senal a accion en cuatro pasos.', en: 'From signal to action in four steps.', pt: 'Do sinal a acao em quatro passos.' },
+  howTitle: {
+    es: 'De senal a accion en cuatro pasos.',
+    en: 'From signal to action in four steps.',
+    pt: 'Do sinal a acao em quatro passos.',
+  },
   stepOneTitle: { es: 'Conecta', en: 'Connect', pt: 'Conecte' },
-  stepOneDesc: { es: 'Crea tu cuenta y empieza con tu portafolio real.', en: 'Create your account and start with your real portfolio.', pt: 'Crie sua conta e comece com sua carteira real.' },
+  stepOneDesc: {
+    es: 'Crea tu cuenta y empieza con tu portafolio real.',
+    en: 'Create your account and start with your real portfolio.',
+    pt: 'Crie sua conta e comece com sua carteira real.',
+  },
   stepTwoTitle: { es: 'Explora', en: 'Explore', pt: 'Explore' },
-  stepTwoDesc: { es: 'Busca acciones y criptos con precios, favoritos y detalles.', en: 'Search stocks and crypto with prices, favorites and details.', pt: 'Busque acoes e cripto com precos, favoritos e detalhes.' },
+  stepTwoDesc: {
+    es: 'Busca acciones y criptos con precios, favoritos y detalles.',
+    en: 'Search stocks and crypto with prices, favorites and details.',
+    pt: 'Busque acoes e cripto com precos, favoritos e detalhes.',
+  },
   stepThreeTitle: { es: 'Evalua', en: 'Evaluate', pt: 'Avalie' },
-  stepThreeDesc: { es: 'Combina graficos, noticias y sentimiento en una sola lectura.', en: 'Combine charts, news and sentiment in one read.', pt: 'Combine graficos, noticias e sentimento em uma leitura.' },
+  stepThreeDesc: {
+    es: 'Combina graficos, noticias y sentimiento en una sola lectura.',
+    en: 'Combine charts, news and sentiment in one read.',
+    pt: 'Combine graficos, noticias e sentimento em uma leitura.',
+  },
   stepFourTitle: { es: 'Decide', en: 'Decide', pt: 'Decida' },
-  stepFourDesc: { es: 'Actua con mas contexto y menos ruido operativo.', en: 'Act with more context and less operational noise.', pt: 'Aja com mais contexto e menos ruido operacional.' },
+  stepFourDesc: {
+    es: 'Actua con mas contexto y menos ruido operativo.',
+    en: 'Act with more context and less operational noise.',
+    pt: 'Aja com mais contexto e menos ruido operacional.',
+  },
 
   proofKicker: { es: 'Resultados', en: 'Results', pt: 'Resultados' },
-  proofTitle: { es: 'Hecho para usuarios que vuelven todos los dias.', en: 'Built for users who come back every day.', pt: 'Feito para usuarios que voltam todos os dias.' },
+  proofTitle: {
+    es: 'Hecho para usuarios que vuelven todos los dias.',
+    en: 'Built for users who come back every day.',
+    pt: 'Feito para usuarios que voltam todos os dias.',
+  },
   proofSub: {
     es: 'ZENTRA vende una experiencia concreta: velocidad, claridad y confianza antes de abrir una posicion.',
     en: 'ZENTRA sells a concrete experience: speed, clarity and confidence before opening a position.',
@@ -121,7 +170,11 @@ const translations: Translations = {
   roleTwo: { es: 'Analista cripto', en: 'Crypto analyst', pt: 'Analista cripto' },
   roleThree: { es: 'Portfolio manager', en: 'Portfolio manager', pt: 'Gestor de carteira' },
 
-  ctaTitle: { es: 'Convierte tu investigacion en ventaja.', en: 'Turn research into an edge.', pt: 'Transforme pesquisa em vantagem.' },
+  ctaTitle: {
+    es: 'Convierte tu investigacion en ventaja.',
+    en: 'Turn research into an edge.',
+    pt: 'Transforme pesquisa em vantagem.',
+  },
   ctaSub: {
     es: 'Entra, arma tu portafolio, sigue tus favoritos y empieza a leer el mercado con mas foco.',
     en: 'Sign in, build your portfolio, follow your favorites and read the market with more focus.',
@@ -136,7 +189,11 @@ const translations: Translations = {
   briefing: { es: 'Briefing', en: 'Briefing', pt: 'Briefing' },
   more: { es: 'Mas', en: 'More', pt: 'Mais' },
   dataControls: { es: 'Control de datos', en: 'Data controls', pt: 'Controle de dados' },
-  privacyControlsTitle: { es: 'Exportar o borrar tu cuenta', en: 'Export or delete your account', pt: 'Exportar ou apagar sua conta' },
+  privacyControlsTitle: {
+    es: 'Exportar o borrar tu cuenta',
+    en: 'Export or delete your account',
+    pt: 'Exportar ou apagar sua conta',
+  },
   privacyControlsText: {
     es: 'Puedes exportar una copia JSON de tu portafolio, alertas, snapshots y notificaciones. Tambien puedes borrar tus datos y cerrar la cuenta desde esta app.',
     en: 'You can export a JSON copy of your portfolio, alerts, snapshots and notifications. You can also delete your data and close the account from this app.',
@@ -145,7 +202,11 @@ const translations: Translations = {
   exportData: { es: 'Exportar datos', en: 'Export data', pt: 'Exportar dados' },
   deleteData: { es: 'Borrar cuenta', en: 'Delete account', pt: 'Apagar conta' },
   dataExported: { es: 'Exportacion generada.', en: 'Export generated.', pt: 'Exportacao gerada.' },
-  dataExportFailed: { es: 'No se pudo exportar la informacion.', en: 'Could not export data.', pt: 'Nao foi possivel exportar os dados.' },
+  dataExportFailed: {
+    es: 'No se pudo exportar la informacion.',
+    en: 'Could not export data.',
+    pt: 'Nao foi possivel exportar os dados.',
+  },
   dataDeleted: { es: 'Datos eliminados.', en: 'Data deleted.', pt: 'Dados apagados.' },
   dataDeleteFailed: {
     es: 'No se pudo borrar todo. Si Firebase pide inicio reciente, cerra sesion y volve a entrar antes de reintentar.',
@@ -163,19 +224,31 @@ const translations: Translations = {
     en: 'ZENTRA is a financial tracking and research tool. These terms explain the product limits before using it around real money.',
     pt: 'ZENTRA e uma ferramenta de acompanhamento e pesquisa financeira. Estes termos explicam os limites do produto antes de usa-lo com dinheiro real.',
   },
-  termsNoAdviceTitle: { es: 'No es asesoramiento financiero', en: 'Not financial advice', pt: 'Nao e aconselhamento financeiro' },
+  termsNoAdviceTitle: {
+    es: 'No es asesoramiento financiero',
+    en: 'Not financial advice',
+    pt: 'Nao e aconselhamento financeiro',
+  },
   termsNoAdviceText: {
     es: 'Precios, IA, noticias, alertas y metricas son contexto informativo. ZENTRA no recomienda comprar, vender ni mantener activos.',
     en: 'Prices, AI, news, alerts and metrics are informational context. ZENTRA does not recommend buying, selling or holding assets.',
     pt: 'Precos, IA, noticias, alertas e metricas sao contexto informativo. ZENTRA nao recomenda comprar, vender ou manter ativos.',
   },
-  termsUserResponsibilityTitle: { es: 'Responsabilidad del usuario', en: 'User responsibility', pt: 'Responsabilidade do usuario' },
+  termsUserResponsibilityTitle: {
+    es: 'Responsabilidad del usuario',
+    en: 'User responsibility',
+    pt: 'Responsabilidade do usuario',
+  },
   termsUserResponsibilityText: {
     es: 'Cada decision de inversion es responsabilidad del usuario. Verifica datos con fuentes oficiales antes de actuar.',
     en: 'Every investment decision is the user responsibility. Verify data with official sources before acting.',
     pt: 'Cada decisao de investimento e responsabilidade do usuario. Verifique dados com fontes oficiais antes de agir.',
   },
-  termsDataTitle: { es: 'Datos y servicios externos', en: 'Data and external services', pt: 'Dados e servicos externos' },
+  termsDataTitle: {
+    es: 'Datos y servicios externos',
+    en: 'Data and external services',
+    pt: 'Dados e servicos externos',
+  },
   termsDataText: {
     es: 'ZENTRA depende de Firebase, proveedores de mercado, noticias, Resend y Gemini. Esos servicios pueden fallar, demorar o devolver datos incompletos.',
     en: 'ZENTRA depends on Firebase, market providers, news, Resend and Gemini. These services can fail, delay or return incomplete data.',
@@ -190,6 +263,11 @@ const translations: Translations = {
   contact: { es: 'Contacto', en: 'Contact', pt: 'Contato' },
 
   backToLanding: { es: 'Volver al inicio', en: 'Back to landing', pt: 'Voltar ao inicio' },
+  signInForSection: {
+    es: 'Inicia sesión para abrir esta sección. Después volverás a la página que elegiste.',
+    en: 'Sign in to open this section. You will return to the page you selected.',
+    pt: 'Entre para abrir esta seção. Depois você voltará à página escolhida.',
+  },
   systemAccess: { es: 'Acceso al sistema', en: 'System access', pt: 'Acesso ao sistema' },
   createAccount: { es: 'Crear cuenta', en: 'Create account', pt: 'Criar conta' },
   emailLabel: { es: 'Correo electronico', en: 'Email address', pt: 'Endereco de email' },
@@ -203,48 +281,100 @@ const translations: Translations = {
   signInNow: { es: 'Inicia sesion', en: 'Sign in', pt: 'Entrar agora' },
   errorLabel: { es: 'Error', en: 'Error', pt: 'Erro' },
   googleAccount: { es: 'Cuenta de Google', en: 'Google Account', pt: 'Conta Google' },
-  authSecurityActive: { es: 'Cifrado activo de extremo a extremo', en: 'End-to-End Encryption Active', pt: 'Criptografia de ponta a ponta ativa' },
+  authSecurityActive: {
+    es: 'Cifrado activo de extremo a extremo',
+    en: 'End-to-End Encryption Active',
+    pt: 'Criptografia de ponta a ponta ativa',
+  },
 
   dashboard: { es: 'Panel', en: 'Dashboard', pt: 'Painel' },
   portfolio: { es: 'Portafolio', en: 'Portfolio', pt: 'Carteira' },
   market: { es: 'Mercado', en: 'Market', pt: 'Mercado' },
   marketNews: { es: 'Noticias', en: 'Market News', pt: 'Noticias' },
-  liveEdgeEnabled: { es: 'Ventaja en vivo activa', en: 'Live edge enabled', pt: 'Vantagem ao vivo ativa' },
+  liveEdgeEnabled: {
+    es: 'Ventaja en vivo activa',
+    en: 'Live edge enabled',
+    pt: 'Vantagem ao vivo ativa',
+  },
   premiumUser: { es: 'Usuario premium', en: 'Premium User', pt: 'Usuario premium' },
   logout: { es: 'Cerrar sesion', en: 'Logout', pt: 'Sair' },
-  liveMarketData: { es: 'Datos de mercado en vivo', en: 'Live Market Data', pt: 'Dados de mercado ao vivo' },
-  switchDarkMode: { es: 'Cambiar a modo oscuro', en: 'Switch to Dark Mode', pt: 'Mudar para modo escuro' },
-  switchLightMode: { es: 'Cambiar a modo claro', en: 'Switch to Light Mode', pt: 'Mudar para modo claro' },
+  liveMarketData: {
+    es: 'Datos de mercado en vivo',
+    en: 'Live Market Data',
+    pt: 'Dados de mercado ao vivo',
+  },
+  switchDarkMode: {
+    es: 'Cambiar a modo oscuro',
+    en: 'Switch to Dark Mode',
+    pt: 'Mudar para modo escuro',
+  },
+  switchLightMode: {
+    es: 'Cambiar a modo claro',
+    en: 'Switch to Light Mode',
+    pt: 'Mudar para modo claro',
+  },
 
   equity: { es: 'Accion', en: 'Equity', pt: 'Acao' },
   digitalAsset: { es: 'Activo digital', en: 'Digital Asset', pt: 'Ativo digital' },
   updatingQuote: { es: 'Actualizando precio', en: 'Updating quote', pt: 'Atualizando preco' },
   liveQuote: { es: 'Precio en vivo', en: 'Live Quote', pt: 'Preco ao vivo' },
   currentPrice: { es: 'Precio actual', en: 'Current Price', pt: 'Preco atual' },
-  refreshesEvery15s: { es: 'Actualiza cada 15s', en: 'Refreshes every 15s', pt: 'Atualiza a cada 15s' },
+  refreshesEvery15s: {
+    es: 'Actualiza cada 15s',
+    en: 'Refreshes every 15s',
+    pt: 'Atualiza a cada 15s',
+  },
   updating: { es: 'Actualizando', en: 'Updating', pt: 'Atualizando' },
   addFavorite: { es: 'Agregar favorito', en: 'Add Favorite', pt: 'Adicionar favorito' },
   favorited: { es: 'Favorito', en: 'Favorited', pt: 'Favorito' },
   addThisAsset: { es: 'Agregar este activo', en: 'Add This Asset', pt: 'Adicionar este ativo' },
-  loginToAddAsset: { es: 'Inicia sesion para agregar este activo a tu portafolio.', en: 'Log in to add this asset to your portfolio.', pt: 'Entre para adicionar este ativo a sua carteira.' },
-  waitingValidPrice: { es: 'Esperando un precio valido para agregarlo.', en: 'Waiting for a valid live price before adding.', pt: 'Aguardando um preco valido para adicionar.' },
-  addedAsset: { es: 'Agregado al portafolio', en: 'Added to portfolio', pt: 'Adicionado a carteira' },
-  couldNotAddAsset: { es: 'No se pudo agregar al portafolio. Revisa permisos o vuelve a intentar.', en: 'Could not add to portfolio. Check permissions or try again.', pt: 'Nao foi possivel adicionar a carteira. Verifique permissoes ou tente novamente.' },
+  loginToAddAsset: {
+    es: 'Inicia sesion para agregar este activo a tu portafolio.',
+    en: 'Log in to add this asset to your portfolio.',
+    pt: 'Entre para adicionar este ativo a sua carteira.',
+  },
+  waitingValidPrice: {
+    es: 'Esperando un precio valido para agregarlo.',
+    en: 'Waiting for a valid live price before adding.',
+    pt: 'Aguardando um preco valido para adicionar.',
+  },
+  addedAsset: {
+    es: 'Agregado al portafolio',
+    en: 'Added to portfolio',
+    pt: 'Adicionado a carteira',
+  },
+  couldNotAddAsset: {
+    es: 'No se pudo agregar al portafolio. Revisa permisos o vuelve a intentar.',
+    en: 'Could not add to portfolio. Check permissions or try again.',
+    pt: 'Nao foi possivel adicionar a carteira. Verifique permissoes ou tente novamente.',
+  },
   daily: { es: 'Diario', en: 'Daily', pt: 'Diario' },
   weekly: { es: 'Semanal', en: 'Weekly', pt: 'Semanal' },
   monthly: { es: 'Mensual', en: 'Monthly', pt: 'Mensal' },
   annual: { es: 'Anual', en: 'Annual', pt: 'Anual' },
   performance: { es: 'Rendimiento', en: 'Performance', pt: 'Desempenho' },
   trend: { es: 'Tendencia', en: 'Trend', pt: 'Tendencia' },
-  interactiveChart: { es: 'Grafico interactivo', en: 'Interactive Chart', pt: 'Grafico interativo' },
-  marketFundamentals: { es: 'Fundamentos del mercado', en: 'Market Fundamentals', pt: 'Fundamentos do mercado' },
+  interactiveChart: {
+    es: 'Grafico interactivo',
+    en: 'Interactive Chart',
+    pt: 'Grafico interativo',
+  },
+  marketFundamentals: {
+    es: 'Fundamentos del mercado',
+    en: 'Market Fundamentals',
+    pt: 'Fundamentos do mercado',
+  },
   marketCap: { es: 'Capitalizacion', en: 'Market Cap', pt: 'Valor de mercado' },
   volume24h: { es: 'Volumen 24h', en: 'Volume (24h)', pt: 'Volume 24h' },
   lastPrice: { es: 'Ultimo precio', en: 'Last Price', pt: 'Ultimo preco' },
   source: { es: 'Fuente', en: 'Source', pt: 'Fonte' },
   live: { es: 'En vivo', en: 'Live', pt: 'Ao vivo' },
   fallback: { es: 'Respaldo', en: 'Fallback', pt: 'Reserva' },
-  technicalSentiment: { es: 'Sentimiento tecnico', en: 'Technical Sentiment', pt: 'Sentimento tecnico' },
+  technicalSentiment: {
+    es: 'Sentimiento tecnico',
+    en: 'Technical Sentiment',
+    pt: 'Sentimento tecnico',
+  },
   sell: { es: 'Vender', en: 'Sell', pt: 'Vender' },
   strongBuy: { es: 'Compra fuerte', en: 'Strong Buy', pt: 'Compra forte' },
   bullish: { es: 'Alcista', en: 'Bullish', pt: 'Altista' },
@@ -263,13 +393,21 @@ const translations: Translations = {
     pt: 'Pergunte sobre tendencia, riscos, catalisadores, avaliacao ou o que observar no grafico.',
   },
   aiThinking: { es: 'Pensando...', en: 'Thinking...', pt: 'Pensando...' },
-  askAboutAsset: { es: 'Pregunta sobre este activo...', en: 'Ask about this asset...', pt: 'Pergunte sobre este ativo...' },
+  askAboutAsset: {
+    es: 'Pregunta sobre este activo...',
+    en: 'Ask about this asset...',
+    pt: 'Pergunte sobre este ativo...',
+  },
   aiUnavailable: {
     es: 'No pude conectar con la IA ahora. Igual puedo mostrarte el contexto actual: precio, variacion y grafico para revisar tendencia, volumen, soportes y resistencias.',
     en: 'I could not reach the AI service right now. I can still show the current context: price, change and chart so you can review trend, volume, support and resistance.',
     pt: 'Nao consegui conectar com a IA agora. Ainda posso mostrar o contexto atual: preco, variacao e grafico para revisar tendencia, volume, suporte e resistencia.',
   },
-  aiResponseUnavailable: { es: 'Respuesta de IA no disponible.', en: 'AI response unavailable.', pt: 'Resposta da IA indisponivel.' },
+  aiResponseUnavailable: {
+    es: 'Respuesta de IA no disponible.',
+    en: 'AI response unavailable.',
+    pt: 'Resposta da IA indisponivel.',
+  },
   zentraChatButton: { es: 'AI ZENTRA Chat', en: 'AI ZENTRA Chat', pt: 'AI ZENTRA Chat' },
   zentraChatTitle: { es: 'AI ZENTRA Chat', en: 'AI ZENTRA Chat', pt: 'AI ZENTRA Chat' },
   zentraChatSubtitle: {
@@ -296,32 +434,56 @@ const translations: Translations = {
   help: { es: 'Ayuda', en: 'Help', pt: 'Ajuda' },
   info: { es: 'Informacion', en: 'Info', pt: 'Informacao' },
   support: { es: 'Soporte', en: 'Support', pt: 'Suporte' },
-  helpTitle: { es: 'Preguntas frecuentes y soporte', en: 'FAQ and support', pt: 'Perguntas frequentes e suporte' },
+  helpTitle: {
+    es: 'Preguntas frecuentes y soporte',
+    en: 'FAQ and support',
+    pt: 'Perguntas frequentes e suporte',
+  },
   helpIntro: {
     es: 'Respuestas rapidas y un formulario privado de soporte. Tu mensaje llega al creador del proyecto sin mostrar el email de destino en la app.',
     en: 'Quick answers plus a private support form. Your message goes to the project owner without exposing the destination email in the app.',
     pt: 'Respostas rapidas e um formulario privado de suporte. Sua mensagem chega ao criador do projeto sem mostrar o email de destino no app.',
   },
-  faqTitle: { es: 'Preguntas frecuentes', en: 'Frequently asked questions', pt: 'Perguntas frequentes' },
-  faqMoneyQuestion: { es: 'ZENTRA mueve dinero u opera por mi?', en: 'Does ZENTRA move money or trade for me?', pt: 'O ZENTRA move dinheiro ou opera por mim?' },
+  faqTitle: {
+    es: 'Preguntas frecuentes',
+    en: 'Frequently asked questions',
+    pt: 'Perguntas frequentes',
+  },
+  faqMoneyQuestion: {
+    es: 'ZENTRA mueve dinero u opera por mi?',
+    en: 'Does ZENTRA move money or trade for me?',
+    pt: 'O ZENTRA move dinheiro ou opera por mim?',
+  },
   faqMoneyAnswer: {
     es: 'No. ZENTRA es una herramienta de investigacion y seguimiento de portafolio. Las wallets son solo lectura y las importaciones siempre se revisan antes de guardar.',
     en: 'No. ZENTRA is a research and portfolio tracking tool. Wallet links are read-only and portfolio imports always ask you to review before saving.',
     pt: 'Nao. O ZENTRA e uma ferramenta de pesquisa e acompanhamento de carteira. As wallets sao somente leitura e as importacoes sempre pedem revisao antes de salvar.',
   },
-  faqWalletQuestion: { es: 'Que significa conectar una wallet solo lectura?', en: 'What does read-only wallet connection mean?', pt: 'O que significa conectar uma wallet somente leitura?' },
+  faqWalletQuestion: {
+    es: 'Que significa conectar una wallet solo lectura?',
+    en: 'What does read-only wallet connection mean?',
+    pt: 'O que significa conectar uma wallet somente leitura?',
+  },
   faqWalletAnswer: {
     es: 'Significa que ZENTRA puede ver una direccion publica y balances publicos de blockchain. Nunca pide seed phrase, private keys, approvals, firmas ni transacciones.',
     en: 'It means ZENTRA can see a public wallet address and public blockchain balances. It never asks for seed phrases, private keys, token approvals, signatures, or transactions.',
     pt: 'Significa que o ZENTRA pode ver um endereco publico e saldos publicos da blockchain. Nunca pede seed phrase, chaves privadas, approvals, assinaturas ou transacoes.',
   },
-  faqImportQuestion: { es: 'Puedo importar posiciones desde capturas o archivos?', en: 'Can I import positions from screenshots or files?', pt: 'Posso importar posicoes de capturas ou arquivos?' },
+  faqImportQuestion: {
+    es: 'Puedo importar posiciones desde capturas o archivos?',
+    en: 'Can I import positions from screenshots or files?',
+    pt: 'Posso importar posicoes de capturas ou arquivos?',
+  },
   faqImportAnswer: {
     es: 'Si. Puedes subir capturas, CSV/TXT, Excel y Word. La IA extrae posibles posiciones y tu apruebas las filas antes de importarlas.',
     en: 'Yes. You can upload screenshots, CSV/TXT files, Excel spreadsheets and Word documents. AI extracts possible positions and you approve the rows before importing.',
     pt: 'Sim. Voce pode subir capturas, CSV/TXT, Excel e Word. A IA extrai possiveis posicoes e voce aprova as linhas antes de importar.',
   },
-  faqAiQuestion: { es: 'La IA es asesoramiento financiero?', en: 'Is AI financial advice?', pt: 'A IA e aconselhamento financeiro?' },
+  faqAiQuestion: {
+    es: 'La IA es asesoramiento financiero?',
+    en: 'Is AI financial advice?',
+    pt: 'A IA e aconselhamento financeiro?',
+  },
   faqAiAnswer: {
     es: 'No. Las respuestas de IA son contexto de mercado. Pueden estar incompletas o equivocadas, asi que la decision siempre queda en el usuario.',
     en: 'No. AI responses are market context only. They can be wrong or incomplete, so every decision stays with the user.',
@@ -331,18 +493,34 @@ const translations: Translations = {
   namePlaceholder: { es: 'Nombre', en: 'Name', pt: 'Nome' },
   yourEmailPlaceholder: { es: 'Tu email *', en: 'Your email *', pt: 'Seu email *' },
   subjectPlaceholder: { es: 'Asunto', en: 'Subject', pt: 'Assunto' },
-  supportMessagePlaceholder: { es: 'Como puedo ayudarte? *', en: 'How can I help? *', pt: 'Como posso ajudar? *' },
+  supportMessagePlaceholder: {
+    es: 'Como puedo ayudarte? *',
+    en: 'How can I help? *',
+    pt: 'Como posso ajudar? *',
+  },
   sending: { es: 'Enviando', en: 'Sending', pt: 'Enviando' },
   sendMessage: { es: 'Enviar mensaje', en: 'Send message', pt: 'Enviar mensagem' },
-  supportSent: { es: 'Mensaje enviado. Lo voy a revisar lo antes posible.', en: 'Message sent. I will review it as soon as possible.', pt: 'Mensagem enviada. Vou revisar assim que possivel.' },
-  supportLocal: {
-    es: 'Mensaje recibido localmente. El envio por email todavia no esta configurado en este entorno.',
-    en: 'Message received locally. Email delivery is not configured on this environment yet.',
-    pt: 'Mensagem recebida localmente. O envio por email ainda nao esta configurado neste ambiente.',
+  supportSent: {
+    es: 'Mensaje enviado. Lo voy a revisar lo antes posible.',
+    en: 'Message sent. I will review it as soon as possible.',
+    pt: 'Mensagem enviada. Vou revisar assim que possivel.',
   },
-  supportFailed: { es: 'No se pudo enviar el mensaje ahora. Intenta de nuevo mas tarde.', en: 'Could not send the message right now. Please try again later.', pt: 'Nao foi possivel enviar a mensagem agora. Tente novamente mais tarde.' },
+  supportLocal: {
+    es: 'El email de soporte no esta configurado. Tu mensaje no fue enviado y se conserva en el formulario.',
+    en: 'Support email is not configured. Your message was not sent and remains in the form.',
+    pt: 'O email de suporte nao esta configurado. Sua mensagem nao foi enviada e permanece no formulario.',
+  },
+  supportFailed: {
+    es: 'No se pudo enviar el mensaje ahora. Intenta de nuevo mas tarde.',
+    en: 'Could not send the message right now. Please try again later.',
+    pt: 'Nao foi possivel enviar a mensagem agora. Tente novamente mais tarde.',
+  },
 
-  infoTitle: { es: 'Por que existe ZENTRA', en: 'Why ZENTRA exists', pt: 'Por que o ZENTRA existe' },
+  infoTitle: {
+    es: 'Por que existe ZENTRA',
+    en: 'Why ZENTRA exists',
+    pt: 'Por que o ZENTRA existe',
+  },
   infoIntro: {
     es: 'ZENTRA esta pensado para reducir la friccion entre tener inversiones y entenderlas de verdad. El edge no es solo graficos o IA. El edge es registrar posiciones facil, revisar contexto y ser honesto con el riesgo.',
     en: 'ZENTRA is built to reduce the friction between having investments and actually understanding them. The edge is not only charts or AI. The edge is making it easy to register positions, inspect context and stay honest about risk.',
@@ -364,15 +542,51 @@ const translations: Translations = {
     en: 'The goal is not to promise returns. It is to give users less friction, more control and an honest way to understand what they hold, what they paid and what is changing in the market.',
     pt: 'O objetivo nao e prometer retornos. E dar ao usuario menos atrito, mais controle e uma forma honesta de entender o que possui, quanto pagou e o que esta mudando no mercado.',
   },
-  ideaPillarOne: { es: 'Registrar inversiones sin friccion', en: 'Register investments without friction', pt: 'Registrar investimentos sem atrito' },
-  ideaPillarTwo: { es: 'Leer mercado con contexto', en: 'Read the market with context', pt: 'Ler o mercado com contexto' },
-  ideaPillarThree: { es: 'Construir confianza con transparencia', en: 'Build trust through transparency', pt: 'Construir confianca com transparencia' },
-  securityPosture: { es: 'Postura de seguridad', en: 'Security posture', pt: 'Postura de seguranca' },
-  securityOne: { es: 'Las wallets son solo lectura salvo que se indique explicitamente lo contrario.', en: 'Wallet connections are read-only unless explicitly stated.', pt: 'Conexoes de wallet sao somente leitura salvo indicacao explicita em contrario.' },
-  securityTwo: { es: 'ZENTRA nunca pide seed phrases ni private keys.', en: 'ZENTRA never asks for seed phrases or private keys.', pt: 'O ZENTRA nunca pede seed phrases ou chaves privadas.' },
-  securityThree: { es: 'No hacen falta approvals ni transacciones para trackear portafolio.', en: 'No token approvals or trading transactions are needed for portfolio tracking.', pt: 'Nao sao necessarios approvals ou transacoes para acompanhar a carteira.' },
-  securityFour: { es: 'Las importaciones con IA siempre muestran una tabla de revision antes de guardar.', en: 'AI imports always show a review table before saving to your portfolio.', pt: 'Importacoes com IA sempre mostram uma tabela de revisao antes de salvar.' },
-  securityFive: { es: 'Las API keys quedan en el servidor y no se exponen al navegador.', en: 'API keys stay on the server and are not exposed to the browser.', pt: 'As API keys ficam no servidor e nao sao expostas ao navegador.' },
+  ideaPillarOne: {
+    es: 'Registrar inversiones sin friccion',
+    en: 'Register investments without friction',
+    pt: 'Registrar investimentos sem atrito',
+  },
+  ideaPillarTwo: {
+    es: 'Leer mercado con contexto',
+    en: 'Read the market with context',
+    pt: 'Ler o mercado com contexto',
+  },
+  ideaPillarThree: {
+    es: 'Construir confianza con transparencia',
+    en: 'Build trust through transparency',
+    pt: 'Construir confianca com transparencia',
+  },
+  securityPosture: {
+    es: 'Postura de seguridad',
+    en: 'Security posture',
+    pt: 'Postura de seguranca',
+  },
+  securityOne: {
+    es: 'Las wallets son solo lectura salvo que se indique explicitamente lo contrario.',
+    en: 'Wallet connections are read-only unless explicitly stated.',
+    pt: 'Conexoes de wallet sao somente leitura salvo indicacao explicita em contrario.',
+  },
+  securityTwo: {
+    es: 'ZENTRA nunca pide seed phrases ni private keys.',
+    en: 'ZENTRA never asks for seed phrases or private keys.',
+    pt: 'O ZENTRA nunca pede seed phrases ou chaves privadas.',
+  },
+  securityThree: {
+    es: 'No hacen falta approvals ni transacciones para trackear portafolio.',
+    en: 'No token approvals or trading transactions are needed for portfolio tracking.',
+    pt: 'Nao sao necessarios approvals ou transacoes para acompanhar a carteira.',
+  },
+  securityFour: {
+    es: 'Las importaciones con IA siempre muestran una tabla de revision antes de guardar.',
+    en: 'AI imports always show a review table before saving to your portfolio.',
+    pt: 'Importacoes com IA sempre mostram uma tabela de revisao antes de salvar.',
+  },
+  securityFive: {
+    es: 'Las API keys quedan en el servidor y no se exponen al navegador.',
+    en: 'API keys stay on the server and are not exposed to the browser.',
+    pt: 'As API keys ficam no servidor e nao sao expostas ao navegador.',
+  },
   openness: { es: 'Transparencia', en: 'Openness', pt: 'Transparencia' },
   opennessText: {
     es: 'Decir que ZENTRA es un proyecto individual puede ser una fortaleza. Se siente honesto, humano y responsable. La clave es acompanarlo con lenguaje claro de seguridad, limites visibles y trabajo publico.',
@@ -411,7 +625,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(lang);
   };
 
-  const t = (key: string) => translations[key]?.[language] || key;
+  const t = (key: string) => (translations[key]?.[language] || key).replace(/ZENTRA/g, brand.name);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>

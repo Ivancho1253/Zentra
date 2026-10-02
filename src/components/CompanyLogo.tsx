@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface CompanyLogoProps {
   symbol: string;
@@ -9,9 +9,17 @@ interface CompanyLogoProps {
   imgClassName?: string;
 }
 
-export default function CompanyLogo({ symbol, name, type = 'stock', className = '', imgClassName = '' }: CompanyLogoProps) {
+export default function CompanyLogo({
+  symbol,
+  name,
+  type = 'stock',
+  className = '',
+  imgClassName = '',
+}: CompanyLogoProps) {
   const cleanSymbol = symbol.split('/')[0].toUpperCase();
-  const localLogoPath = cleanSymbol ? `/logos/${type === 'crypto' ? 'cryptos' : 'stocks'}/${cleanSymbol}.png` : null;
+  const localLogoPath = cleanSymbol
+    ? `/logos/${type === 'crypto' ? 'cryptos' : 'stocks'}/${cleanSymbol}.png`
+    : null;
   const [logoUrl, setLogoUrl] = useState<string | null>(localLogoPath);
   const [error, setError] = useState(false);
   const [attemptIndex, setAttemptIndex] = useState(0);
@@ -183,8 +191,9 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
       ].filter(Boolean) as string[];
     }
 
-    const domainSources = (companyDomains[cleanSymbol] || [])
-      .map((domain) => `https://logo.clearbit.com/${domain}`);
+    const domainSources = (companyDomains[cleanSymbol] || []).map(
+      (domain) => `https://logo.clearbit.com/${domain}`,
+    );
 
     return [
       localLogoPath,
@@ -192,7 +201,12 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
       `https://images.financialmodelingprep.com/symbol/${cleanSymbol}.png`,
       `https://static2.finnhub.io/logo/${cleanSymbol}.png`,
       `https://logo.clearbit.com/${cleanSymbol.toLowerCase()}.com`,
-      name ? `https://logo.clearbit.com/${name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}.com` : null,
+      name
+        ? `https://logo.clearbit.com/${name
+            .split(' ')[0]
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toLowerCase()}.com`
+        : null,
     ].filter(Boolean) as string[];
   };
 
@@ -218,7 +232,9 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
 
   if (error || (!logoUrl && !error)) {
     return (
-      <div className={`flex items-center justify-center bg-gradient-to-br from-accent/20 to-accent/5 rounded-xl ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-gradient-to-br from-accent/20 to-accent/5 rounded-xl ${className}`}
+      >
         {cleanSymbol ? (
           <span className="text-xs font-black text-accent">{cleanSymbol.slice(0, 3)}</span>
         ) : (
@@ -229,7 +245,9 @@ export default function CompanyLogo({ symbol, name, type = 'stock', className = 
   }
 
   return (
-    <div className={`flex items-center justify-center bg-bg border border-border-accent rounded-xl overflow-hidden ${className}`}>
+    <div
+      className={`flex items-center justify-center bg-bg border border-border-accent rounded-xl overflow-hidden ${className}`}
+    >
       <img
         key={logoUrl}
         src={logoUrl!}

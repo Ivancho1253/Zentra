@@ -1,457 +1,114 @@
-# ZENTRA
+# Zentra
 
-**Understand what moved your portfolio today.**
+**See what others miss.** A financial intelligence terminal built around your
+portfolio, watchlists, interests and monitored sources.
 
-ZENTRA is a modern market intelligence terminal for tracking portfolios, exploring stocks and crypto, reading live market context, and asking an AI assistant questions about specific assets. It combines a React frontend, an Express/Vite backend, Firebase Auth + Firestore persistence, live market data proxies, local asset logos, heat maps, news, and Gemini-powered analysis.
+The existing React/Vite, Express and Firebase application has been upgraded in
+place. Portfolio imports, read-only wallets, authentication, saved holdings and
+language preferences are preserved. The audit and migration decisions are in
+[docs/AUDIT.md](docs/AUDIT.md).
 
-The product is designed around one idea: make market research feel fast, visual, and actionable without forcing the user to jump between five different tools.
+## Run locally
 
-## What It Does
+Use Node **24 LTS** and the committed npm lockfile. Node 22.14+ also supports the
+current application. On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`.
 
-- Tracks portfolio holdings, transaction history, daily snapshots, alerts, and in-app notifications in Firestore.
-- Explores stocks and crypto with local logos, prices, percentage change, favorites, and detail pages.
-- Shows a TradingView-style asset detail page with current price, fundamentals, technical summary, chart widget, favorites, and portfolio handoff.
-- Opens the Portfolio add-position form from a specific asset with symbol, type, name, and current price prefilled.
-- Provides a navigable heat map for stocks and crypto, sized by market capitalization.
-- Shows a constantly refreshed market ticker.
-- Integrates Gemini-backed AI routes from the server for asset chat, portfolio briefing, and import review.
-- Marks market data as live, cached, fallback, estimated, or delayed instead of presenting every number as equally reliable.
-- Supports English, Spanish, and Portuguese through the app language selector.
-- Uses local logo assets for stable, fast rendering.
-
-## Tech Stack
-
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, React Router
-- **Backend:** Express served through `server.ts`, Vite middleware in development
-- **Data:** Firebase Auth, Firestore
-- **Charts/UI:** TradingView widget, Recharts, lucide-react, motion
-- **AI:** Google Gemini via `@google/genai`
-- **Market data:** Twelve Data when configured, CoinPaprika/CoinGecko for crypto ranking, Yahoo Finance chart fallback for stock snapshots
-
-## Project Structure
-
-```text
-Zentra/
-  public/
-    logo.png
-    landing-*.png
-    logos/
-      stocks/
-      cryptos/
-  src/
-    components/
-      AssetDetail.tsx
-      CompanyLogo.tsx
-      Dashboard.tsx
-      LandingPage.tsx
-      Layout.tsx
-      LanguageSelector.tsx
-      MarketExplorer.tsx
-      NewsFeed.tsx
-      Portfolio.tsx
-      TickerTape.tsx
-    contexts/
-      LanguageContext.tsx
-    lib/
-      firebase.ts
-      utils.ts
-    App.tsx
-    index.css
-    main.tsx
-    types.ts
-  firebase-applet-config.json
-  firestore.rules
-  server.ts
-  server/
-    routes/
-    services/
-  package.json
+```sh
+npm ci
+cp .env.example .env
+npm run dev
 ```
 
-## Requirements
+Open [localhost:3000](http://localhost:3000). The public
+[/landing](http://localhost:3000/landing) page remains accessible while signed in.
+Account sections request sign-in and return to the selected section afterwards.
+The public
+[/demo](http://localhost:3000/demo) workspace uses explicitly fictional fixtures
+and session-only positions, transactions, watchlists and alerts. It needs no
+credentials and writes no account data. `DEMO_MODE=true` also disables external
+market/news/social/AI calls for the development API.
 
-- Node.js 20 or newer recommended
-- npm
-- Firebase project configured for Auth and Firestore
-- Gemini API key for real AI responses
-- Optional API keys for richer market/news data
+Real account use requires the Firebase project configured in
+`firebase-applet-config.json`, enabled Auth providers, authorized domains and
+deployed rules. This public client configuration contains no Admin credentials.
+See [Firebase domain setup](docs/firebase-auth-domains.md) and
+[deployment](docs/DEPLOYMENT.md).
 
-## Environment Variables
+## Implemented
 
-Create a local `.env` file in the project root. This file is intentionally ignored by Git and must never be committed.
+- A dense responsive dashboard with portfolio marks, benchmarks, watchlists,
+  movers, relevant reporting, monitored X sources and reported earnings dates.
+- Replaceable market, crypto, news, social, FX and event adapters. Quotes retain
+  their provider, currency, exchange, source timestamp and known latency.
+- Shared bounded caches, request coalescing, quota budgets, circuit backoff,
+  optional Redis cache/rate limits and SSE with heartbeat/reconnection.
+- Native candle/line charts, volume, crosshair, SMA and all requested period
+  controls where the provider has history; modular RSI/EMA/MACD calculations.
+- Multiple named/pinned watchlists, asset ordering, search and observed mini charts.
+  Existing saved favorites remain visible and can be copied into a watchlist.
+- Atomic decimal ledger for buys, sells, dividends, deposits, withdrawals,
+  signed cash transfers and fees. Average cost, remaining basis, realized and
+  unrealized trade P&L; fractional quantities stay exact.
+- USD/EUR/ARS/GBP analytics with attributed FX, cash, asset/type allocation,
+  concentration, performers and recorded wealth changes. Historical price risk
+  computes volatility, drawdown, explicit-assumption Sharpe, beta and correlations
+  only with sufficient aligned observed history.
+- News categories, followed keywords/topics and portfolio relevance; deduplicated
+  original reports with sources, publication times and links.
+- Official X account subscriptions, groups, mute/search and permitted media previews.
+- Source-constrained AI interpretation and personal daily briefs with a clearly
+  identified deterministic fallback. Server-side context is scoped to the caller.
+- Twelve smart alert conditions, atomic in-app notification claims, a retrying
+  delivery outbox and optional verified-account email/FCM push.
+- Global Ctrl/Cmd+K search and actions, JSON export, recent-auth server account
+  deletion, strict TypeScript, ESLint, Prettier, CI and a Node 24 Docker build.
 
-Use `.env.example` as the install template:
+## Data integrity
 
-```env
-GEMINI_API_KEY=
-TWELVE_DATA_API_KEY=
-NEWS_API_KEY=
-RESEND_API_KEY=
-SUPPORT_FROM_EMAIL=
-PORT=3000
-FIREBASE_PROJECT_ID=
-FIREBASE_SERVICE_ACCOUNT_JSON=
-GOOGLE_APPLICATION_CREDENTIALS=
-ALERT_WORKER_INTERVAL_MS=60000
-ALERT_NOTIFY_COOLDOWN_MS=3600000
-VITE_FIREBASE_MESSAGING_VAPID_KEY=
-STRICT_HEALTHCHECK=false
-ANALYTICS_LOG_EVENTS=false
-VITE_ANALYTICS_ENABLED=false
+Missing data stays missing. Provider failures retain explicitly stale values;
+there are no invented prices, market caps, news, social posts or historical curves
+in normal operation. “Realtime” is used only when a provider explicitly supplies
+that status; connection speed is not market-data latency.
+
+Account wealth changes include cash flows. The retrospective current-position
+price basket is a simulation, not your historical investment return. Corporate
+action adjustment, historical FX, verified sector classifications and tax-lot
+reporting are not implemented; the relevant values are unavailable or explicitly
+qualified. ARS FX is the provider's indicative rate, not an inferred parallel rate.
+
+## Quality checks
+
+```sh
+npm run validate
+npm run format:check
+npm audit --audit-level=moderate
 ```
 
-### Required
+Java **21+** is needed for Firebase emulators. Browser tests use Playwright Chromium.
 
-`GEMINI_API_KEY`
-
-Used by `/api/ai/asset-chat`. Without a valid key, the chat returns a safe fallback response instead of failing the UI.
-
-### Optional But Recommended
-
-`TWELVE_DATA_API_KEY`
-
-Used for stock quotes, crypto quote fallback, and time series endpoints. If missing or failing, ZENTRA still uses fallback datasets and Yahoo/CoinPaprika where possible.
-
-`NEWS_API_KEY`
-
-Used by `/api/news`. If missing, ZENTRA returns curated fallback news.
-
-`FIREBASE_SERVICE_ACCOUNT_JSON` or `GOOGLE_APPLICATION_CREDENTIALS`
-
-Required for server-side Firebase Admin features: verifying ID tokens, account deletion, alert worker checks, in-app notifications, and push delivery.
-
-`RESEND_API_KEY` and `SUPPORT_FROM_EMAIL`
-
-Required for support email and alert email delivery. Without them, the app still creates in-app notifications where Firebase Admin is configured.
-
-`STRICT_HEALTHCHECK`
-
-When set to `true`, `/api/ready` returns HTTP 503 if beta-critical services are degraded. Keep it `false` for early beta unless your hosting platform requires strict readiness checks.
-
-`ANALYTICS_LOG_EVENTS` and `VITE_ANALYTICS_ENABLED`
-
-Enable privacy-safe beta analytics events. Events do not include emails, raw messages, tokens, or portfolio values.
-
-## Firebase Setup
-
-The frontend loads Firebase config from:
-
-```text
-firebase-applet-config.json
+```sh
+npx playwright install chromium
+npm run test:rules:emulator
+npm run test:integration:emulator
 ```
 
-The app expects:
-
-- Firebase Auth enabled
-- Firestore enabled
-- User documents under `users/{uid}`
-- Portfolio data under:
-  - `users/{uid}/assets`
-  - `users/{uid}/transactions`
-  - `users/{uid}/favorites`
-  - `users/{uid}/alerts`
-  - `users/{uid}/snapshots`
-  - `users/{uid}/notifications`
-
-Security rules live in:
-
-```text
-firestore.rules
-```
-
-## Install
-
-```powershell
-npm install
-```
-
-On Windows, prefer `npm.cmd` if PowerShell blocks npm scripts:
-
-```powershell
-npm.cmd install
-```
-
-## Run Locally
-
-```powershell
-npm.cmd run dev
-```
-
-The app runs at:
-
-```text
-http://localhost:3000
-```
-
-The same Express process serves:
-
-- the API routes
-- Vite middleware in development
-- the built `dist/` app in production mode
-
-## Build
-
-```powershell
-npm.cmd run build
-```
-
-## Type Check
-
-```powershell
-npm.cmd run lint
-```
-
-This project uses TypeScript's compiler as the lint/type validation step:
-
-```text
-tsc --noEmit
-```
-
-## Tests
-
-```powershell
-npm.cmd test
-npm.cmd run test:e2e
-npm.cmd run test:rules
-npm.cmd run test:rules:emulator
-npm.cmd run validate:beta
-```
-
-`test:rules` runs the emulator-ready Firestore rules suite when `FIRESTORE_EMULATOR_HOST` is set and skips those emulator-only assertions otherwise.
-
-`test:rules:emulator` starts the Firestore emulator and runs the rule tests end-to-end. It requires Java 11 or newer locally. GitHub Actions installs Java 21 automatically.
-
-## Data Quality Policy
-
-ZENTRA is strict about not hiding fake financial data:
-
-- Portfolio value uses live market snapshots when available.
-- Missing prices fall back to entry cost and are marked as estimated.
-- Dashboard and Portfolio charts use saved daily snapshots only.
-- If there are not enough real snapshots, the chart shows an empty state instead of a synthetic performance curve.
-- Market endpoints return `source`, `fallback`, `stale`, `cached`, or `updatedAt` metadata where available.
-
-## Clean Build Output
-
-```powershell
-npm.cmd run clean
-```
-
-## API Routes
-
-### Operations
-
-```http
-GET /api/health
-GET /api/ready
-GET /api/providers
-POST /api/analytics/events
-```
-
-### Market
-
-```http
-GET /api/market/stocks
-GET /api/market/cryptos
-GET /api/market/hot
-GET /api/market/asset?symbol=NVDA&type=stock
-GET /api/market/price?symbol=NVDA
-GET /api/market/time_series?symbol=NVDA&interval=1day
-GET /api/market/logo?symbol=NVDA&type=stock
-```
-
-### News
-
-```http
-GET /api/news?q=finance
-```
-
-### AI
-
-```http
-POST /api/ai/asset-chat
-Content-Type: application/json
-
-{
-  "symbol": "NVDA",
-  "type": "stock",
-  "question": "hablame acerca de nvidia",
-  "price": "$225.83",
-  "change": "+2.28%"
-}
-```
-
-The AI route:
-
-- stays server-side so API keys are not exposed to the browser
-- answers in the same language as the user's question when obvious
-- avoids personalized financial advice
-- returns a fallback answer if Gemini is unavailable
-
-## Key Workflows
-
-### Explore Markets
-
-Open `Markets` to browse stocks, crypto, favorites, and heat map mode. Assets are sorted by market capitalization where available.
-
-### Heat Map
-
-The heat map supports:
-
-- stocks or crypto mode
-- zoom with wheel/buttons
-- drag-to-pan while holding click
-- fullscreen
-- click tile to open the asset detail page
-
-### Asset Detail
-
-Each asset page shows:
-
-- current price refreshed every 15 seconds
-- percentage change
-- TradingView chart
-- fundamentals
-- favorite toggle
-- AI chat
-- `Add This Asset` handoff into the Portfolio form
-
-The asset detail does not directly create a position. It sends the user to Portfolio with prefilled data so quantity and price can be edited before saving.
-
-### Portfolio
-
-Portfolio stores positions and transactions in Firestore. When opened from an asset page, the add-position form is prefilled with:
-
-- symbol
-- name
-- type
-- current price
-
-The user still chooses quantity and can override the price before saving.
-
-### Language
-
-The app supports:
-
-- English
-- Spanish
-- Portuguese
-
-The selector is available next to the theme toggle. English is the default until the user chooses another language.
-
-## Local Logos
-
-Asset logos live in:
-
-```text
-public/logos/stocks/
-public/logos/cryptos/
-```
-
-`CompanyLogo.tsx` prefers local files first to avoid slow remote logo loading and flickering. Remote fallbacks are only used when a local asset is unavailable.
-
-## Security Notes
-
-- Never commit `.env`.
-- Never expose API keys in frontend code.
-- Keep Gemini, Twelve Data, and News API calls on the server.
-- If an API key is ever pasted into chat, logs, screenshots, or Git history, revoke it and create a new one.
-- Firebase rules should restrict each user's portfolio, transactions, and favorites to that user only.
-
-## Troubleshooting
-
-### The AI chat returns fallback text
-
-Check that:
-
-- `GEMINI_API_KEY` exists in `.env`
-- the key is valid in Google AI Studio
-- the server was restarted after editing `.env`
-- `server.ts` is loading `.env` with override enabled
-
-Quick test:
-
-```powershell
-Invoke-WebRequest -UseBasicParsing `
-  -Uri "http://127.0.0.1:3000/api/ai/asset-chat" `
-  -Method POST `
-  -ContentType "application/json" `
-  -Body '{"symbol":"NVDA","type":"stock","question":"hablame acerca de nvidia","price":"$225.83","change":"+2.28%"}'
-```
-
-### Prices stay on "Updating"
-
-Check that the dev server was restarted and that `/api/market/asset` responds JSON:
-
-```powershell
-Invoke-WebRequest -UseBasicParsing `
-  -Uri "http://127.0.0.1:3000/api/market/asset?symbol=NVDA&type=stock"
-```
-
-If the response is HTML, an old server process is running. Stop it and restart:
-
-```powershell
-npm.cmd run dev
-```
-
-### npm fails in PowerShell
-
-Use `npm.cmd`:
-
-```powershell
-npm.cmd run dev
-npm.cmd run build
-npm.cmd run lint
-```
-
-### Market data is stale
-
-Some stock data falls back to bundled rankings or public quote endpoints if Twelve Data is missing or unavailable. Configure `TWELVE_DATA_API_KEY` for better coverage.
-
-## Deployment Notes
-
-For production:
-
-```powershell
-npm.cmd run build
-npm.cmd run start
-```
-
-In production mode, Express serves `dist/index.html` and static build assets.
-
-Set these environment variables in the hosting provider:
-
-```text
-GEMINI_API_KEY
-TWELVE_DATA_API_KEY
-NEWS_API_KEY
-RESEND_API_KEY
-SUPPORT_FROM_EMAIL
-FIREBASE_PROJECT_ID
-FIREBASE_SERVICE_ACCOUNT_JSON
-ALERT_WORKER_INTERVAL_MS
-ALERT_NOTIFY_COOLDOWN_MS
-STRICT_HEALTHCHECK
-ANALYTICS_LOG_EVENTS
-VITE_FIREBASE_MESSAGING_VAPID_KEY
-VITE_ANALYTICS_ENABLED
-```
-
-## Beta Operations
-
-Before deploying a private beta, read:
-
-- `docs/beta-operations.md`
-- `docs/provider-strategy.md`
-
-The beta standard is:
-
-- CI must pass lint, tests, Firestore rules emulator tests, build, and audit.
-- `/api/health` must return `ok: true`.
-- `/api/ready` must not show missing services required by the beta scope.
-- API keys and Firebase Admin credentials must live in the deploy provider, never in Git.
-- Financial data must keep visible live/fallback/estimated context.
-
-## Disclaimer
-
-ZENTRA is a market research and portfolio tracking tool. It is not financial advice. AI-generated responses can be incomplete or wrong and should be treated as supporting context, not as a trading instruction.
+The emulator scripts isolate Auth/Firestore on ports 9199/8180 and use the default
+emulator database. Without emulators or `E2E_BASE_URL`, those suites report skips.
+They are separate from ordinary unit/API tests. Credentials, production users,
+actual email delivery and live licensed API entitlements are not exercised by them.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Database and compatibility](docs/DATABASE.md)
+- [Market data and financial definitions](docs/MARKET_DATA.md)
+- [Providers, quotas and commercial rights](docs/PROVIDERS.md)
+- [Security and privacy](docs/SECURITY.md)
+- [Deployment and operations](docs/DEPLOYMENT.md)
+- [Validation results and release boundaries](docs/VALIDATION.md)
+- [Remaining work](docs/ROADMAP.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+Validation uses fixtures and isolated emulators. No command above deploys or
+migrates production data. A configured development server can run existing alert
+jobs and their selected delivery channels; use demo mode for an isolated preview.

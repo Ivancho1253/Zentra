@@ -1,46 +1,114 @@
-import React, { useState } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  getRedirectResult,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+} from 'firebase/auth';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { auth } from '../lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { ShieldCheck, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { brand } from '../../shared/brand';
 import { useLanguage } from '../contexts/LanguageContext';
-import LanguageSelector from './LanguageSelector';
 import { trackEvent } from '../lib/analytics';
+import { postLoginPath } from '../lib/authNavigation';
+import { errorCode, errorMessage } from '../lib/errors';
+import { auth } from '../lib/firebase';
+import LanguageSelector from './LanguageSelector';
 
 export default function Auth() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const destination = postLoginPath(location.state);
   const { t } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const getAuthErrorMessage = (err: unknown) => {
+    const code = errorCode(err);
+    if (code === 'auth/unauthorized-domain') {
+      return `This domain is not authorized in Firebase Auth. Add "${window.location.hostname}" in Firebase Console > Authentication > Settings > Authorized domains.`;
+    }
+    if (code === 'auth/operation-not-allowed') {
+      return 'This sign-in provider is disabled. Enable Google and/or Email/Password in Firebase Console > Authentication > Sign-in method.';
+    }
+    if (code === 'auth/popup-blocked') {
+      return 'The browser blocked the Google sign-in popup. Allow popups for localhost and try again.';
+    }
+    if (code === 'auth/popup-closed-by-user') {
+      return 'The Google sign-in window closed before completing login. Try again and finish the Google prompt.';
+    }
+    if (code === 'auth/cancelled-popup-request') {
+      return 'A Google sign-in popup was already open. Close the extra popups and try once.';
+    }
+    return errorMessage(err);
+  };
 
   React.useEffect(() => {
-    getRedirectResult(auth).catch((err: any) => {
-      setError(err.message);
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          trackEvent('auth_google_redirect_success');
+          navigate(destination, { replace: true });
+        }
+      })
+      .catch((err: unknown) => {
+        trackEvent('auth_google_redirect_failed', { code: errorCode(err) });
+        setError(getAuthErrorMessage(err));
+      });
+  }, [navigate, destination]);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) navigate(destination, { replace: true });
     });
-  }, []);
+    return () => unsubscribe();
+  }, [navigate, destination]);
 
   const handleGoogleSignIn = async () => {
+    if (authLoading) return;
+    setAuthLoading(true);
+    setError('');
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      trackEvent('auth_google_success');
-    } catch (err: any) {
-      if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
-        const provider = new GoogleAuthProvider();
-        trackEvent('auth_google_redirect');
-        await signInWithRedirect(auth, provider);
-        return;
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      if (result.user) {
+        trackEvent('auth_google_popup_success');
+        navigate(destination, { replace: true });
       }
-      trackEvent('auth_google_failed', { code: err.code || 'unknown' });
-      setError(err.message);
+    } catch (err: unknown) {
+      const code = errorCode(err);
+      trackEvent('auth_google_popup_failed', { code });
+      if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+        try {
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          trackEvent('auth_google_redirect_started');
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr: unknown) {
+          trackEvent('auth_google_redirect_failed', { code: errorCode(redirectErr) });
+          setError(getAuthErrorMessage(redirectErr));
+        }
+      } else {
+        setError(getAuthErrorMessage(err));
+      }
+      setAuthLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authLoading) return;
+    setAuthLoading(true);
     setError('');
     try {
       if (isLogin) {
@@ -50,9 +118,14 @@ export default function Auth() {
         await createUserWithEmailAndPassword(auth, email, password);
         trackEvent('auth_email_register_success');
       }
-    } catch (err: any) {
-      trackEvent(isLogin ? 'auth_email_login_failed' : 'auth_email_register_failed', { code: err.code || 'unknown' });
-      setError(err.message);
+      navigate(destination, { replace: true });
+    } catch (err: unknown) {
+      trackEvent(isLogin ? 'auth_email_login_failed' : 'auth_email_register_failed', {
+        code: errorCode(err),
+      });
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -67,10 +140,10 @@ export default function Auth() {
         <LanguageSelector />
       </div>
 
-  <div className="w-full max-w-md relative z-10 pt-12">
+      <div className="w-full max-w-md relative z-10 pt-12">
         {/* Prominent back pill */}
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate('/landing')}
           className="absolute top-6 left-6 flex items-center gap-3 text-sm uppercase font-bold tracking-widest text-text-dim hover:text-accent transition-colors bg-white/3 hover:bg-white/5 px-3 py-2 rounded-full shadow-md backdrop-blur-sm"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -79,23 +152,36 @@ export default function Auth() {
 
         <div className="text-center mb-6">
           <div className="flex justify-center mb-2">
-            <motion.img 
-              src="/logo.png" 
-              alt="ZENTRA Logo" 
-              className="w-20 h-20 object-contain drop-shadow-[0_0_14px_rgba(124,255,26,0.35)]" 
+            <motion.img
+              src={brand.icon}
+              alt={brand.name + ' Logo'}
+              className="w-20 h-20 object-contain drop-shadow-[0_0_14px_rgba(124,255,26,0.35)]"
               referrerPolicy="no-referrer"
               whileHover={{ scale: 1.05 }}
               transition={{ type: 'spring', stiffness: 200 }}
             />
           </div>
-          <h1 className="text-3xl font-black tracking-tighter uppercase">ZENTRA</h1>
-          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">{t('brandTagline')}</p>
+          <h1 className="text-3xl font-black tracking-tighter uppercase">{brand.name}</h1>
+          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">
+            {t('brandTagline')}
+          </p>
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bento-card !bg-white/5 border-white/10 backdrop-blur-xl">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bento-card !bg-white/5 border-white/10 backdrop-blur-xl"
+        >
           <h2 className="text-xs font-black uppercase mb-8 border-b border-white/5 pb-4 tracking-widest">
             {isLogin ? t('systemAccess') : t('createAccount')}
           </h2>
+
+          {destination !== '/' && (
+            <p className="mb-6 text-sm leading-6 text-text-dim" role="status">
+              {t('signInForSection')}
+            </p>
+          )}
 
           {error && (
             <div className="bg-loss/10 border border-loss/50 p-4 mb-8 text-[10px] text-loss uppercase font-black rounded-xl animate-shake">
@@ -105,9 +191,13 @@ export default function Auth() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">{t('emailLabel')}</label>
+              <label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">
+                {t('emailLabel')}
+              </label>
               <input
                 type="email"
+                aria-label="Email address"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs focus:outline-none focus:border-accent transition-all font-bold"
@@ -116,24 +206,54 @@ export default function Auth() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">{t('passwordLabel')}</label>
+              <label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">
+                {t('passwordLabel')}
+              </label>
               <input
                 type="password"
+                aria-label="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs focus:outline-none focus:border-accent transition-all font-bold"
                 placeholder="••••••••"
+                minLength={isLogin ? 1 : 8}
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
               />
             </div>
 
             <button
               type="submit"
+              disabled={authLoading}
               className="w-full bg-gradient-to-r from-accent to-lime-500 text-bg py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-[1.01] active:scale-95 transition-all shadow-[0_14px_30px_-10px_rgba(124,255,26,0.28)]"
             >
-              {isLogin ? t('signIn') : t('register')}
+              {authLoading ? t('sending') : isLogin ? t('signIn') : t('register')}
             </button>
           </form>
+          {isLogin && (
+            <button
+              type="button"
+              className="mt-4 text-xs text-accent"
+              disabled={authLoading}
+              onClick={async () => {
+                if (!email.trim()) {
+                  setError('Enter your email address first.');
+                  return;
+                }
+                setAuthLoading(true);
+                try {
+                  await sendPasswordResetEmail(auth, email.trim());
+                  setError('If this account exists, a password reset email has been sent.');
+                } catch {
+                  setError('Could not request a password reset. Please try again.');
+                } finally {
+                  setAuthLoading(false);
+                }
+              }}
+            >
+              Forgot password?
+            </button>
+          )}
 
           <div className="relative my-10">
             <div className="absolute inset-0 flex items-center">
@@ -146,10 +266,16 @@ export default function Auth() {
 
           <button
             onClick={handleGoogleSignIn}
+            disabled={authLoading}
             className="w-full flex items-center justify-center gap-3 bg-[#0b0b0b] border border-white/6 py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-105 transition-transform shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)]"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" referrerPolicy="no-referrer" />
-            <span className="ml-2">{t('googleAccount')}</span>
+            <img
+              src="https://www.google.com/favicon.ico"
+              className="w-5 h-5"
+              alt="Google"
+              referrerPolicy="no-referrer"
+            />
+            <span className="ml-2">{authLoading ? t('sending') : t('googleAccount')}</span>
           </button>
 
           <p className="mt-10 text-center text-[10px] text-text-dim uppercase font-bold tracking-widest">
@@ -165,7 +291,9 @@ export default function Auth() {
 
         <div className="mt-12 flex items-center justify-center gap-2 opacity-20">
           <ShieldCheck className="w-4 h-4" />
-          <span className="text-[8px] uppercase tracking-widest font-bold">{t('authSecurityActive')}</span>
+          <span className="text-[8px] uppercase tracking-widest font-bold">
+            {t('authSecurityActive')}
+          </span>
         </div>
       </div>
     </div>

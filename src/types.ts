@@ -16,15 +16,25 @@ export interface Asset {
   averagePrice: number;
   totalQuantity: number;
   lastUpdated: string;
+  currency?: string;
+  quantityExact?: string;
+  costExact?: string;
+  realizedPnlExact?: string;
 }
 
 export interface Transaction {
   id: string;
   assetSymbol: string;
-  type: 'buy' | 'sell';
+  type: 'buy' | 'sell' | 'dividend' | 'deposit' | 'withdrawal' | 'transfer' | 'fee';
   quantity: number;
   price: number;
   date: string;
+  currency?: string;
+  quantityExact?: string;
+  priceExact?: string;
+  fee?: string;
+  broker?: string;
+  notes?: string;
 }
 
 export interface NewsArticle {
@@ -40,7 +50,7 @@ export interface PriceAlert {
   id: string;
   symbol: string;
   type: 'stock' | 'crypto';
-  condition: 'above' | 'below';
+  condition: import('../shared/alerts').AlertCondition;
   targetPrice: number;
   status: 'active' | 'paused' | 'triggered';
   createdAt: string;
@@ -48,8 +58,13 @@ export interface PriceAlert {
 }
 
 export interface PortfolioSnapshot {
+  kind?: 'holdings' | 'net-worth';
   id: string;
   date: string;
+  currency?: string;
+  estimated?: boolean;
+  providers?: string[];
+  quotedAt?: string | null;
   totalValue: number;
   totalCost: number;
   totalPnl: number;

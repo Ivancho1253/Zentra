@@ -1,74 +1,45 @@
-import type express from "express";
-import { GoogleGenAI } from "@google/genai";
-import { z } from "zod";
-
-const portfolioBriefingRequestSchema = z.object({
-  language: z.enum(["es", "en", "pt"]).optional().default("en"),
-  portfolio: z.array(z.any()).optional().default([]),
-  metrics: z.record(z.string(), z.any()).optional().default({}),
-  risk: z.record(z.string(), z.any()).optional().default({}),
-  alerts: z.array(z.any()).optional().default([]),
-  news: z.array(z.any()).optional().default([]),
-});
-
+import type express from 'express';
+import { z } from 'zod';
+import { groundedInsight, insightSources } from '../services/intelligenceService';
+import { userIntelligence } from '../services/userIntelligence';
 export function registerAiBriefingRoutes(app: express.Express) {
-  app.post("/api/ai/portfolio-briefing", async (req, res) => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    const parsedBriefing = portfolioBriefingRequestSchema.safeParse(req.body || {});
-
-    if (!parsedBriefing.success) {
-      return res.status(400).json({ error: "Valid briefing context is required" });
-    }
-
-    const language = parsedBriefing.data.language;
-    const portfolio = parsedBriefing.data.portfolio.slice(0, 30);
-    const metrics = parsedBriefing.data.metrics;
-    const risk = parsedBriefing.data.risk;
-    const alerts = parsedBriefing.data.alerts.slice(0, 20);
-    const news = parsedBriefing.data.news.slice(0, 10);
-
-    const fallbackAnswer = {
-      es: "Briefing rapido: revisa el valor actual, P&L, concentracion principal, exposicion crypto/stocks y alertas activas. La IA no esta disponible ahora, pero el panel de riesgo y portfolio ya muestran los datos clave.",
-      en: "Quick briefing: review current value, P&L, largest concentration, crypto/stocks exposure and active alerts. AI is unavailable right now, but the risk and portfolio panels show the key data.",
-      pt: "Briefing rapido: revise valor atual, P&L, maior concentracao, exposicao cripto/acoes e alertas ativos. A IA nao esta disponivel agora, mas os paineis de risco e carteira mostram os dados principais.",
-    }[language];
-
-    if (!apiKey) {
-      return res.json({ fallback: true, briefing: fallbackAnswer });
-    }
-
+  app.post('/api/ai/portfolio-briefing', async (req, res) => {
+    const language = z.enum(['es', 'en', 'pt']).safeParse(req.body?.language || 'en');
+    if (!language.success) return res.status(400).json({ error: 'Invalid language' });
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `You are ZENTRA's portfolio briefing assistant.
-
-Rules:
-- Do not give personalized financial advice or buy/sell instructions.
-- Use only the provided JSON context.
-- Distinguish live, estimated and missing data.
-- Be concise, practical and direct.
-- Answer in this language: ${language}.
-- Format as plain text with short sections, no markdown tables.
-
-Portfolio holdings JSON: ${JSON.stringify(portfolio)}
-Portfolio metrics JSON: ${JSON.stringify(metrics)}
-Risk summary JSON: ${JSON.stringify(risk)}
-Alerts JSON: ${JSON.stringify(alerts)}
-Recent news JSON: ${JSON.stringify(news)}
-
-Write:
-1. What changed or matters today.
-2. Main portfolio risks.
-3. Alerts to watch.
-4. News context.
-5. Three things to inspect next.`,
+      const context = await userIntelligence(req.user!.uid);
+      if (!context)
+        return res.json({
+          fallback: true,
+          aiGenerated: false,
+          briefing:
+            'Server-side portfolio context is unavailable. Your holdings remain available in the portfolio view.',
+          sources: [],
+        });
+      const question = {
+        es: 'Resume los movimientos y noticias de mis activos. Explica la relevancia sin aconsejar operaciones.',
+        en: 'Summarize movements and sourced news about my followed assets. Explain relevance without trading advice.',
+        pt: 'Resuma movimentos e noticias dos meus ativos com fontes e sem recomendar operacoes.',
+      }[language.data];
+      const insight = await groundedInsight(
+        question,
+        context,
+        insightSources(context.quotes, context.articles, context.posts, context.events),
+      );
+      const movers = context.quotes
+        .filter((q) => q.price && q.change != null && !q.stale)
+        .sort((a, b) => Math.abs(Number(b.change)) - Math.abs(Number(a.change)))
+        .slice(0, 4);
+      const deterministic = `Followed assets: ${movers.map((q) => `${q.symbol} ${Number(q.change).toFixed(2)}% (${q.provider}, ${q.status}, ${q.updatedAt || 'timestamp unavailable'})`).join('; ') || 'No verified movements available'}. ${context.articles.length} sourced stories; ${context.posts.length} official monitored posts. Upcoming reported earnings: ${context.events.map((e) => `${e.symbol} ${e.date} (${e.provider}${context.calendarStale ? ', stale' : ''})`).join('; ') || 'Unavailable'}. USD marked position value: ${context.metrics.totalCurrentValue.toFixed(2)} (estimates may be included). ${context.note}`;
+      res.json({
+        ...insight,
+        briefing: insight.fallback ? deterministic : insight.answer,
+        movements: movers,
+        articles: context.articles,
+        metrics: context.metrics,
       });
-
-      res.json({ briefing: response.text || fallbackAnswer });
-    } catch (error) {
-      console.error("Portfolio briefing failed:", error);
-      res.json({ fallback: true, briefing: fallbackAnswer });
+    } catch {
+      res.status(503).json({ error: 'Could not load verified briefing context' });
     }
   });
 }

@@ -17,9 +17,11 @@ const getSessionId = () => {
 };
 
 const cleanProperties = (properties: AnalyticsProperties = {}) =>
-  Object.fromEntries(Object.entries(properties)
-    .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => [key, value ?? null]));
+  Object.fromEntries(
+    Object.entries(properties)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, value ?? null]),
+  );
 
 export function trackEvent(name: string, properties: AnalyticsProperties = {}) {
   if (!analyticsEnabled()) return;

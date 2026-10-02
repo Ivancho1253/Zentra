@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-server
+.git
+.codex
+.agents
+.codex-runtime
+.env*
+!.env.example
+*.log
+coverage
+test-results
+playwright-report

@@ -4,12 +4,15 @@ on:
   push:
     branches:
       - main
-      - "codex/**"
+      - 'codex/**'
   pull_request:
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEMO_MODE: 'true'
 
     steps:
       - name: Checkout
@@ -18,26 +21,35 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Setup Java for Firebase Emulator
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Type check
-        run: npm run lint
+        run: npm run typecheck
+
+      - name: Lint and formatting
+        run: npm run lint && npm run format:check
 
       - name: Unit and API tests
         run: npm test
 
       - name: Firestore rules emulator tests
-        run: npx firebase-tools@13 emulators:exec --only firestore --project zentra-rules-test "npm run test:rules"
+        run: npm run test:rules:emulator
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Auth, ledger, watchlists and responsive browser journeys
+        run: npm run test:integration:emulator
 
       - name: Build
         run: npm run build

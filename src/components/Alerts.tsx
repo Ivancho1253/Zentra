@@ -1,28 +1,65 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+} from 'firebase/firestore';
+import {
+  AlertCircle,
+  ArrowLeft,
+  BellRing,
+  CheckCheck,
+  Mail,
+  Pause,
+  Play,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
-import { AlertCircle, ArrowLeft, BellRing, CheckCheck, Mail, Pause, Play, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import { evaluateAlert } from '../../shared/alerts';
+import type { AssetQuote } from '../../shared/domain';
 import { auth, db } from '../lib/firebase';
 import { registerPushNotifications } from '../lib/notifications';
 import { PriceAlert, UserNotification } from '../types';
 import CompanyLogo from './CompanyLogo';
+import SmartAlertForm from './SmartAlertForm';
 
-interface AlertSnapshot {
-  price: number | null;
-  change: number | null;
-  source?: string;
-  fallback?: boolean;
-  updatedAt?: string;
-}
+type AlertSnapshot = AssetQuote;
+const marketConditions = [
+  'above',
+  'below',
+  'change_above',
+  'change_below',
+  'volume_spike',
+  'new_high',
+  'new_low',
+];
+const threshold = (a: PriceAlert) =>
+  ['above', 'below'].includes(a.condition)
+    ? String(a.targetPrice) + ' native currency'
+    : ['breaking_news', 'social_post', 'new_high', 'new_low'].includes(a.condition)
+      ? 'New event'
+      : a.condition === 'earnings'
+        ? `${a.targetPrice} days`
+        : a.condition === 'volume_spike'
+          ? `${a.targetPrice}× prior average volume`
+          : `${a.targetPrice}%`;
 
-const formatMoney = (value: number | null) => {
-  if (value === null || !Number.isFinite(value)) return 'N/A';
-  return `$${value.toLocaleString(undefined, { minimumFractionDigits: value < 1 ? 4 : 2, maximumFractionDigits: value < 1 ? 6 : 2 })}`;
-};
-
-const isTriggered = (alert: PriceAlert, price: number | null) => {
-  if (price === null || alert.status !== 'active') return false;
-  return alert.condition === 'above' ? price >= alert.targetPrice : price <= alert.targetPrice;
+const isTriggered = (alert: PriceAlert, quote?: AssetQuote) => {
+  if (
+    !quote?.price ||
+    alert.status !== 'active' ||
+    !quote.updatedAt ||
+    Date.now() - Date.parse(quote.updatedAt) > 86400000
+  )
+    return false;
+  if (!['above', 'below', 'change_above', 'change_below'].includes(alert.condition)) return false;
+  return evaluateAlert(alert, { quote });
 };
 
 export default function Alerts() {
@@ -37,14 +74,18 @@ export default function Alerts() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const unsubscribe = onSnapshot(query(collection(db, 'users', auth.currentUser.uid, 'alerts')), (snapshot) => {
-      setAlerts(snapshot.docs.map((item) => ({ ...item.data(), id: item.id } as PriceAlert)));
-      setLoading(false);
-    }, (snapshotError) => {
-      console.error('Could not load alerts:', snapshotError);
-      setError('Could not load alerts. Check Firestore permissions.');
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'users', auth.currentUser.uid, 'alerts')),
+      (snapshot) => {
+        setAlerts(snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as PriceAlert));
+        setLoading(false);
+      },
+      (snapshotError) => {
+        console.error('Could not load alerts:', snapshotError);
+        setError('Could not load alerts. Check Firestore permissions.');
+        setLoading(false);
+      },
+    );
 
     return () => unsubscribe();
   }, []);
@@ -56,11 +97,19 @@ export default function Alerts() {
       collection(db, 'users', auth.currentUser.uid, 'notifications'),
       orderBy('createdAt', 'desc'),
     );
-    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
-      setNotifications(snapshot.docs.map((item) => ({ ...item.data(), id: item.id } as UserNotification)).slice(0, 10));
-    }, (snapshotError) => {
-      console.error('Could not load notifications:', snapshotError);
-    });
+    const unsubscribe = onSnapshot(
+      notificationsQuery,
+      (snapshot) => {
+        setNotifications(
+          snapshot.docs
+            .map((item) => ({ ...item.data(), id: item.id }) as UserNotification)
+            .slice(0, 10),
+        );
+      },
+      (snapshotError) => {
+        console.error('Could not load notifications:', snapshotError);
+      },
+    );
 
     return () => unsubscribe();
   }, []);
@@ -73,19 +122,24 @@ export default function Alerts() {
 
     let cancelled = false;
     const fetchSnapshots = async () => {
-      const uniqueAlerts = Array.from(new Map<string, PriceAlert>(alerts.map((alert) => [`${alert.type}-${alert.symbol}`, alert])).values());
-      const results = await Promise.allSettled(uniqueAlerts.map(async (alert) => {
-        const response = await fetch(`/api/market/asset?symbol=${encodeURIComponent(alert.symbol)}&type=${alert.type}&t=${Date.now()}`, { cache: 'no-store' });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Market snapshot failed');
-        return [`${alert.type}-${alert.symbol}`, {
-          price: Number.isFinite(Number(data.price)) ? Number(data.price) : null,
-          change: Number.isFinite(Number(data.change)) ? Number(data.change) : null,
-          source: data.source || (data.fallback ? 'fallback' : 'market'),
-          fallback: Boolean(data.fallback),
-          updatedAt: data.updatedAt,
-        }] as const;
-      }));
+      const uniqueAlerts = Array.from(
+        new Map<string, PriceAlert>(
+          alerts
+            .filter((a) => marketConditions.includes(a.condition))
+            .map((alert) => [`${alert.type}-${alert.symbol}`, alert]),
+        ).values(),
+      );
+      const results = await Promise.allSettled(
+        uniqueAlerts.map(async (alert) => {
+          const response = await fetch(
+            `/api/market/asset?symbol=${encodeURIComponent(alert.symbol)}&type=${alert.type}&t=${Date.now()}`,
+            { cache: 'no-store' },
+          );
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Market snapshot failed');
+          return [`${alert.type}-${alert.symbol}`, data as AssetQuote] as const;
+        }),
+      );
 
       if (cancelled) return;
       const nextSnapshots: Record<string, AlertSnapshot> = {};
@@ -102,7 +156,7 @@ export default function Alerts() {
       console.error('Could not refresh alert prices:', fetchError);
     });
 
-    const interval = window.setInterval(fetchSnapshots, 30000);
+    const interval = window.setInterval(fetchSnapshots, 60000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
@@ -113,7 +167,7 @@ export default function Alerts() {
     const active = alerts.filter((alert) => alert.status === 'active').length;
     const triggeredNow = alerts.filter((alert) => {
       const snapshot = snapshots[`${alert.type}-${alert.symbol}`];
-      return isTriggered(alert, snapshot?.price ?? null);
+      return isTriggered(alert, snapshot);
     }).length;
     return { active, triggeredNow };
   }, [alerts, snapshots]);
@@ -149,7 +203,9 @@ export default function Alerts() {
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">Loading alerts...</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">
+            Loading alerts...
+          </div>
         </div>
       </div>
     );
@@ -157,24 +213,41 @@ export default function Alerts() {
 
   return (
     <div className="app-page">
+      <SmartAlertForm />
       <section className="app-hero">
         <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="flex items-start gap-4">
-            <button onClick={() => navigate(-1)} className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent">
+            <button
+              aria-label="Back"
+              onClick={() => navigate(-1)}
+              className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent"
+            >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <div className="accent-chip mb-4"><BellRing className="h-3.5 w-3.5" /> Alerts</div>
-              <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">Price alert center</h1>
+              <div className="accent-chip mb-4">
+                <BellRing className="h-3.5 w-3.5" /> Alerts
+              </div>
+              <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">
+                Smart alert center
+              </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-text-dim">
-                Track price thresholds for stocks and crypto. The server worker can trigger alerts even when the app is closed, create in-app notifications and send email when Resend is configured.
+                Monitor prices, portfolio exposure, reported earnings, relevant news and official X
+                posts. Verified inputs are evaluated by the server even when the app is closed.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="accent-chip">{summary.active} Active</span>
-            <span className={summary.triggeredNow > 0 ? 'accent-chip' : 'quiet-chip'}>{summary.triggeredNow} Triggered now</span>
-            <button onClick={enablePushNotifications} className="quiet-chip transition-all hover:border-accent hover:text-accent">Enable push</button>
+            <span className={summary.triggeredNow > 0 ? 'accent-chip' : 'quiet-chip'}>
+              {summary.triggeredNow} Price conditions currently met
+            </span>
+            <button
+              onClick={enablePushNotifications}
+              className="quiet-chip transition-all hover:border-accent hover:text-accent"
+            >
+              Enable push
+            </button>
           </div>
         </div>
         <div className="absolute bottom-0 left-0 h-px w-full scanline" />
@@ -197,25 +270,44 @@ export default function Alerts() {
         <section className="panel-card p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="accent-chip mb-2"><Mail className="h-3.5 w-3.5" /> Notifications</div>
-              <h2 className="text-xl font-black uppercase tracking-tight">Recent alert deliveries</h2>
+              <div className="accent-chip mb-2">
+                <Mail className="h-3.5 w-3.5" /> Notifications
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tight">
+                Recent alert deliveries
+              </h2>
             </div>
-            <span className="quiet-chip">{notifications.filter((item) => item.status === 'unread').length} unread</span>
+            <span className="quiet-chip">
+              {notifications.filter((item) => item.status === 'unread').length} unread
+            </span>
           </div>
           <div className="grid gap-3">
             {notifications.map((notification) => (
-              <article key={notification.id} className="rounded-2xl border border-border-accent bg-bg/45 p-4">
+              <article
+                key={notification.id}
+                className="rounded-2xl border border-border-accent bg-bg/45 p-4"
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={notification.status === 'unread' ? 'accent-chip' : 'quiet-chip'}>{notification.status}</span>
+                      <span
+                        className={notification.status === 'unread' ? 'accent-chip' : 'quiet-chip'}
+                      >
+                        {notification.status}
+                      </span>
                       <span className="quiet-chip">{notification.symbol}</span>
                     </div>
                     <h3 className="mt-3 text-sm font-black">{notification.title}</h3>
-                    <p className="mt-2 whitespace-pre-line text-xs leading-5 text-text-dim">{notification.message}</p>
+                    <p className="mt-2 whitespace-pre-line text-xs leading-5 text-text-dim">
+                      {notification.message}
+                    </p>
                   </div>
                   {notification.status === 'unread' && (
-                    <button onClick={() => markNotificationRead(notification)} className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent" title="Mark notification read">
+                    <button
+                      onClick={() => markNotificationRead(notification)}
+                      className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent"
+                      title="Mark notification read"
+                    >
                       <CheckCheck className="h-4 w-4" />
                     </button>
                   )}
@@ -231,9 +323,12 @@ export default function Alerts() {
           <BellRing className="mx-auto h-10 w-10 text-accent opacity-70" />
           <h2 className="mt-5 text-lg font-black uppercase tracking-widest">No alerts yet</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-text-dim">
-            Open any asset detail page and save a target price. Alerts will appear here for review.
+            Create a rule above, or save a target from an asset page. Rules appear here for review.
           </p>
-          <Link to="/market" className="mt-6 inline-flex rounded-2xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg">
+          <Link
+            to="/market"
+            className="mt-6 inline-flex rounded-2xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg"
+          >
             Browse assets
           </Link>
         </div>
@@ -241,42 +336,72 @@ export default function Alerts() {
         <div className="grid grid-cols-1 gap-5">
           {alerts.map((alert) => {
             const snapshot = snapshots[`${alert.type}-${alert.symbol}`];
-            const currentPrice = snapshot?.price ?? null;
-            const triggered = isTriggered(alert, currentPrice);
+            const currentPrice = snapshot?.price ? Number(snapshot.price) : null;
+            const triggered = isTriggered(alert, snapshot);
             const assetPath = `/market/${alert.type === 'crypto' ? 'cryptos' : 'stocks'}/${encodeURIComponent(alert.symbol)}`;
-            const change = snapshot?.change ?? null;
+            const change = snapshot?.change != null ? Number(snapshot.change) : null;
             const isPositive = (change ?? 0) >= 0;
 
             return (
-              <article key={alert.id} className={`panel-card p-5 ${triggered ? 'border-accent/50 bg-accent/10' : ''}`}>
+              <article
+                key={alert.id}
+                className={`panel-card p-5 ${triggered ? 'border-accent/50 bg-accent/10' : ''}`}
+              >
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
                   <Link to={assetPath} className="flex min-w-0 items-center gap-4">
-                    <CompanyLogo symbol={alert.symbol} name={alert.symbol} type={alert.type} className="h-14 w-14 rounded-2xl" imgClassName="h-9 w-9" />
+                    <CompanyLogo
+                      symbol={alert.symbol}
+                      name={alert.symbol}
+                      type={alert.type}
+                      className="h-14 w-14 rounded-2xl"
+                      imgClassName="h-9 w-9"
+                    />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-2xl font-black tracking-tight">{alert.symbol}</h2>
                         <span className="quiet-chip">{alert.type}</span>
-                        <span className={triggered ? 'accent-chip' : 'quiet-chip'}>{triggered ? 'Triggered now' : alert.status}</span>
+                        <span className={triggered ? 'accent-chip' : 'quiet-chip'}>
+                          {triggered ? 'Triggered now' : alert.status}
+                        </span>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-text-dim">
-                        Alert when price moves {alert.condition} {formatMoney(alert.targetPrice)}. Source: {snapshot?.source || 'loading'}.
+                        {alert.condition.replaceAll('_', ' ')} · {threshold(alert)}.{' '}
+                        {snapshot
+                          ? `${snapshot.provider} · ${snapshot.currency} · ${snapshot.status} · ${snapshot.updatedAt ? new Date(snapshot.updatedAt).toLocaleString() : 'No provider timestamp'}`
+                          : 'Evaluated on verified server inputs.'}
                       </p>
                     </div>
                   </Link>
 
                   <div className="grid grid-cols-2 gap-3 text-right sm:grid-cols-3">
                     <div className="rounded-2xl border border-border-accent bg-bg/45 p-3">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-text-dim">Current</div>
-                      <div className="data-value mt-2 text-sm font-black">{formatMoney(currentPrice)}</div>
+                      <div className="text-[9px] font-black uppercase tracking-widest text-text-dim">
+                        Current
+                      </div>
+                      <div className="data-value mt-2 text-sm font-black">
+                        {currentPrice == null
+                          ? '—'
+                          : `${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 8 })} ${snapshot?.currency || ''}`}
+                      </div>
                     </div>
                     <div className="rounded-2xl border border-border-accent bg-bg/45 p-3">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-text-dim">Target</div>
-                      <div className="data-value mt-2 text-sm font-black">{formatMoney(alert.targetPrice)}</div>
+                      <div className="text-[9px] font-black uppercase tracking-widest text-text-dim">
+                        Target
+                      </div>
+                      <div className="data-value mt-2 text-sm font-black">{threshold(alert)}</div>
                     </div>
                     <div className="rounded-2xl border border-border-accent bg-bg/45 p-3">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-text-dim">24h</div>
-                      <div className={`mt-2 flex items-center justify-end gap-1 text-sm font-black ${isPositive ? 'text-accent' : 'text-loss'}`}>
-                        {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      <div className="text-[9px] font-black uppercase tracking-widest text-text-dim">
+                        24h
+                      </div>
+                      <div
+                        className={`mt-2 flex items-center justify-end gap-1 text-sm font-black ${isPositive ? 'text-accent' : 'text-loss'}`}
+                      >
+                        {isPositive ? (
+                          <TrendingUp className="h-4 w-4" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4" />
+                        )}
                         {change === null ? 'N/A' : `${isPositive ? '+' : ''}${change.toFixed(2)}%`}
                       </div>
                     </div>
@@ -284,20 +409,35 @@ export default function Alerts() {
 
                   <div className="flex flex-wrap justify-end gap-2">
                     {alert.status === 'paused' ? (
-                      <button onClick={() => updateAlertStatus(alert, 'active')} className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent" title="Resume alert">
+                      <button
+                        onClick={() => updateAlertStatus(alert, 'active')}
+                        className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent"
+                        title="Resume alert"
+                      >
                         <Play className="h-4 w-4" />
                       </button>
                     ) : (
-                      <button onClick={() => updateAlertStatus(alert, 'paused')} className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent" title="Pause alert">
+                      <button
+                        onClick={() => updateAlertStatus(alert, 'paused')}
+                        className="rounded-xl border border-border-accent p-3 text-text-dim transition-all hover:border-accent hover:text-accent"
+                        title="Pause alert"
+                      >
                         <Pause className="h-4 w-4" />
                       </button>
                     )}
                     {triggered && (
-                      <button onClick={() => updateAlertStatus(alert, 'triggered')} className="rounded-xl border border-accent/40 bg-accent px-4 py-3 text-[10px] font-black uppercase tracking-widest text-bg">
+                      <button
+                        onClick={() => updateAlertStatus(alert, 'triggered')}
+                        className="rounded-xl border border-accent/40 bg-accent px-4 py-3 text-[10px] font-black uppercase tracking-widest text-bg"
+                      >
                         Mark triggered
                       </button>
                     )}
-                    <button onClick={() => deleteAlert(alert)} className="rounded-xl border border-loss/40 p-3 text-loss transition-all hover:bg-loss/10" title="Delete alert">
+                    <button
+                      onClick={() => deleteAlert(alert)}
+                      className="rounded-xl border border-loss/40 p-3 text-loss transition-all hover:bg-loss/10"
+                      title="Delete alert"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>

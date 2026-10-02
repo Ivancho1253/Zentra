@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
-import { collection, deleteDoc, doc, getDocs } from 'firebase/firestore';
-import { deleteUser } from 'firebase/auth';
+import { collection, getDocs } from 'firebase/firestore';
 import { Download, Trash2 } from 'lucide-react';
-import { auth, db } from '../lib/firebase';
+import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { apiFetch } from '../lib/api';
+import { auth, db } from '../lib/firebase';
 
-const USER_COLLECTIONS = ['assets', 'transactions', 'favorites', 'alerts', 'snapshots', 'notifications'];
+const USER_COLLECTIONS = [
+  'assets',
+  'transactions',
+  'favorites',
+  'alerts',
+  'snapshots',
+  'notifications',
+  'cash',
+  'watchlists',
+  'socialSubscriptions',
+  'preferences',
+  'briefs',
+];
 
 export default function DataControls() {
   const { t } = useLanguage();
@@ -67,18 +78,13 @@ export default function DataControls() {
       }
 
       const data = await response.json().catch(() => ({}));
-      if (response.status !== 503) {
-        throw new Error(data.error || 'Server-side deletion failed');
-      }
-
-      for (const collectionName of USER_COLLECTIONS) {
-        const snapshot = await getDocs(collection(db, 'users', user.uid, collectionName));
-        await Promise.all(snapshot.docs.map((item) => deleteDoc(item.ref)));
-      }
-
-      await deleteDoc(doc(db, 'users', user.uid));
-      await deleteUser(user);
-      setStatus(t('dataDeleted'));
+      setStatus(
+        response.status === 401
+          ? 'Sign in again before deleting your account.'
+          : response.status === 503
+            ? 'Account deletion is currently unavailable. Your data has been preserved; contact support.'
+            : data.error || t('dataDeleteFailed'),
+      );
     } catch (error) {
       console.error('Delete data failed:', error);
       setStatus(t('dataDeleteFailed'));

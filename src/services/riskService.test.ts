@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { Asset } from '../types';
 import { calculatePortfolioMetrics } from './portfolioService';
 import { calculateRiskSummary } from './riskService';
-import { Asset } from '../types';
 
 const asset = (symbol: string, type: 'stock' | 'crypto', value: number): Asset => ({
   id: symbol,
@@ -15,11 +15,10 @@ const asset = (symbol: string, type: 'stock' | 'crypto', value: number): Asset =
 
 describe('calculateRiskSummary', () => {
   it('detects top holding concentration and allocation by type', () => {
-    const metrics = calculatePortfolioMetrics([
-      asset('AAPL', 'stock', 700),
-      asset('BTC', 'crypto', 200),
-      asset('USDC', 'crypto', 100),
-    ], {});
+    const metrics = calculatePortfolioMetrics(
+      [asset('AAPL', 'stock', 700), asset('BTC', 'crypto', 200), asset('USDC', 'crypto', 100)],
+      {},
+    );
 
     const summary = calculateRiskSummary(metrics);
 
@@ -27,7 +26,9 @@ describe('calculateRiskSummary', () => {
     expect(summary.stockPercent).toBe(70);
     expect(summary.cryptoPercent).toBe(30);
     expect(summary.stablecoinPercent).toBe(10);
-    expect(summary.insights.some((insight) => insight.title === 'High single-asset concentration')).toBe(true);
+    expect(
+      summary.insights.some((insight) => insight.title === 'High single-asset concentration'),
+    ).toBe(true);
   });
 
   it('returns low exposure metrics for an empty portfolio', () => {

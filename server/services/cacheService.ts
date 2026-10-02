@@ -1,4 +1,4 @@
-import type express from "express";
+import type express from 'express';
 
 type CacheEntry = {
   statusCode: number;
@@ -14,31 +14,39 @@ const getStableQuery = (query: Record<string, unknown>) => {
   return Object.keys(stable)
     .sort()
     .map((key) => `${key}=${String(stable[key])}`)
-    .join("&");
+    .join('&');
 };
 
-export const cacheJsonResponse = (ttlMs: number) => (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (req.method !== "GET") return next();
+export const cacheJsonResponse =
+  (ttlMs: number) => (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.method !== 'GET') return next();
 
-  const key = `${req.path}?${getStableQuery(req.query)}`;
-  const cached = responseCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) {
-    res.setHeader("X-Zentra-Cache", "HIT");
-    return res.status(cached.statusCode).json({ ...(cached.body as Record<string, unknown>), cached: true });
-  }
-
-  const originalJson = res.json.bind(res);
-  res.json = (body: unknown) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      responseCache.set(key, {
-        statusCode: res.statusCode,
-        body,
-        expiresAt: Date.now() + ttlMs,
-      });
+    const key = `${req.baseUrl}${req.path}?${getStableQuery(req.query)}`;
+    const cached = responseCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.setHeader('X-Zentra-Cache', 'HIT');
+      return res
+        .status(cached.statusCode)
+        .json({ ...(cached.body as Record<string, unknown>), cached: true });
     }
-    res.setHeader("X-Zentra-Cache", "MISS");
-    return originalJson({ ...(body as Record<string, unknown>), cached: false });
-  };
 
-  return next();
-};
+    const originalJson = res.json.bind(res);
+    res.json = (body: unknown) => {
+      if (
+        res.statusCode >= 200 &&
+        res.statusCode < 300 &&
+        !(body as Record<string, unknown>)?.fallback
+      ) {
+        if (responseCache.size >= 200) responseCache.delete(responseCache.keys().next().value!);
+        responseCache.set(key, {
+          statusCode: res.statusCode,
+          body,
+          expiresAt: Date.now() + ttlMs,
+        });
+      }
+      res.setHeader('X-Zentra-Cache', 'MISS');
+      return originalJson({ ...(body as Record<string, unknown>), cached: false });
+    };
+
+    return next();
+  };

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Globe } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { cn } from '../lib/utils';
 
@@ -50,10 +50,12 @@ export default function LanguageSelector() {
               }}
               className={cn(
                 'flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-normal transition-all hover:bg-accent/10',
-                language === lang.code ? 'bg-accent/5 text-accent' : 'text-text-dim'
+                language === lang.code ? 'bg-accent/5 text-accent' : 'text-text-dim',
               )}
             >
-              <span className="rounded-md border border-border-accent px-1.5 py-0.5 text-[9px]">{lang.short}</span>
+              <span className="rounded-md border border-border-accent px-1.5 py-0.5 text-[9px]">
+                {lang.short}
+              </span>
               {lang.label}
             </button>
           ))}

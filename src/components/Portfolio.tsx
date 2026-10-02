@@ -1,15 +1,45 @@
+import { brand } from '../../shared/brand';
+import { collection, doc, limit, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
+import { motion } from 'framer-motion';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowUpRight,
+  Camera,
+  Check,
+  FileText,
+  Filter,
+  KeyRound,
+  Landmark,
+  Plus,
+  Search,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  Upload,
+  Wallet,
+  WalletCards,
+} from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { addDoc, collection, doc, getDoc, limit, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, ArrowUpRight, Camera, Check, FileText, Filter, KeyRound, Landmark, Plus, Search, Shield, Sparkles, TrendingUp, Upload, Wallet, WalletCards } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import type { AssetQuote } from '../../shared/domain';
+import { trackEvent } from '../lib/analytics';
+import { apiFetch } from '../lib/api';
 import { auth, db } from '../lib/firebase';
+import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
+import { registerTransaction } from '../services/transactionService';
 import { Asset, PortfolioSnapshot, Transaction } from '../types';
 import CompanyLogo from './CompanyLogo';
-import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
-import { apiFetch } from '../lib/api';
-import { trackEvent } from '../lib/analytics';
+import DataProvenance from './DataProvenance';
 
 declare global {
   interface Window {
@@ -18,12 +48,12 @@ declare global {
         isMetaMask?: boolean;
         isCoinbaseWallet?: boolean;
         isRabby?: boolean;
-        request: (args: { method: string; params?: any[] }) => Promise<any>;
+        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
       }>;
       isMetaMask?: boolean;
       isCoinbaseWallet?: boolean;
       isRabby?: boolean;
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
     };
     solana?: {
       isPhantom?: boolean;
@@ -62,6 +92,16 @@ interface MarketSuggestion {
   type: 'stock' | 'crypto';
   price?: string | number | null;
 }
+
+const getChartDomain = (data: Array<{ value: number }>) => {
+  const values = data.map((item) => item.value).filter((value) => Number.isFinite(value));
+  if (values.length === 0) return [0, 1] as [number, number];
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const spread = Math.max(max - min, Math.abs(max) * 0.015, 1);
+  return [Math.max(0, Math.floor(min - spread)), Math.ceil(max + spread)] as [number, number];
+};
 
 export default function Portfolio() {
   const navigate = useNavigate();
@@ -116,19 +156,29 @@ export default function Portfolio() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const unsubAssets = onSnapshot(query(collection(db, 'users', auth.currentUser.uid, 'assets')), (snapshot) => {
-      setAssets(snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as Asset)));
-    });
+    const unsubAssets = onSnapshot(
+      query(collection(db, 'users', auth.currentUser.uid, 'assets')),
+      (snapshot) => {
+        setAssets(snapshot.docs.map((d) => ({ ...d.data(), id: d.id }) as Asset));
+      },
+    );
 
-    const unsubTx = onSnapshot(query(collection(db, 'users', auth.currentUser.uid, 'transactions')), (snapshot) => {
-      setTransactions(snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as Transaction)));
-      setLoading(false);
-    });
+    const unsubTx = onSnapshot(
+      query(collection(db, 'users', auth.currentUser.uid, 'transactions')),
+      (snapshot) => {
+        setTransactions(snapshot.docs.map((d) => ({ ...d.data(), id: d.id }) as Transaction));
+        setLoading(false);
+      },
+    );
 
     const unsubSnapshots = onSnapshot(
-      query(collection(db, 'users', auth.currentUser.uid, 'snapshots'), orderBy('date', 'asc'), limit(365)),
+      query(
+        collection(db, 'users', auth.currentUser.uid, 'snapshots'),
+        orderBy('date', 'asc'),
+        limit(365),
+      ),
       (snapshot) => {
-        setSnapshots(snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as PortfolioSnapshot)));
+        setSnapshots(snapshot.docs.map((d) => ({ ...d.data(), id: d.id }) as PortfolioSnapshot));
       },
       (error) => {
         console.warn('Could not load portfolio snapshots:', error);
@@ -145,7 +195,10 @@ export default function Portfolio() {
   useEffect(() => {
     if (!isAdding || marketSuggestions.length > 0) return;
 
-    const normalizeAsset = (asset: any, fallbackType: 'stock' | 'crypto'): MarketSuggestion => ({
+    const normalizeAsset = (
+      asset: Partial<AssetQuote>,
+      fallbackType: 'stock' | 'crypto',
+    ): MarketSuggestion => ({
       symbol: String(asset?.symbol || '').toUpperCase(),
       name: asset?.name || asset?.symbol || '',
       type: asset?.type === 'crypto' || fallbackType === 'crypto' ? 'crypto' : 'stock',
@@ -160,8 +213,12 @@ export default function Portfolio() {
         ]);
         const [stocksData, cryptosData] = await Promise.all([stocksRes.json(), cryptosRes.json()]);
         const combined = [
-          ...(stocksData.data || []).map((asset: any) => normalizeAsset(asset, 'stock')),
-          ...(cryptosData.data || []).map((asset: any) => normalizeAsset(asset, 'crypto')),
+          ...(stocksData.data || []).map((asset: Partial<AssetQuote>) =>
+            normalizeAsset(asset, 'stock'),
+          ),
+          ...(cryptosData.data || []).map((asset: Partial<AssetQuote>) =>
+            normalizeAsset(asset, 'crypto'),
+          ),
         ].filter((asset) => asset.symbol);
         setMarketSuggestions(combined);
       } catch (error) {
@@ -180,12 +237,17 @@ export default function Portfolio() {
 
     let cancelled = false;
     const fetchPortfolioPrices = async () => {
-      const results = await Promise.allSettled(assets.map(async (asset) => {
-        const response = await fetch(`/api/market/asset?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&t=${Date.now()}`, { cache: 'no-store' });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Market snapshot failed');
-        return [asset.symbol.toUpperCase(), data] as const;
-      }));
+      const results = await Promise.allSettled(
+        assets.map(async (asset) => {
+          const response = await fetch(
+            `/api/market/asset?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&t=${Date.now()}`,
+            { cache: 'no-store' },
+          );
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Market snapshot failed');
+          return [asset.symbol.toUpperCase(), data] as const;
+        }),
+      );
 
       if (cancelled) return;
 
@@ -196,7 +258,12 @@ export default function Portfolio() {
           nextSnapshots[assetSymbol] = snapshot;
         }
       });
-      setPriceSnapshots(nextSnapshots);
+      setPriceSnapshots((previous) => ({
+        ...Object.fromEntries(
+          Object.entries(previous).map(([key, value]) => [key, { ...value, stale: true }]),
+        ),
+        ...nextSnapshots,
+      }));
     };
 
     fetchPortfolioPrices().catch((error) => {
@@ -218,7 +285,9 @@ export default function Portfolio() {
   const dailyChange = portfolioMetrics.estimatedDailyChange;
   const dailyChangePercent = portfolioMetrics.estimatedDailyChangePercent;
   const hasLivePortfolioPrices = portfolioMetrics.livePricedCount > 0;
-  const holdingMetricsBySymbol = new Map(portfolioMetrics.holdings.map((holding) => [holding.asset.symbol.toUpperCase(), holding]));
+  const holdingMetricsBySymbol = new Map(
+    portfolioMetrics.holdings.map((holding) => [holding.asset.symbol.toUpperCase(), holding]),
+  );
 
   useEffect(() => {
     if (!auth.currentUser || assets.length === 0 || portfolioMetrics.totalCurrentValue <= 0) return;
@@ -226,16 +295,26 @@ export default function Portfolio() {
     const snapshotDate = new Date().toISOString().slice(0, 10);
     const snapshotRef = doc(db, 'users', auth.currentUser.uid, 'snapshots', snapshotDate);
 
-    setDoc(snapshotRef, {
-      date: snapshotDate,
-      totalValue: portfolioMetrics.totalCurrentValue,
-      totalCost: portfolioMetrics.totalCost,
-      totalPnl: portfolioMetrics.totalPnl,
-      totalPnlPercent: portfolioMetrics.totalPnlPercent,
-      livePricedCount: portfolioMetrics.livePricedCount,
-      holdingsCount: assets.length,
-      createdAt: new Date().toISOString(),
-    }, { merge: true }).catch((error) => {
+    setDoc(
+      snapshotRef,
+      {
+        date: snapshotDate,
+        currency: 'USD',
+        estimated:
+          portfolioMetrics.holdings.some((h) => h.isEstimated) ||
+          assets.some((a) => a.currency && a.currency !== 'USD'),
+        providers: [...new Set(portfolioMetrics.holdings.map((h) => h.source))],
+        quotedAt: portfolioMetrics.holdings.find((h) => h.updatedAt)?.updatedAt || null,
+        totalValue: portfolioMetrics.totalCurrentValue,
+        totalCost: portfolioMetrics.totalCost,
+        totalPnl: portfolioMetrics.totalPnl,
+        totalPnlPercent: portfolioMetrics.totalPnlPercent,
+        livePricedCount: portfolioMetrics.livePricedCount,
+        holdingsCount: assets.length,
+        createdAt: new Date().toISOString(),
+      },
+      { merge: true },
+    ).catch((error) => {
       console.warn('Could not save daily portfolio snapshot:', error);
     });
   }, [
@@ -246,15 +325,29 @@ export default function Portfolio() {
     portfolioMetrics.totalPnlPercent,
     portfolioMetrics.livePricedCount,
   ]);
-  const chartData = snapshots.map((snapshot) => ({
-    name: new Date(`${snapshot.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    value: Math.round(snapshot.totalValue),
-  }));
+  const chartData = snapshots
+    .filter((s) => s.kind !== 'net-worth')
+    .map((snapshot) => ({
+      name: new Date(`${snapshot.date}T00:00:00`).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      }),
+      value: snapshot.totalValue,
+    }));
   const hasValueHistory = chartData.length >= 2;
+  const chartTrendPositive = hasValueHistory
+    ? chartData[chartData.length - 1].value >= chartData[0].value
+    : true;
+  const chartColor = chartTrendPositive ? 'var(--accent)' : 'var(--loss)';
+  const chartDomain = getChartDomain(chartData);
 
-  const formatMoney = (value: number) => {
+  const formatMoney = (value: number, currency = 'USD') => {
     if (!Number.isFinite(value)) return '$0.00';
-    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value);
   };
 
   const formatPercent = (value: number | null) => {
@@ -286,9 +379,11 @@ export default function Portfolio() {
     if (Number.isFinite(numericPrice) && numericPrice > 0) {
       setPrice(String(numericPrice));
     } else {
-      fetchAssetPrice(asset.symbol, asset.type).then((nextPrice) => {
-        if (nextPrice) setPrice(String(nextPrice));
-      }).catch(() => undefined);
+      fetchAssetPrice(asset.symbol, asset.type)
+        .then((nextPrice) => {
+          if (nextPrice) setPrice(String(nextPrice));
+        })
+        .catch(() => undefined);
     }
     setShowSymbolSuggestions(false);
   };
@@ -316,38 +411,31 @@ export default function Portfolio() {
     setFormError('');
   };
 
-  const savePosition = async (position: { symbol: string; name?: string; type: 'stock' | 'crypto'; quantity: number; price: number }) => {
+  const savePosition = async (position: {
+    symbol: string;
+    name?: string;
+    type: 'stock' | 'crypto';
+    quantity: number | string;
+    price: number | string;
+  }) => {
     if (!auth.currentUser) throw new Error('Not authenticated');
-    const userId = auth.currentUser.uid;
     const cleanSymbol = position.symbol.trim().toUpperCase();
 
-    await addDoc(collection(db, 'users', userId, 'transactions'), {
-      assetSymbol: cleanSymbol,
-      type: 'buy',
-      quantity: position.quantity,
-      price: position.price,
-      date: new Date().toISOString(),
-      userId,
-    });
-
-    const assetRef = doc(db, 'users', userId, 'assets', cleanSymbol);
-    const assetSnap = await getDoc(assetRef);
-
-    if (assetSnap.exists()) {
-      const currentData = assetSnap.data() as Asset;
-      const newQty = Number(currentData.totalQuantity || 0) + position.quantity;
-      const newAvgPrice = ((Number(currentData.averagePrice || 0) * Number(currentData.totalQuantity || 0)) + (position.price * position.quantity)) / newQty;
-      await updateDoc(assetRef, { totalQuantity: newQty, averagePrice: newAvgPrice, lastUpdated: new Date().toISOString() });
-    } else {
-      await setDoc(assetRef, {
-        symbol: cleanSymbol,
-        name: position.name?.trim() || cleanSymbol,
-        type: position.type,
-        averagePrice: position.price,
-        totalQuantity: position.quantity,
-        lastUpdated: new Date().toISOString(),
-      });
-    }
+    await registerTransaction(
+      {
+        assetSymbol: cleanSymbol,
+        assetType: position.type,
+        type: 'buy',
+        quantity: String(position.quantity),
+        price: String(position.price),
+        fee: '0',
+        currency: 'USD',
+        date: new Date().toISOString(),
+        broker: '',
+        notes: '',
+      },
+      position.name || cleanSymbol,
+    );
   };
 
   const handleAddAsset = async (e: React.FormEvent) => {
@@ -358,14 +446,26 @@ export default function Portfolio() {
     const priceNum = parseFloat(price);
     const cleanSymbol = symbol.trim().toUpperCase();
 
-    if (!cleanSymbol || !Number.isFinite(qtyNum) || !Number.isFinite(priceNum) || qtyNum <= 0 || priceNum <= 0) {
+    if (
+      !cleanSymbol ||
+      !Number.isFinite(qtyNum) ||
+      !Number.isFinite(priceNum) ||
+      qtyNum <= 0 ||
+      priceNum <= 0
+    ) {
       setFormError('Enter a valid symbol, quantity and price greater than zero.');
       return;
     }
 
     try {
       setFormError('');
-      await savePosition({ symbol: cleanSymbol, name: name.trim() || cleanSymbol, type, quantity: qtyNum, price: priceNum });
+      await savePosition({
+        symbol: cleanSymbol,
+        name: name.trim() || cleanSymbol,
+        type,
+        quantity,
+        price,
+      });
 
       setSymbol('');
       setName('');
@@ -381,7 +481,10 @@ export default function Portfolio() {
   };
 
   const fetchAssetPrice = async (assetSymbol: string, assetType: 'stock' | 'crypto') => {
-    const response = await fetch(`/api/market/asset?symbol=${encodeURIComponent(assetSymbol)}&type=${assetType}&t=${Date.now()}`, { cache: 'no-store' });
+    const response = await fetch(
+      `/api/market/asset?symbol=${encodeURIComponent(assetSymbol)}&type=${assetType}&t=${Date.now()}`,
+      { cache: 'no-store' },
+    );
     const data = await response.json();
     const numericPrice = Number(data?.price);
     return Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice : null;
@@ -389,15 +492,24 @@ export default function Portfolio() {
 
   const getEvmWalletProviders = () => {
     if (!window.ethereum) return [];
-    const providers = window.ethereum.providers?.length ? window.ethereum.providers : [window.ethereum];
+    const providers = window.ethereum.providers?.length
+      ? window.ethereum.providers
+      : [window.ethereum];
     return providers.map((provider, index) => {
-      const name = provider.isCoinbaseWallet ? 'Coinbase Wallet' : provider.isRabby ? 'Rabby' : provider.isMetaMask ? 'MetaMask' : `Browser wallet ${index + 1}`;
+      const name = provider.isCoinbaseWallet
+        ? 'Coinbase Wallet'
+        : provider.isRabby
+          ? 'Rabby'
+          : provider.isMetaMask
+            ? 'MetaMask'
+            : `Browser wallet ${index + 1}`;
       return { provider, name, index };
     });
   };
 
   const getVisibleWalletProviders = () => {
-    if (walletEcosystem === 'evm') return getEvmWalletProviders().map((wallet) => ({ name: wallet.name, index: wallet.index }));
+    if (walletEcosystem === 'evm')
+      return getEvmWalletProviders().map((wallet) => ({ name: wallet.name, index: wallet.index }));
     if (walletEcosystem === 'solana') {
       const provider = window.phantom?.solana || window.solana;
       return provider ? [{ name: provider.isPhantom ? 'Phantom' : 'Solana wallet', index: 0 }] : [];
@@ -405,31 +517,55 @@ export default function Portfolio() {
     return window.suiWallet ? [{ name: 'Sui Wallet', index: 0 }] : [];
   };
 
-  const scanReadOnlyWallet = async (address: string, ecosystem: WalletEcosystem = walletEcosystem) => {
-    const response = await apiFetch(`/api/wallet/read-only?address=${encodeURIComponent(address)}&ecosystem=${ecosystem}&t=${Date.now()}`, { cache: 'no-store' });
+  const scanReadOnlyWallet = async (
+    address: string,
+    ecosystem: WalletEcosystem = walletEcosystem,
+  ) => {
+    const response = await apiFetch(
+      `/api/wallet/read-only?address=${encodeURIComponent(address)}&ecosystem=${ecosystem}&t=${Date.now()}`,
+      { cache: 'no-store' },
+    );
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Wallet scan failed');
 
-    const candidates = (data.positions || []).map((position: any): ImportCandidate => ({
-      symbol: String(position.symbol || '').toUpperCase(),
-      name: position.name || position.symbol || '',
-      type: 'crypto',
-      quantity: position.quantity ? String(position.quantity) : '',
-      price: position.price ? String(position.price) : '',
-      confidence: 1,
-      notes: `${position.chain} ${position.source === 'native' ? 'native balance' : 'token balance'} read-only.`,
-    })).filter((asset: ImportCandidate) => asset.symbol && Number(asset.quantity) > 0);
+    const candidates = (data.positions || [])
+      .map(
+        (position: {
+          symbol: string;
+          name?: string;
+          quantity?: number | string;
+          quantityExact?: string;
+          price?: number | string;
+          chain: string;
+          source: string;
+        }): ImportCandidate => ({
+          symbol: String(position.symbol || '').toUpperCase(),
+          name: position.name || position.symbol || '',
+          type: 'crypto',
+          quantity: position.quantityExact || (position.quantity ? String(position.quantity) : ''),
+          price: position.price ? String(position.price) : '',
+          confidence: 1,
+          notes: `${position.chain} ${position.source === 'native' ? 'native balance' : 'token balance'} read-only.`,
+        }),
+      )
+      .filter((asset: ImportCandidate) => asset.symbol && Number(asset.quantity) > 0);
 
     setImportCandidates(candidates);
     const networkCount = Array.isArray(data.networks) ? data.networks.length : 0;
-    const symbolList = Array.isArray(data.supportedSymbols) ? data.supportedSymbols.slice(0, 12).join(', ') : '';
+    const symbolList = Array.isArray(data.supportedSymbols)
+      ? data.supportedSymbols.slice(0, 12).join(', ')
+      : '';
     const ecosystemLabel = ecosystem === 'evm' ? 'EVM' : ecosystem === 'solana' ? 'Solana' : 'Sui';
     setWalletStatus(
       candidates.length > 0
         ? `Read-only ${ecosystemLabel} scan found ${candidates.length} crypto position${candidates.length === 1 ? '' : 's'} across ${networkCount} network${networkCount === 1 ? '' : 's'}. Review quantities and prices before importing.`
-        : `Wallet linked in read-only mode, but no supported ZENTRA crypto balances were detected yet. Scanned ${networkCount} ${ecosystemLabel} network${networkCount === 1 ? '' : 's'} for ${symbolList}.`
+        : `Wallet linked in read-only mode, but no supported ${brand.name} crypto balances were detected yet. Scanned ${networkCount} ${ecosystemLabel} network${networkCount === 1 ? '' : 's'} for ${symbolList}.`,
     );
-    trackEvent('wallet_scan_completed', { ecosystem, positions: candidates.length, networks: networkCount });
+    trackEvent('wallet_scan_completed', {
+      ecosystem,
+      positions: candidates.length,
+      networks: networkCount,
+    });
   };
 
   const connectReadOnlyWallet = async () => {
@@ -443,17 +579,22 @@ export default function Portfolio() {
         const selectedProvider = providers[selectedWalletIndex]?.provider;
 
         if (!selectedProvider) {
-          setWalletStatus('Install or open MetaMask, Coinbase Wallet, Rabby, or another EVM wallet to link it in read-only mode.');
+          setWalletStatus(
+            'Install or open MetaMask, Coinbase Wallet, Rabby, or another EVM wallet to link it in read-only mode.',
+          );
           return;
         }
 
         try {
-          await selectedProvider.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+          await selectedProvider.request({
+            method: 'wallet_requestPermissions',
+            params: [{ eth_accounts: {} }],
+          });
         } catch {
           // Some wallets do not support permission prompts; eth_requestAccounts remains the fallback.
         }
         const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
-        const account = String(accounts?.[0] || '');
+        const account = String(Array.isArray(accounts) ? accounts[0] || '' : '');
         if (!account) throw new Error('No wallet account selected');
         setWalletAddress(account);
         await scanReadOnlyWallet(account, 'evm');
@@ -475,7 +616,9 @@ export default function Portfolio() {
       }
 
       if (!window.suiWallet) {
-        setWalletStatus('Install or open a Sui wallet to link it in read-only mode, or paste a public Sui address.');
+        setWalletStatus(
+          'Install or open a Sui wallet to link it in read-only mode, or paste a public Sui address.',
+        );
         return;
       }
       const permissions = await window.suiWallet.requestPermissions?.();
@@ -487,7 +630,9 @@ export default function Portfolio() {
     } catch (error) {
       console.error('Wallet import failed:', error);
       trackEvent('wallet_scan_failed', { ecosystem: walletEcosystem, mode: 'connect' });
-      setWalletStatus('Could not scan the wallet. No transaction, signature or token approval was requested.');
+      setWalletStatus(
+        'Could not scan the wallet. No transaction, signature or token approval was requested.',
+      );
     } finally {
       setWalletLoading(false);
     }
@@ -495,11 +640,12 @@ export default function Portfolio() {
 
   const linkManualReadOnlyAddress = async () => {
     const cleanAddress = walletAddress.trim();
-    const isValidAddress = walletEcosystem === 'evm'
-      ? /^0x[a-fA-F0-9]{40}$/.test(cleanAddress)
-      : walletEcosystem === 'sui'
-        ? /^0x[a-fA-F0-9]{64}$/.test(cleanAddress)
-        : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress);
+    const isValidAddress =
+      walletEcosystem === 'evm'
+        ? /^0x[a-fA-F0-9]{40}$/.test(cleanAddress)
+        : walletEcosystem === 'sui'
+          ? /^0x[a-fA-F0-9]{64}$/.test(cleanAddress)
+          : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress);
 
     if (!isValidAddress) {
       setWalletStatus(`Enter a valid public ${walletEcosystem.toUpperCase()} wallet address.`);
@@ -509,12 +655,14 @@ export default function Portfolio() {
     try {
       setWalletLoading(true);
       setImportCandidates([]);
-      setWalletStatus('Scanning public balances across supported ZENTRA networks...');
+      setWalletStatus('Scanning public balances across supported ' + brand.name + ' networks...');
       await scanReadOnlyWallet(cleanAddress, walletEcosystem);
     } catch (error) {
       console.error('Manual wallet scan failed:', error);
       trackEvent('wallet_scan_failed', { ecosystem: walletEcosystem, mode: 'manual_address' });
-      setWalletStatus('Could not scan that address right now. No transaction, signature or wallet access was requested.');
+      setWalletStatus(
+        'Could not scan that address right now. No transaction, signature or wallet access was requested.',
+      );
     } finally {
       setWalletLoading(false);
     }
@@ -528,7 +676,9 @@ export default function Portfolio() {
 
     const maxFileSize = 12 * 1024 * 1024;
     if (file.size > maxFileSize) {
-      setScreenshotStatus('That file is too large. Try a file under 12MB or export only the portfolio sheet.');
+      setScreenshotStatus(
+        'That file is too large. Try a file under 12MB or export only the portfolio sheet.',
+      );
       return;
     }
 
@@ -547,26 +697,42 @@ export default function Portfolio() {
       const response = await apiFetch('/api/ai/import-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileBase64: imageBase64, mimeType: file.type || 'application/octet-stream', fileName: file.name }),
+        body: JSON.stringify({
+          fileBase64: imageBase64,
+          mimeType: file.type || 'application/octet-stream',
+          fileName: file.name,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Screenshot import failed');
 
-      const candidates = (data.assets || []).map((asset: any): ImportCandidate => ({
-        symbol: String(asset.symbol || '').toUpperCase(),
-        name: asset.name || asset.symbol || '',
-        type: asset.type === 'crypto' ? 'crypto' : 'stock',
-        quantity: asset.quantity ? String(asset.quantity) : '',
-        price: asset.averagePrice ? String(asset.averagePrice) : '',
-        confidence: asset.confidence,
-        notes: asset.notes || '',
-      })).filter((asset: ImportCandidate) => asset.symbol);
+      const candidates = (data.assets || [])
+        .map(
+          (asset: {
+            symbol: string;
+            name?: string;
+            type?: string;
+            quantity?: string | number;
+            averagePrice?: string | number;
+            confidence?: number;
+            notes?: string;
+          }): ImportCandidate => ({
+            symbol: String(asset.symbol || '').toUpperCase(),
+            name: asset.name || asset.symbol || '',
+            type: asset.type === 'crypto' ? 'crypto' : 'stock',
+            quantity: asset.quantity ? String(asset.quantity) : '',
+            price: asset.averagePrice ? String(asset.averagePrice) : '',
+            confidence: asset.confidence,
+            notes: asset.notes || '',
+          }),
+        )
+        .filter((asset: ImportCandidate) => asset.symbol);
 
       setImportCandidates(candidates);
       setScreenshotStatus(
         candidates.length > 0
           ? `${data.source === 'fallback-parser' ? 'Fallback parser' : 'AI'} detected ${candidates.length} position${candidates.length === 1 ? '' : 's'}. Review every row before importing.`
-          : 'No positions were detected. Make sure the file shows ticker/symbol, quantity and buy or average price.'
+          : 'No positions were detected. Make sure the file shows ticker/symbol, quantity and buy or average price.',
       );
       trackEvent('portfolio_import_file_analyzed', {
         source: data.source || 'unknown',
@@ -576,14 +742,18 @@ export default function Portfolio() {
     } catch (error) {
       console.error('Screenshot analysis failed:', error);
       trackEvent('portfolio_import_file_failed', { mimeType: file.type || 'unknown' });
-      setScreenshotStatus('Could not read that file. Try a clearer screenshot, CSV, Excel or Word document with symbols, quantities and average prices visible.');
+      setScreenshotStatus(
+        'Could not read that file. Try a clearer screenshot, CSV, Excel or Word document with symbols, quantities and average prices visible.',
+      );
     } finally {
       setScreenshotLoading(false);
     }
   };
 
   const updateCandidate = (index: number, patch: Partial<ImportCandidate>) => {
-    setImportCandidates((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
+    setImportCandidates((items) =>
+      items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)),
+    );
   };
 
   const importDetectedPositions = async () => {
@@ -595,7 +765,14 @@ export default function Portfolio() {
         parsedQuantity: Number(candidate.quantity),
         parsedPrice: Number(candidate.price),
       }))
-      .filter((candidate) => candidate.symbol && Number.isFinite(candidate.parsedQuantity) && candidate.parsedQuantity > 0 && Number.isFinite(candidate.parsedPrice) && candidate.parsedPrice > 0);
+      .filter(
+        (candidate) =>
+          candidate.symbol &&
+          Number.isFinite(candidate.parsedQuantity) &&
+          candidate.parsedQuantity > 0 &&
+          Number.isFinite(candidate.parsedPrice) &&
+          candidate.parsedPrice > 0,
+      );
 
     if (validCandidates.length === 0) {
       setFormError('Review the detected rows. Every import needs symbol, quantity and buy price.');
@@ -641,7 +818,9 @@ export default function Portfolio() {
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">Syncing portfolio...</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent animate-pulse">
+            Syncing portfolio...
+          </div>
         </div>
       </div>
     );
@@ -658,43 +837,70 @@ export default function Portfolio() {
       {
         id: 'wallet',
         label: 'Read-only wallet',
-        description: 'Scan public balances across supported networks. ZENTRA never requests approvals.',
+        description:
+          'Scan public balances across supported networks. ' +
+          brand.name +
+          ' never requests approvals.',
         icon: Shield,
       },
       {
         id: 'screenshot',
         label: 'AI import',
-                description: 'Upload screenshots, XLSX spreadsheets, CSV, TXT or Word files and review before saving.',
+        description:
+          'Upload screenshots, XLSX spreadsheets, CSV, TXT or Word files and review before saving.',
         icon: Sparkles,
       },
     ] as const;
 
     return (
-      <motion.div className="app-page" initial="hidden" animate="show" transition={{ staggerChildren: 0.07 }}>
+      <motion.div
+        className="app-page"
+        initial="hidden"
+        animate="show"
+        transition={{ staggerChildren: 0.07 }}
+      >
         <motion.section variants={motionItem} className="app-hero overflow-visible">
           <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-start gap-4">
-              <button onClick={closeAddFlow} className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent">
+              <button
+                onClick={closeAddFlow}
+                className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent"
+              >
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <div>
-                <div className="accent-chip mb-4"><WalletCards className="h-3.5 w-3.5" /> Portfolio import center</div>
-                <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter md:text-6xl">Add positions with confidence</h1>
+                <div className="accent-chip mb-4">
+                  <WalletCards className="h-3.5 w-3.5" /> Portfolio import center
+                </div>
+                <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter md:text-6xl">
+                  Add positions with confidence
+                </h1>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-text-dim">
-                  Registering your investments is one of the most important parts of ZENTRA. Choose the fastest path, review every number, and only save when symbol, quantity and buy price are right.
+                  Registering your investments is one of the most important parts of {brand.name}.
+                  Choose the fastest path, review every number, and only save when symbol, quantity
+                  and buy price are right.
                 </p>
               </div>
             </div>
-            <button type="button" onClick={closeAddFlow} className="rounded-2xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
+            <button
+              type="button"
+              onClick={closeAddFlow}
+              className="rounded-2xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main"
+            >
               Cancel import
             </button>
           </div>
           <div className="absolute bottom-0 left-0 h-px w-full scanline" />
         </motion.section>
 
-        <motion.div variants={motionItem} className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_1fr]">
+        <motion.div
+          variants={motionItem}
+          className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_1fr]"
+        >
           <aside className="panel-card p-4">
-            <div className="mb-4 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-text-dim">Import method</div>
+            <div className="mb-4 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-text-dim">
+              Import method
+            </div>
             <div className="space-y-3">
               {addOptions.map((option) => (
                 <button
@@ -711,7 +917,9 @@ export default function Portfolio() {
                       : 'border-border-accent bg-bg/35 hover:border-accent/50 hover:bg-surface'
                   }`}
                 >
-                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${addMode === option.id ? 'bg-accent text-bg' : 'border border-border-accent text-accent'}`}>
+                  <div
+                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${addMode === option.id ? 'bg-accent text-bg' : 'border border-border-accent text-accent'}`}
+                  >
                     <option.icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
@@ -723,21 +931,34 @@ export default function Portfolio() {
             </div>
 
             <div className="mt-5 rounded-2xl border border-accent/25 bg-accent/5 p-4">
-              <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-accent"><KeyRound className="h-4 w-4" /> Safety promise</div>
+              <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-accent">
+                <KeyRound className="h-4 w-4" /> Safety promise
+              </div>
               <p className="text-xs leading-6 text-text-dim">
-                ZENTRA never asks for seed phrases, private keys, token approvals or transactions. Imports are saved only after your review.
+                {brand.name} never asks for seed phrases, private keys, token approvals or
+                transactions. Imports are saved only after your review.
               </p>
             </div>
           </aside>
 
           <section className="panel-card min-w-0 p-5 md:p-7">
-            {formError && <div className="mb-5 flex items-center gap-2 rounded-xl border border-loss/40 bg-loss/10 p-3 text-xs font-bold text-loss"><AlertCircle className="h-4 w-4" />{formError}</div>}
+            {formError && (
+              <div className="mb-5 flex items-center gap-2 rounded-xl border border-loss/40 bg-loss/10 p-3 text-xs font-bold text-loss">
+                <AlertCircle className="h-4 w-4" />
+                {formError}
+              </div>
+            )}
 
             {addMode === 'manual' && (
               <form onSubmit={handleAddAsset} className="space-y-6">
                 <div>
-                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Search className="h-4 w-4 text-accent" /> Find the asset</div>
-                  <p className="mb-4 text-xs leading-6 text-text-dim">Start typing a symbol or company name. Selecting a result fills name, type and live price when available.</p>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+                    <Search className="h-4 w-4 text-accent" /> Find the asset
+                  </div>
+                  <p className="mb-4 text-xs leading-6 text-text-dim">
+                    Start typing a symbol or company name. Selecting a result fills name, type and
+                    live price when available.
+                  </p>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-dim" />
                     <input
@@ -767,19 +988,33 @@ export default function Portfolio() {
                               }}
                               className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-border-accent/40 px-4 py-4 text-left transition-all last:border-b-0 hover:bg-accent/10"
                             >
-                              <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-12 w-12 rounded-2xl" imgClassName="h-7 w-7" />
+                              <CompanyLogo
+                                symbol={asset.symbol}
+                                name={asset.name}
+                                type={asset.type}
+                                className="h-12 w-12 rounded-2xl"
+                                imgClassName="h-7 w-7"
+                              />
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="text-lg font-black">{asset.symbol}</span>
-                                  <span className="rounded-full border border-border-accent px-2 py-1 text-[9px] font-black uppercase tracking-widest text-accent">{asset.type}</span>
+                                  <span className="rounded-full border border-border-accent px-2 py-1 text-[9px] font-black uppercase tracking-widest text-accent">
+                                    {asset.type}
+                                  </span>
                                 </div>
-                                <div className="mt-1 truncate text-xs text-text-dim">{asset.name || asset.symbol}</div>
+                                <div className="mt-1 truncate text-xs text-text-dim">
+                                  {asset.name || asset.symbol}
+                                </div>
                               </div>
                               <div className="shrink-0 text-right">
                                 {Number.isFinite(numericPrice) && numericPrice > 0 ? (
-                                  <div className="data-value text-sm">{formatMoney(numericPrice)}</div>
+                                  <div className="data-value text-sm">
+                                    {formatMoney(numericPrice)}
+                                  </div>
                                 ) : (
-                                  <div className="text-[10px] font-black uppercase tracking-widest text-text-dim">Price lookup</div>
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-text-dim">
+                                    Price lookup
+                                  </div>
                                 )}
                               </div>
                             </button>
@@ -792,20 +1027,55 @@ export default function Portfolio() {
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.7fr]">
                   <div className="flex flex-col">
-                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Name</label>
-                    <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Apple Inc." className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" />
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                      Name
+                    </label>
+                    <input
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Apple Inc."
+                      className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent"
+                    />
                   </div>
                   <div className="flex flex-col">
-                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Quantity *</label>
-                    <input type="number" step="any" min="0" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="0.00" className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" required />
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                      Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={quantity}
+                      onChange={(event) => setQuantity(event.target.value)}
+                      placeholder="0.00"
+                      className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent"
+                      required
+                    />
                   </div>
                   <div className="flex flex-col">
-                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Buy price *</label>
-                    <input type="number" step="any" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0.00" className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" required />
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                      Buy price *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={price}
+                      onChange={(event) => setPrice(event.target.value)}
+                      placeholder="0.00"
+                      className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent"
+                      required
+                    />
                   </div>
                   <div className="flex flex-col">
-                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Type *</label>
-                    <select value={type} onChange={(event) => setType(event.target.value as 'stock' | 'crypto')} className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent">
+                    <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                      Type *
+                    </label>
+                    <select
+                      value={type}
+                      onChange={(event) => setType(event.target.value as 'stock' | 'crypto')}
+                      className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent"
+                    >
                       <option value="stock">Stock</option>
                       <option value="crypto">Crypto</option>
                     </select>
@@ -813,8 +1083,13 @@ export default function Portfolio() {
                 </div>
 
                 <div className="flex flex-col gap-3 border-t border-border-accent pt-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs leading-6 text-text-dim">Use your actual entry price, not necessarily the current market price.</div>
-                  <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:brightness-110">
+                  <div className="text-xs leading-6 text-text-dim">
+                    Use your actual entry price, not necessarily the current market price.
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:brightness-110"
+                  >
                     <Check className="h-4 w-4" />
                     Save position
                   </button>
@@ -825,13 +1100,27 @@ export default function Portfolio() {
             {addMode === 'wallet' && (
               <div className="space-y-5">
                 <div className="rounded-2xl border border-border-accent bg-bg/45 p-5">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Shield className="h-4 w-4 text-accent" /> Wallet universe import</div>
-                  <p className="text-sm leading-7 text-text-dim">Choose a wallet ecosystem, connect only to reveal your public address, or paste an address manually. ZENTRA scans public balances only. No seed phrases, private keys, approvals, signatures or transactions.</p>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+                    <Shield className="h-4 w-4 text-accent" /> Wallet universe import
+                  </div>
+                  <p className="text-sm leading-7 text-text-dim">
+                    Choose a wallet ecosystem, connect only to reveal your public address, or paste
+                    an address manually. {brand.name} scans public balances only. No seed phrases,
+                    private keys, approvals, signatures or transactions.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   {[
-                    { id: 'evm', label: 'MetaMask / EVM', detail: 'Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche' },
-                    { id: 'solana', label: 'Phantom / Solana', detail: 'SOL, USDC, USDT, JUP, RAY, BONK, WIF' },
+                    {
+                      id: 'evm',
+                      label: 'MetaMask / EVM',
+                      detail: 'Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche',
+                    },
+                    {
+                      id: 'solana',
+                      label: 'Phantom / Solana',
+                      detail: 'SOL, USDC, USDT, JUP, RAY, BONK, WIF',
+                    },
                     { id: 'sui', label: 'Sui Wallet', detail: 'SUI and supported Sui coins' },
                   ].map((item) => (
                     <button
@@ -844,7 +1133,9 @@ export default function Portfolio() {
                       }}
                       className={`rounded-2xl border p-4 text-left transition-all ${walletEcosystem === item.id ? 'border-accent/60 bg-accent/10' : 'border-border-accent bg-bg/35 hover:border-accent/50'}`}
                     >
-                      <div className="text-xs font-black uppercase tracking-widest">{item.label}</div>
+                      <div className="text-xs font-black uppercase tracking-widest">
+                        {item.label}
+                      </div>
                       <div className="mt-2 text-[11px] leading-5 text-text-dim">{item.detail}</div>
                     </button>
                   ))}
@@ -864,22 +1155,53 @@ export default function Portfolio() {
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_auto_auto_auto]">
-                  <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder={walletEcosystem === 'evm' ? 'Paste public 0x EVM address' : walletEcosystem === 'solana' ? 'Paste public Solana address' : 'Paste public Sui address'} className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent" />
-                  <button type="button" onClick={connectReadOnlyWallet} disabled={walletLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60">
+                  <input
+                    value={walletAddress}
+                    onChange={(event) => setWalletAddress(event.target.value)}
+                    placeholder={
+                      walletEcosystem === 'evm'
+                        ? 'Paste public 0x EVM address'
+                        : walletEcosystem === 'solana'
+                          ? 'Paste public Solana address'
+                          : 'Paste public Sui address'
+                    }
+                    className="rounded-xl border border-border-accent bg-bg p-4 text-sm font-bold outline-none transition-colors focus:border-accent"
+                  />
+                  <button
+                    type="button"
+                    onClick={connectReadOnlyWallet}
+                    disabled={walletLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60"
+                  >
                     <Wallet className="h-4 w-4" />
                     {walletLoading ? 'Reading wallet' : 'Connect wallet'}
                   </button>
-                  <button type="button" onClick={linkManualReadOnlyAddress} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
+                  <button
+                    type="button"
+                    onClick={linkManualReadOnlyAddress}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main"
+                  >
                     Link address
                   </button>
-                  <button type="button" onClick={() => void resetWalletLink()} disabled={walletLoading && !walletAddress && importCandidates.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl border border-loss/40 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/10 disabled:cursor-not-allowed disabled:opacity-40">
+                  <button
+                    type="button"
+                    onClick={() => void resetWalletLink()}
+                    disabled={walletLoading && !walletAddress && importCandidates.length === 0}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-loss/40 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
                     Reset wallet
                   </button>
                 </div>
                 <div className="rounded-2xl border border-border-accent bg-bg/35 p-4 text-xs leading-6 text-text-dim">
-                  ZENTRA now supports EVM, Solana and Sui read-only imports. Bitcoin, XRP, Cardano and exchange accounts need dedicated adapters or user-uploaded statements next, because they do not expose the same browser wallet standard.
+                  {brand.name} now supports EVM, Solana and Sui read-only imports. Bitcoin, XRP,
+                  Cardano and exchange accounts need dedicated adapters or user-uploaded statements
+                  next, because they do not expose the same browser wallet standard.
                 </div>
-                {walletStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{walletStatus}</div>}
+                {walletStatus && (
+                  <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">
+                    {walletStatus}
+                  </div>
+                )}
               </div>
             )}
 
@@ -890,25 +1212,68 @@ export default function Portfolio() {
                     <Upload className="h-7 w-7" />
                   </div>
                   <div>
-                    <div className="text-lg font-black uppercase tracking-widest">Upload a portfolio file</div>
-                    <div className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-text-dim">AI reads visible symbols, quantities and average buy prices from screenshots, CSV/TXT, XLSX and Word files. You review every detected row before it enters your portfolio.</div>
+                    <div className="text-lg font-black uppercase tracking-widest">
+                      Upload a portfolio file
+                    </div>
+                    <div className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-text-dim">
+                      AI reads visible symbols, quantities and average buy prices from screenshots,
+                      CSV/TXT, XLSX and Word files. You review every detected row before it enters
+                      your portfolio.
+                    </div>
                   </div>
                   <div className="flex flex-wrap justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
-                    {['PNG/JPG', 'CSV/TXT', 'XLSX', 'DOCX'].map((item) => <span key={item} className="rounded-full border border-border-accent px-3 py-1">{item}</span>)}
+                    {['PNG/JPG', 'CSV/TXT', 'XLSX', 'DOCX'].map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-border-accent px-3 py-1"
+                      >
+                        {item}
+                      </span>
+                    ))}
                   </div>
-                  <input type="file" accept="image/*,.csv,.txt,.xlsx,.docx" className="hidden" onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)} />
+                  <input
+                    type="file"
+                    accept="image/*,.csv,.txt,.xlsx,.docx"
+                    className="hidden"
+                    onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)}
+                  />
                 </label>
-                {screenshotLoading && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">Reading file with AI...</div>}
-                {screenshotStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{screenshotStatus}</div>}
+                {screenshotLoading && (
+                  <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">
+                    Reading file with AI...
+                  </div>
+                )}
+                {screenshotStatus && (
+                  <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">
+                    {screenshotStatus}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   {[
-                    { icon: FileText, title: 'Extract', text: 'Symbols, names, quantities and buy prices.' },
-                    { icon: Search, title: 'Review', text: 'You can edit every row before saving.' },
-                    { icon: Check, title: 'Import', text: 'Valid rows become portfolio positions.' },
+                    {
+                      icon: FileText,
+                      title: 'Extract',
+                      text: 'Symbols, names, quantities and buy prices.',
+                    },
+                    {
+                      icon: Search,
+                      title: 'Review',
+                      text: 'You can edit every row before saving.',
+                    },
+                    {
+                      icon: Check,
+                      title: 'Import',
+                      text: 'Valid rows become portfolio positions.',
+                    },
                   ].map((step) => (
-                    <div key={step.title} className="rounded-2xl border border-border-accent bg-bg/35 p-4">
+                    <div
+                      key={step.title}
+                      className="rounded-2xl border border-border-accent bg-bg/35 p-4"
+                    >
                       <step.icon className="mb-3 h-5 w-5 text-accent" />
-                      <div className="text-xs font-black uppercase tracking-widest">{step.title}</div>
+                      <div className="text-xs font-black uppercase tracking-widest">
+                        {step.title}
+                      </div>
                       <p className="mt-2 text-xs leading-5 text-text-dim">{step.text}</p>
                     </div>
                   ))}
@@ -920,10 +1285,18 @@ export default function Portfolio() {
               <div className="mt-7 overflow-hidden rounded-2xl border border-border-accent">
                 <div className="flex flex-col gap-3 border-b border-border-accent bg-bg/55 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-xs font-black uppercase tracking-widest">Review import</div>
-                    <div className="mt-1 text-[11px] text-text-dim">Only rows with symbol, quantity and buy price will be saved.</div>
+                    <div className="text-xs font-black uppercase tracking-widest">
+                      Review import
+                    </div>
+                    <div className="mt-1 text-[11px] text-text-dim">
+                      Only rows with symbol, quantity and buy price will be saved.
+                    </div>
                   </div>
-                  <button type="button" onClick={importDetectedPositions} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg">
+                  <button
+                    type="button"
+                    onClick={importDetectedPositions}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg"
+                  >
                     <Check className="h-4 w-4" />
                     Import valid rows
                   </button>
@@ -942,18 +1315,66 @@ export default function Portfolio() {
                     </thead>
                     <tbody>
                       {importCandidates.map((candidate, index) => (
-                        <tr key={`${candidate.symbol}-${index}`} className="border-t border-border-accent/40">
-                          <td className="p-3"><input value={candidate.symbol} onChange={(event) => updateCandidate(index, { symbol: event.target.value.toUpperCase() })} className="w-24 rounded-lg border border-border-accent bg-bg p-2 text-xs font-black outline-none focus:border-accent" /></td>
-                          <td className="p-3"><input value={candidate.name} onChange={(event) => updateCandidate(index, { name: event.target.value })} className="min-w-40 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                        <tr
+                          key={`${candidate.symbol}-${index}`}
+                          className="border-t border-border-accent/40"
+                        >
                           <td className="p-3">
-                            <select value={candidate.type} onChange={(event) => updateCandidate(index, { type: event.target.value as 'stock' | 'crypto' })} className="rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent">
+                            <input
+                              value={candidate.symbol}
+                              onChange={(event) =>
+                                updateCandidate(index, { symbol: event.target.value.toUpperCase() })
+                              }
+                              className="w-24 rounded-lg border border-border-accent bg-bg p-2 text-xs font-black outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              value={candidate.name}
+                              onChange={(event) =>
+                                updateCandidate(index, { name: event.target.value })
+                              }
+                              className="min-w-40 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <select
+                              value={candidate.type}
+                              onChange={(event) =>
+                                updateCandidate(index, {
+                                  type: event.target.value as 'stock' | 'crypto',
+                                })
+                              }
+                              className="rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                            >
                               <option value="stock">Stock</option>
                               <option value="crypto">Crypto</option>
                             </select>
                           </td>
-                          <td className="p-3"><input value={candidate.quantity} onChange={(event) => updateCandidate(index, { quantity: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
-                          <td className="p-3"><input value={candidate.price} onChange={(event) => updateCandidate(index, { price: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
-                          <td className="p-3 text-xs text-text-dim">{candidate.confidence != null ? `${Math.round(candidate.confidence * 100)}%` : 'Review'}{candidate.notes ? ` - ${candidate.notes}` : ''}</td>
+                          <td className="p-3">
+                            <input
+                              value={candidate.quantity}
+                              onChange={(event) =>
+                                updateCandidate(index, { quantity: event.target.value })
+                              }
+                              className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              value={candidate.price}
+                              onChange={(event) =>
+                                updateCandidate(index, { price: event.target.value })
+                              }
+                              className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                            />
+                          </td>
+                          <td className="p-3 text-xs text-text-dim">
+                            {candidate.confidence != null
+                              ? `${Math.round(candidate.confidence * 100)}%`
+                              : 'Review'}
+                            {candidate.notes ? ` - ${candidate.notes}` : ''}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -968,21 +1389,39 @@ export default function Portfolio() {
   }
 
   return (
-    <motion.div className="app-page" initial="hidden" animate="show" transition={{ staggerChildren: 0.07 }}>
+    <motion.div
+      className="app-page"
+      initial="hidden"
+      animate="show"
+      transition={{ staggerChildren: 0.07 }}
+    >
       <motion.section variants={motionItem} className="app-hero">
         <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="flex items-start gap-4">
-            <button onClick={() => navigate(-1)} className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent">
+            <button
+              aria-label="Back"
+              onClick={() => navigate(-1)}
+              className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent"
+            >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <div className="accent-chip mb-4"><WalletCards className="h-3.5 w-3.5" /> Portfolio</div>
-              <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter">Capital overview</h1>
-              <p className="mt-3 max-w-2xl text-sm text-text-dim">Tus posiciones, flujo de caja y actividad reciente con una lectura mas clara.</p>
+              <div className="accent-chip mb-4">
+                <WalletCards className="h-3.5 w-3.5" /> Portfolio
+              </div>
+              <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter">
+                Capital overview
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-text-dim">
+                Tus posiciones, flujo de caja y actividad reciente con una lectura mas clara.
+              </p>
             </div>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setIsAdding(!isAdding)} className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg shadow-[0_0_28px_rgba(124,255,26,0.25)] transition-all hover:scale-[1.03]">
+            <button
+              onClick={() => setIsAdding(!isAdding)}
+              className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg shadow-[0_0_28px_rgba(124,255,26,0.25)] transition-all hover:scale-[1.03]"
+            >
               <Plus className="h-4 w-4" />
               Add asset
             </button>
@@ -992,9 +1431,15 @@ export default function Portfolio() {
       </motion.section>
 
       {isAdding && (
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="panel-card border-accent/40 p-6">
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="panel-card border-accent/40 p-6"
+        >
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest"><Plus className="h-4 w-4 text-accent" /> Add new position</h2>
+            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+              <Plus className="h-4 w-4 text-accent" /> Add new position
+            </h2>
             <div className="flex flex-wrap gap-2">
               {[
                 { id: 'manual', label: 'Manual', icon: Plus },
@@ -1016,12 +1461,22 @@ export default function Portfolio() {
               ))}
             </div>
           </div>
-          {formError && <div className="mb-4 flex items-center gap-2 rounded-xl border border-loss/40 bg-loss/10 p-3 text-xs font-bold text-loss"><AlertCircle className="h-4 w-4" />{formError}</div>}
+          {formError && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-loss/40 bg-loss/10 p-3 text-xs font-bold text-loss">
+              <AlertCircle className="h-4 w-4" />
+              {formError}
+            </div>
+          )}
 
           {addMode === 'manual' && (
-            <form onSubmit={handleAddAsset} className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <form
+              onSubmit={handleAddAsset}
+              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5"
+            >
               <div className="relative flex flex-col">
-                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Symbol *</label>
+                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                  Symbol *
+                </label>
                 <input
                   type="text"
                   value={symbol}
@@ -1050,16 +1505,28 @@ export default function Portfolio() {
                           className="flex w-full items-center justify-between gap-4 border-b border-border-accent/40 px-4 py-3 text-left transition-all last:border-b-0 hover:bg-accent/10"
                         >
                           <div className="flex min-w-0 items-center gap-3">
-                            <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-9 w-9 rounded-xl" imgClassName="h-5 w-5" />
+                            <CompanyLogo
+                              symbol={asset.symbol}
+                              name={asset.name}
+                              type={asset.type}
+                              className="h-9 w-9 rounded-xl"
+                              imgClassName="h-5 w-5"
+                            />
                             <div className="min-w-0">
                               <div className="text-sm font-black">{asset.symbol}</div>
-                              <div className="max-w-[330px] truncate text-[11px] text-text-dim">{asset.name || asset.symbol}</div>
+                              <div className="max-w-[330px] truncate text-[11px] text-text-dim">
+                                {asset.name || asset.symbol}
+                              </div>
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <div className="text-[10px] font-black uppercase text-accent">{asset.type}</div>
+                            <div className="text-[10px] font-black uppercase text-accent">
+                              {asset.type}
+                            </div>
                             {Number.isFinite(numericPrice) && numericPrice > 0 && (
-                              <div className="text-[10px] text-text-dim">{formatMoney(numericPrice)}</div>
+                              <div className="text-[10px] text-text-dim">
+                                {formatMoney(numericPrice)}
+                              </div>
                             )}
                           </div>
                         </button>
@@ -1070,24 +1537,64 @@ export default function Portfolio() {
               </div>
               {[
                 { label: 'Name', value: name, set: setName, placeholder: 'Apple Inc.' },
-                { label: 'Quantity *', value: quantity, set: setQuantity, placeholder: '0.00', type: 'number' },
-                { label: 'Price *', value: price, set: setPrice, placeholder: '0.00', type: 'number' },
+                {
+                  label: 'Quantity *',
+                  value: quantity,
+                  set: setQuantity,
+                  placeholder: '0.00',
+                  type: 'number',
+                },
+                {
+                  label: 'Price *',
+                  value: price,
+                  set: setPrice,
+                  placeholder: '0.00',
+                  type: 'number',
+                },
               ].map((field) => (
                 <div key={field.label} className="flex flex-col">
-                  <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">{field.label}</label>
-                  <input type={field.type || 'text'} step="any" min="0" value={field.value} onChange={(e) => field.set(e.target.value)} placeholder={field.placeholder} className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent" required={field.label.includes('*')} />
+                  <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                    {field.label}
+                  </label>
+                  <input
+                    type={field.type || 'text'}
+                    step="any"
+                    min="0"
+                    value={field.value}
+                    onChange={(e) => field.set(e.target.value)}
+                    placeholder={field.placeholder}
+                    className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent"
+                    required={field.label.includes('*')}
+                  />
                 </div>
               ))}
               <div className="flex flex-col">
-                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">Type *</label>
-                <select value={type} onChange={(e) => setType(e.target.value as any)} className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent">
+                <label className="mb-2 text-[10px] font-black uppercase tracking-widest text-text-dim">
+                  Type *
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as 'stock' | 'crypto')}
+                  className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent"
+                >
                   <option value="stock">Stock</option>
                   <option value="crypto">Crypto</option>
                 </select>
               </div>
               <div className="flex justify-end gap-3 lg:col-span-5">
-                <button type="button" onClick={() => setIsAdding(false)} className="rounded-xl border border-border-accent px-6 py-2 text-[10px] font-black uppercase transition-all hover:bg-surface">Cancel</button>
-                <button type="submit" className="rounded-xl bg-accent px-8 py-2 text-[10px] font-black uppercase text-bg transition-all hover:opacity-90">Save position</button>
+                <button
+                  type="button"
+                  onClick={() => setIsAdding(false)}
+                  className="rounded-xl border border-border-accent px-6 py-2 text-[10px] font-black uppercase transition-all hover:bg-surface"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-accent px-8 py-2 text-[10px] font-black uppercase text-bg transition-all hover:opacity-90"
+                >
+                  Save position
+                </button>
               </div>
             </form>
           )}
@@ -1095,8 +1602,14 @@ export default function Portfolio() {
           {addMode === 'wallet' && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-border-accent bg-bg/45 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest"><Shield className="h-4 w-4 text-accent" /> Read-only wallet link</div>
-                <p className="text-xs leading-6 text-text-dim">ZENTRA only reads your public wallet address and public on-chain balances. It never asks for seed phrases, private keys, spending approvals, token permissions, signatures, or transactions.</p>
+                <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest">
+                  <Shield className="h-4 w-4 text-accent" /> Read-only wallet link
+                </div>
+                <p className="text-xs leading-6 text-text-dim">
+                  {brand.name} only reads your public wallet address and public on-chain balances.
+                  It never asks for seed phrases, private keys, spending approvals, token
+                  permissions, signatures, or transactions.
+                </p>
               </div>
               {walletProviders.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -1113,22 +1626,47 @@ export default function Portfolio() {
                 </div>
               )}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto_auto]">
-                <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="0x wallet address" className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent" />
-                <button type="button" onClick={connectReadOnlyWallet} disabled={walletLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60">
+                <input
+                  value={walletAddress}
+                  onChange={(event) => setWalletAddress(event.target.value)}
+                  placeholder="0x wallet address"
+                  className="rounded-xl border border-border-accent bg-bg p-3 text-sm font-bold outline-none transition-colors focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={connectReadOnlyWallet}
+                  disabled={walletLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90 disabled:opacity-60"
+                >
                   <Wallet className="h-4 w-4" />
                   {walletLoading ? 'Reading wallet' : 'Connect wallet'}
                 </button>
-                <button type="button" onClick={linkManualReadOnlyAddress} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main">
+                <button
+                  type="button"
+                  onClick={linkManualReadOnlyAddress}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-text-main"
+                >
                   Link address
                 </button>
-                <button type="button" onClick={() => void resetWalletLink()} disabled={walletLoading && !walletAddress && importCandidates.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl border border-loss/40 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/10 disabled:cursor-not-allowed disabled:opacity-40">
+                <button
+                  type="button"
+                  onClick={() => void resetWalletLink()}
+                  disabled={walletLoading && !walletAddress && importCandidates.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-loss/40 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/10 disabled:cursor-not-allowed disabled:opacity-40"
+                >
                   Reset wallet
                 </button>
               </div>
               <div className="rounded-2xl border border-border-accent bg-bg/35 p-4 text-xs leading-6 text-text-dim">
-                Current wallet sync reads native ETH from browser wallets. Full token sync across Ethereum, Polygon, Base, Arbitrum, Optimism, Solana and more needs a portfolio indexer such as Zerion, Moralis, Alchemy or Covalent.
+                Current wallet sync reads native ETH from browser wallets. Full token sync across
+                Ethereum, Polygon, Base, Arbitrum, Optimism, Solana and more needs a portfolio
+                indexer such as Zerion, Moralis, Alchemy or Covalent.
               </div>
-              {walletStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{walletStatus}</div>}
+              {walletStatus && (
+                <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">
+                  {walletStatus}
+                </div>
+              )}
             </div>
           )}
 
@@ -1137,13 +1675,31 @@ export default function Portfolio() {
               <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-accent/50 bg-accent/5 p-8 text-center transition-all hover:bg-accent/10">
                 <Upload className="h-7 w-7 text-accent" />
                 <div>
-                  <div className="text-sm font-black uppercase tracking-widest">Upload screenshot, spreadsheet or document</div>
-                  <div className="mt-2 text-xs text-text-dim">The AI reads visible symbols, quantities and average buy prices from images, CSV/TXT, Excel and Word files. You review everything before import.</div>
+                  <div className="text-sm font-black uppercase tracking-widest">
+                    Upload screenshot, spreadsheet or document
+                  </div>
+                  <div className="mt-2 text-xs text-text-dim">
+                    The AI reads visible symbols, quantities and average buy prices from images,
+                    CSV/TXT, Excel and Word files. You review everything before import.
+                  </div>
                 </div>
-                <input type="file" accept="image/*,.csv,.txt,.xls,.xlsx,.docx" className="hidden" onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept="image/*,.csv,.txt,.xls,.xlsx,.docx"
+                  className="hidden"
+                  onChange={(event) => analyzeScreenshot(event.target.files?.[0] || null)}
+                />
               </label>
-              {screenshotLoading && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">Reading file with AI...</div>}
-              {screenshotStatus && <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">{screenshotStatus}</div>}
+              {screenshotLoading && (
+                <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">
+                  Reading file with AI...
+                </div>
+              )}
+              {screenshotStatus && (
+                <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">
+                  {screenshotStatus}
+                </div>
+              )}
             </div>
           )}
 
@@ -1151,7 +1707,11 @@ export default function Portfolio() {
             <div className="mt-6 overflow-hidden rounded-2xl border border-border-accent">
               <div className="flex items-center justify-between border-b border-border-accent bg-bg/55 px-4 py-3">
                 <div className="text-xs font-black uppercase tracking-widest">Review import</div>
-                <button type="button" onClick={importDetectedPositions} className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg">
+                <button
+                  type="button"
+                  onClick={importDetectedPositions}
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg"
+                >
                   <Check className="h-4 w-4" />
                   Import valid rows
                 </button>
@@ -1170,18 +1730,66 @@ export default function Portfolio() {
                   </thead>
                   <tbody>
                     {importCandidates.map((candidate, index) => (
-                      <tr key={`${candidate.symbol}-${index}`} className="border-t border-border-accent/40">
-                        <td className="p-3"><input value={candidate.symbol} onChange={(event) => updateCandidate(index, { symbol: event.target.value.toUpperCase() })} className="w-24 rounded-lg border border-border-accent bg-bg p-2 text-xs font-black outline-none focus:border-accent" /></td>
-                        <td className="p-3"><input value={candidate.name} onChange={(event) => updateCandidate(index, { name: event.target.value })} className="min-w-40 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
+                      <tr
+                        key={`${candidate.symbol}-${index}`}
+                        className="border-t border-border-accent/40"
+                      >
                         <td className="p-3">
-                          <select value={candidate.type} onChange={(event) => updateCandidate(index, { type: event.target.value as 'stock' | 'crypto' })} className="rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent">
+                          <input
+                            value={candidate.symbol}
+                            onChange={(event) =>
+                              updateCandidate(index, { symbol: event.target.value.toUpperCase() })
+                            }
+                            className="w-24 rounded-lg border border-border-accent bg-bg p-2 text-xs font-black outline-none focus:border-accent"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            value={candidate.name}
+                            onChange={(event) =>
+                              updateCandidate(index, { name: event.target.value })
+                            }
+                            className="min-w-40 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={candidate.type}
+                            onChange={(event) =>
+                              updateCandidate(index, {
+                                type: event.target.value as 'stock' | 'crypto',
+                              })
+                            }
+                            className="rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                          >
                             <option value="stock">Stock</option>
                             <option value="crypto">Crypto</option>
                           </select>
                         </td>
-                        <td className="p-3"><input value={candidate.quantity} onChange={(event) => updateCandidate(index, { quantity: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
-                        <td className="p-3"><input value={candidate.price} onChange={(event) => updateCandidate(index, { price: event.target.value })} className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent" /></td>
-                        <td className="p-3 text-xs text-text-dim">{candidate.confidence != null ? `${Math.round(candidate.confidence * 100)}%` : 'Review'}{candidate.notes ? ` - ${candidate.notes}` : ''}</td>
+                        <td className="p-3">
+                          <input
+                            value={candidate.quantity}
+                            onChange={(event) =>
+                              updateCandidate(index, { quantity: event.target.value })
+                            }
+                            className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            value={candidate.price}
+                            onChange={(event) =>
+                              updateCandidate(index, { price: event.target.value })
+                            }
+                            className="w-28 rounded-lg border border-border-accent bg-bg p-2 text-xs font-bold outline-none focus:border-accent"
+                          />
+                        </td>
+                        <td className="p-3 text-xs text-text-dim">
+                          {candidate.confidence != null
+                            ? `${Math.round(candidate.confidence * 100)}%`
+                            : 'Review'}
+                          {candidate.notes ? ` - ${candidate.notes}` : ''}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1199,7 +1807,9 @@ export default function Portfolio() {
             value: formatMoney(totalValue),
             icon: TrendingUp,
             accent: true,
-            badge: hasLivePortfolioPrices ? `${portfolioMetrics.livePricedCount}/${assets.length} Live` : 'Estimated',
+            badge: hasLivePortfolioPrices
+              ? `${portfolioMetrics.livePricedCount}/${assets.length} Priced`
+              : 'Estimated',
             positive: true,
           },
           {
@@ -1217,13 +1827,20 @@ export default function Portfolio() {
             positive: totalPnl >= 0,
           },
         ].map((card) => (
-          <motion.div key={card.label} variants={motionItem} whileHover={{ y: -5 }} className={`panel-card p-6 ${card.accent ? 'border-accent/35 bg-accent/10' : ''}`}>
+          <motion.div
+            key={card.label}
+            variants={motionItem}
+            whileHover={{ y: -5 }}
+            className={`panel-card p-6 ${card.accent ? 'border-accent/35 bg-accent/10' : ''}`}
+          >
             <div className="mb-5 flex items-center justify-between">
               <div className={card.accent ? 'accent-chip' : 'quiet-chip'}>{card.label}</div>
               <card.icon className="h-5 w-5 text-accent" />
             </div>
             <div className="data-value text-3xl font-black">{card.value}</div>
-            <div className={`mt-4 inline-flex items-center gap-1 rounded-full bg-bg/60 px-3 py-1 text-[11px] font-black ${card.positive ? 'text-accent' : 'text-loss'}`}>
+            <div
+              className={`mt-4 inline-flex items-center gap-1 rounded-full bg-bg/60 px-3 py-1 text-[11px] font-black ${card.positive ? 'text-accent' : 'text-loss'}`}
+            >
               <ArrowUpRight className={`h-3.5 w-3.5 ${card.positive ? '' : 'rotate-90'}`} />
               {card.badge}
             </div>
@@ -1234,14 +1851,20 @@ export default function Portfolio() {
       <motion.div variants={motionItem} className="panel-card border-accent/20 bg-accent/5 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-black uppercase tracking-widest">Portfolio data quality</div>
+            <div className="text-xs font-black uppercase tracking-widest">
+              Portfolio data quality
+            </div>
             <p className="mt-1 text-xs leading-5 text-text-dim">
-              Market value uses live asset snapshots when available. Missing or fallback prices use the entry price as an estimate.
+              Provider marks retain native currency and reported latency. Missing prices use
+              remaining average cost as an estimate. USD summaries exclude non-USD positions;
+              Analytics converts them using attributed FX.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="accent-chip">{portfolioMetrics.livePricedCount} Live</span>
-            <span className="quiet-chip">{assets.length - portfolioMetrics.livePricedCount} Estimated</span>
+            <span className="accent-chip">{portfolioMetrics.livePricedCount} Priced</span>
+            <span className="quiet-chip">
+              {assets.length - portfolioMetrics.livePricedCount} Estimated
+            </span>
             <span className={`quiet-chip ${dailyChange >= 0 ? 'text-accent' : 'text-loss'}`}>
               Daily: {formatMoney(dailyChange)} ({formatPercent(dailyChangePercent)})
             </span>
@@ -1259,24 +1882,61 @@ export default function Portfolio() {
             {assets.slice(0, 6).map((asset) => {
               const holding = holdingMetricsBySymbol.get(asset.symbol.toUpperCase());
               return (
-                <Link key={asset.id} to={getAssetPath(asset)} className="flex items-center justify-between gap-3 rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/10">
+                <Link
+                  key={asset.id}
+                  to={getAssetPath(asset)}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border-accent/40 bg-bg/35 p-3 transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/10"
+                >
                   <div className="flex min-w-0 items-center gap-3">
-                    <CompanyLogo symbol={asset.symbol} name={asset.name} type={asset.type} className="h-10 w-10 rounded-xl" imgClassName="h-6 w-6" />
+                    <CompanyLogo
+                      symbol={asset.symbol}
+                      name={asset.name}
+                      type={asset.type}
+                      className="h-10 w-10 rounded-xl"
+                      imgClassName="h-6 w-6"
+                    />
                     <div className="min-w-0">
                       <div className="truncate text-sm font-black">{asset.symbol}</div>
-                      <div className="truncate text-[10px] text-text-dim">{asset.totalQuantity} units · {holding?.isEstimated ? 'Estimated' : 'Live'}</div>
+                      <div className="truncate text-[10px] text-text-dim">
+                        {asset.quantityExact || asset.totalQuantity} units ·{' '}
+                        {holding?.isEstimated ? 'Estimated' : 'Provider mark'}
+                      </div>
+                      <DataProvenance
+                        quote={{
+                          provider:
+                            priceSnapshots[asset.symbol]?.provider ||
+                            priceSnapshots[asset.symbol]?.source,
+                          currency:
+                            priceSnapshots[asset.symbol]?.currency || asset.currency || 'USD',
+                          status: priceSnapshots[asset.symbol]?.status || 'unavailable',
+                          stale: priceSnapshots[asset.symbol]?.stale,
+                          exchange: priceSnapshots[asset.symbol]?.exchange,
+                          updatedAt: priceSnapshots[asset.symbol]?.updatedAt,
+                        }}
+                      />
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="data-value text-sm font-black">{formatMoney(holding?.currentValue ?? asset.averagePrice * asset.totalQuantity)}</div>
-                    <div className={`mt-1 text-[10px] font-black ${Number(holding?.pnl || 0) >= 0 ? 'text-accent' : 'text-loss'}`}>
+                    <div className="data-value text-sm font-black">
+                      {formatMoney(
+                        holding?.currentValue ?? asset.averagePrice * asset.totalQuantity,
+                        asset.currency || 'USD',
+                      )}
+                    </div>
+                    <div
+                      className={`mt-1 text-[10px] font-black ${Number(holding?.pnl || 0) >= 0 ? 'text-accent' : 'text-loss'}`}
+                    >
                       {formatPercent(holding?.pnlPercent ?? null)}
                     </div>
                   </div>
                 </Link>
               );
             })}
-            {assets.length === 0 && <div className="rounded-2xl border border-dashed border-border-accent p-8 text-center text-xs text-text-dim">Add your first position to unlock portfolio analytics.</div>}
+            {assets.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-border-accent p-8 text-center text-xs text-text-dim">
+                Add your first position to unlock portfolio analytics.
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -1285,10 +1945,15 @@ export default function Portfolio() {
             <div>
               <h3 className="text-sm font-black uppercase tracking-widest">Value path</h3>
               <div className="mt-1 text-xs text-text-dim">
-                {formatMoney(totalValue)} current market value · {hasValueHistory ? `${chartData.length} saved daily snapshots` : 'history starts after two daily snapshots'}
+                {formatMoney(totalValue)} current market value ·{' '}
+                {hasValueHistory
+                  ? `${chartData.length} saved daily snapshots`
+                  : 'history starts after two daily snapshots'}
               </div>
             </div>
-            <span className={hasValueHistory ? 'accent-chip' : 'quiet-chip'}>{hasValueHistory ? 'Live history' : 'No synthetic curve'}</span>
+            <span className={hasValueHistory ? 'accent-chip' : 'quiet-chip'}>
+              {hasValueHistory ? 'Recorded marks' : 'History unavailable'}
+            </span>
           </div>
           {hasValueHistory ? (
             <div className="h-64">
@@ -1296,24 +1961,58 @@ export default function Portfolio() {
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="portfolioFlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                      <stop offset="5%" stopColor={chartColor} stopOpacity={0.4} />
+                      <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-accent)" opacity={0.4} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-accent)', borderRadius: '16px', color: 'var(--text-main)' }} />
-                  <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#portfolioFlow)" strokeWidth={3} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="var(--border-accent)"
+                    opacity={0.4}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--text-dim)', fontSize: 10 }}
+                  />
+                  <YAxis
+                    domain={chartDomain}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--text-dim)', fontSize: 10 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border-accent)',
+                      borderRadius: '16px',
+                      color: 'var(--text-main)',
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={chartColor}
+                    fillOpacity={1}
+                    fill="url(#portfolioFlow)"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: chartColor, strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border-accent bg-bg/35 p-8 text-center">
               <TrendingUp className="h-8 w-8 text-accent opacity-70" />
-              <h4 className="mt-4 text-sm font-black uppercase tracking-widest">Waiting for real history</h4>
+              <h4 className="mt-4 text-sm font-black uppercase tracking-widest">
+                Waiting for real history
+              </h4>
               <p className="mt-2 max-w-md text-xs leading-6 text-text-dim">
-                Zentra saves one portfolio snapshot per day. The chart appears after two real snapshots instead of using a fake performance curve.
+                {brand.name} saves one holdings mark per day. Marks can include estimates and change
+                when you deposit, buy or sell; this chart does not represent investment return.
               </p>
             </div>
           )}
@@ -1326,9 +2025,16 @@ export default function Portfolio() {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
-              <input value={txSearch} onChange={(e) => setTxSearch(e.target.value)} placeholder="Search symbol" className="rounded-full border border-border-accent bg-bg py-2 pl-9 pr-3 text-sm outline-none focus:border-accent" />
+              <input
+                value={txSearch}
+                onChange={(e) => setTxSearch(e.target.value)}
+                placeholder="Search symbol"
+                className="rounded-full border border-border-accent bg-bg py-2 pl-9 pr-3 text-sm outline-none focus:border-accent"
+              />
             </div>
-            <button className="rounded-xl border border-border-accent bg-bg p-2 text-text-dim transition-all hover:border-accent hover:text-accent"><Filter className="h-4 w-4" /></button>
+            <button className="rounded-xl border border-border-accent bg-bg p-2 text-text-dim transition-all hover:border-accent hover:text-accent">
+              <Filter className="h-4 w-4" />
+            </button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -1346,17 +2052,23 @@ export default function Portfolio() {
             <tbody>
               {filteredTransactions.map((tx) => (
                 <tr key={tx.id} className="border-t border-border-accent/30">
-                  <td className="py-4 text-sm font-bold">{tx.type.toUpperCase()} {tx.assetSymbol}</td>
+                  <td className="py-4 text-sm font-bold">
+                    {tx.type.toUpperCase()} {tx.assetSymbol}
+                  </td>
                   <td className="py-4 text-sm text-text-dim">INV_{tx.id?.slice(0, 6)}</td>
                   <td className="py-4 text-sm">{new Date(tx.date).toLocaleDateString()}</td>
                   <td className="py-4 text-sm">{tx.quantity}</td>
-                  <td className="py-4 text-sm">{formatMoney(tx.price)}</td>
-                  <td className="py-4"><span className="stat-badge stat-up">Completed</span></td>
+                  <td className="py-4 text-sm">{formatMoney(tx.price, tx.currency || 'USD')}</td>
+                  <td className="py-4">
+                    <span className="stat-badge stat-up">Completed</span>
+                  </td>
                 </tr>
               ))}
               {filteredTransactions.length === 0 && (
                 <tr className="border-t border-border-accent/30">
-                  <td className="py-8 text-center text-sm text-text-dim" colSpan={6}>No transactions found</td>
+                  <td className="py-8 text-center text-sm text-text-dim" colSpan={6}>
+                    No transactions found
+                  </td>
                 </tr>
               )}
             </tbody>

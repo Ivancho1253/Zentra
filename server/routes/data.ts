@@ -1,14 +1,31 @@
-import type express from "express";
-import { getFirebaseAdmin } from "../services/firebaseAdmin";
+import type express from 'express';
+import { getAdminDatabase, getFirebaseAdmin } from '../services/firebaseAdmin';
 
-const USER_COLLECTIONS = ["assets", "transactions", "favorites", "alerts", "snapshots", "notifications"];
+const USER_COLLECTIONS = [
+  'assets',
+  'transactions',
+  'favorites',
+  'alerts',
+  'snapshots',
+  'notifications',
+  'cash',
+  'watchlists',
+  'socialSubscriptions',
+  'preferences',
+  'briefs',
+];
 
 async function deleteCollectionDocs(
   firestore: FirebaseFirestore.Firestore,
   userId: string,
   collectionName: string,
 ) {
-  const snapshot = await firestore.collection("users").doc(userId).collection(collectionName).limit(400).get();
+  const snapshot = await firestore
+    .collection('users')
+    .doc(userId)
+    .collection(collectionName)
+    .limit(400)
+    .get();
   if (snapshot.empty) return 0;
 
   const batch = firestore.batch();
@@ -18,19 +35,24 @@ async function deleteCollectionDocs(
 }
 
 export function registerDataRoutes(app: express.Express) {
-  app.delete("/api/data/account", async (req, res) => {
+  app.delete('/api/data/account', async (req, res) => {
     const userId = req.user?.uid;
     if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    if (!req.user?.authTime || Date.now() / 1000 - req.user.authTime > 300) {
+      return res.status(401).json({ error: 'Please sign in again before deleting your account.' });
     }
 
     const firebaseAdmin = getFirebaseAdmin();
     if (!firebaseAdmin) {
-      return res.status(503).json({ error: "Firebase Admin credentials are required for server-side deletion" });
+      return res
+        .status(503)
+        .json({ error: 'Firebase Admin credentials are required for server-side deletion' });
     }
 
     try {
-      const firestore = firebaseAdmin.firestore();
+      const firestore = getAdminDatabase()!;
       const deleted: Record<string, number> = {};
 
       for (const collectionName of USER_COLLECTIONS) {
@@ -43,15 +65,13 @@ export function registerDataRoutes(app: express.Express) {
         deleted[collectionName] = count;
       }
 
-      await firestore.collection("users").doc(userId).delete();
-      await firebaseAdmin.auth().deleteUser(userId).catch((error) => {
-        console.error("Firebase Auth user delete failed:", error);
-      });
+      await firestore.collection('users').doc(userId).delete();
+      await firebaseAdmin.auth().deleteUser(userId);
 
       res.json({ ok: true, deleted });
     } catch (error) {
-      console.error("Account data deletion failed:", error);
-      res.status(500).json({ error: "Could not delete account data" });
+      console.error('Account data deletion failed:');
+      res.status(500).json({ error: 'Could not delete account data' });
     }
   });
 }

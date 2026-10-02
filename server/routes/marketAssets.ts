@@ -1,89 +1,48 @@
-import type express from "express";
-import { z } from "zod";
-
-type RegisterMarketAssetRoutesOptions = {
-  getCryptoSnapshot: (symbol: string) => Promise<unknown>;
-  getStockSnapshot: (symbol: string, apiKey?: string) => Promise<unknown>;
-  findFallbackAsset: (symbol: string, type: "stock" | "crypto") => Record<string, unknown>;
-  isLivePricedAsset: (asset: unknown) => boolean;
-  toTickerAsset: (asset: unknown) => unknown;
-};
-
-const commonSymbolSchema = z.string().trim().min(1).max(16).regex(/^[A-Z0-9./-]+$/i);
-const assetTypeSchema = z.enum(["stock", "crypto"]);
-
-const getStringParam = (value: unknown, fallback = "") => {
-  const first = Array.isArray(value) ? value[0] : value;
-  return typeof first === "string" ? first.trim() : fallback;
-};
-
-let hotAssetsCache: { updatedAt: number; data: unknown[] } | null = null;
-const HOT_ASSETS_CACHE_MS = 15_000;
-
-export function registerMarketAssetRoutes(app: express.Express, options: RegisterMarketAssetRoutesOptions) {
-  app.get("/api/market/asset", async (req, res) => {
-    const symbolResult = commonSymbolSchema.safeParse(getStringParam(req.query.symbol).toUpperCase());
-    const requestedType = getStringParam(req.query.type, "stock") === "crypto" ? "crypto" : "stock";
-    const typeResult = assetTypeSchema.safeParse(requestedType);
-    const symbol = symbolResult.success ? symbolResult.data.toUpperCase() : "";
-    const type = typeResult.success ? typeResult.data : "stock";
-    const apiKey = process.env.TWELVE_DATA_API_KEY;
-
-    if (!symbolResult.success) {
-      return res.status(400).json({ error: "Symbol is required" });
-    }
-
-    res.setHeader("Cache-Control", "no-store");
-
-    try {
-      const snapshot = type === "crypto"
-        ? await options.getCryptoSnapshot(symbol)
-        : await options.getStockSnapshot(symbol, apiKey);
-      res.json(snapshot);
-    } catch (error) {
-      const fallback = options.findFallbackAsset(symbol, type);
-      res.json({ ...fallback, updatedAt: new Date().toISOString(), fallback: true, error: "Failed to fetch live asset snapshot" });
-    }
+import type express from 'express';
+import { z } from 'zod';
+import { getQuote, marketList } from '../services/marketService';
+export const symbolSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(20)
+  .regex(/^[A-Z0-9^=./-]+$/i)
+  .transform((s) => s.toUpperCase());
+export const assetTypeSchema = z.enum(['stock', 'crypto', 'etf', 'index', 'forex']);
+export function registerMarketAssetRoutes(app: express.Express) {
+  app.get('/api/market/asset', async (req, res) => {
+    const symbol = symbolSchema.safeParse(req.query.symbol),
+      type = assetTypeSchema.safeParse(req.query.type || 'stock');
+    if (!symbol.success) return res.status(400).json({ error: 'Symbol is required' });
+    if (!type.success) return res.status(400).json({ error: 'Invalid asset type' });
+    res.json(await getQuote(symbol.data, type.data));
   });
-
-  app.get("/api/market/hot", async (req, res) => {
-    const apiKey = process.env.TWELVE_DATA_API_KEY;
-    res.setHeader("Cache-Control", "no-store");
-
-    if (hotAssetsCache && Date.now() - hotAssetsCache.updatedAt < HOT_ASSETS_CACHE_MS) {
-      return res.json({ data: hotAssetsCache.data, source: "live-cache", updatedAt: new Date(hotAssetsCache.updatedAt).toISOString() });
-    }
-
-    try {
-      const stockCandidates = [
-        "NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "AVGO", "META", "TSLA", "WMT", "COST",
-        "AMD", "NFLX", "PLTR", "CSCO", "QCOM", "INTC", "MU", "ARM", "APP", "CRWD",
-        "PANW", "ADBE", "MSTR", "SMCI", "SHOP",
-      ];
-      const cryptoCandidates = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX"];
-
-      const [stockResults, cryptoResults] = await Promise.all([
-        Promise.allSettled(stockCandidates.map((symbol) => options.getStockSnapshot(symbol, apiKey))),
-        Promise.allSettled(cryptoCandidates.map((symbol) => options.getCryptoSnapshot(symbol))),
-      ]);
-
-      const liveAssets = [...stockResults, ...cryptoResults]
-        .filter((result): result is PromiseFulfilledResult<unknown> => result.status === "fulfilled")
-        .map((result) => result.value)
-        .filter(options.isLivePricedAsset)
-        .map(options.toTickerAsset)
-        .sort((a: any, b: any) => Number(b.change) - Number(a.change))
-        .slice(0, 12);
-
-      if (liveAssets.length === 0) {
-        return res.status(503).json({ data: [], error: "No live priced hot assets available" });
-      }
-
-      hotAssetsCache = { updatedAt: Date.now(), data: liveAssets };
-      res.json({ data: liveAssets, source: "live", updatedAt: new Date(hotAssetsCache.updatedAt).toISOString() });
-    } catch (error) {
-      console.error("Failed to fetch live hot assets:", error);
-      res.status(503).json({ data: [], error: "Failed to fetch live hot assets" });
-    }
+  app.get('/api/market/quotes', async (req, res) => {
+    const symbols = z
+      .string()
+      .max(300)
+      .transform((s) => s.split(','))
+      .pipe(z.array(symbolSchema).min(1).max(12))
+      .safeParse(req.query.symbols);
+    const type = assetTypeSchema.safeParse(req.query.type || 'stock');
+    if (!symbols.success || !type.success)
+      return res.status(400).json({ error: 'Up to 12 valid symbols required' });
+    res.json({
+      data: await Promise.all([...new Set(symbols.data)].map((s) => getQuote(s, type.data))),
+    });
+  });
+  app.get('/api/market/hot', async (_req, res) => {
+    const lists = await Promise.all([marketList('stock'), marketList('crypto')]);
+    const data = lists
+      .flat()
+      .filter((q) => q.price && q.change !== null && !q.stale)
+      .sort((a, b) => Number(b.change) - Number(a.change))
+      .slice(0, 12);
+    res.json({
+      data,
+      source: 'Zentra normalized providers',
+      updatedAt: new Date().toISOString(),
+      fallback: data.length === 0,
+    });
   });
 }

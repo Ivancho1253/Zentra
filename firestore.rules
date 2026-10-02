@@ -12,7 +12,7 @@ service cloud.firestore {
     //   - email: string (required)
     //   - displayName: string
     //   - photoURL: string
-    //   - currency: string (enum: USD, EUR, GBP)
+    //   - currency: string (enum: USD, EUR, ARS, GBP)
     //
     // Collection: users/{userId}/assets
     // Document ID: {symbol}
@@ -53,7 +53,7 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
-             (data.currency in ['USD', 'EUR', 'GBP']) &&
+             (data.currency in ['USD', 'EUR', 'ARS', 'GBP']) &&
              (!('pushTokens' in data) || data.pushTokens is list) &&
              (!('pushEnabledAt' in data) || data.pushEnabledAt is string);
     }
@@ -62,16 +62,20 @@ service cloud.firestore {
       return data.keys().hasAll(['symbol', 'type']) &&
              data.symbol is string &&
              data.type in ['stock', 'crypto'] &&
-             data.averagePrice is number &&
-             data.totalQuantity is number;
+             data.averagePrice is number && data.averagePrice >= 0 &&
+             data.totalQuantity is number && data.totalQuantity >= 0 &&
+             (!('quantityExact' in data) || (data.quantityExact is string && data.quantityExact.size() <= 100 && data.quantityExact.matches('^[0-9]+(\\.[0-9]+)?$'))) &&
+             (!('costExact' in data) || (data.costExact is string && data.costExact.size() <= 100 && data.costExact.matches('^[0-9]+(\\.[0-9]+)?$'))) &&
+             (!('currency' in data) || data.currency in ['USD', 'EUR', 'ARS', 'GBP']);
     }
 
     function isValidTransaction(data, userId) {
       return data.keys().hasAll(['assetSymbol', 'type', 'quantity', 'price', 'userId']) &&
              data.userId == userId &&
-             data.type in ['buy', 'sell'] &&
-             data.quantity is number &&
-             data.price is number;
+             data.type in ['buy', 'sell', 'dividend', 'deposit', 'withdrawal', 'transfer', 'fee'] &&
+             data.quantity is number && data.quantity > 0 &&
+             data.price is number && (data.price >= 0 || data.type == 'transfer') &&
+             (!('currency' in data) || data.currency in ['USD', 'EUR', 'ARS', 'GBP']);
     }
 
     function isValidFavorite(data) {
@@ -85,7 +89,7 @@ service cloud.firestore {
       return data.keys().hasAll(['symbol', 'type', 'condition', 'targetPrice', 'status', 'createdAt']) &&
              data.symbol is string &&
              data.type in ['stock', 'crypto'] &&
-             data.condition in ['above', 'below'] &&
+             data.condition in ['above', 'below', 'change_above', 'change_below', 'volume_spike', 'new_high', 'new_low', 'portfolio_drawdown', 'allocation_above', 'breaking_news', 'social_post', 'earnings'] &&
              data.targetPrice is number &&
              data.targetPrice > 0 &&
              data.status in ['active', 'paused', 'triggered'];
@@ -112,6 +116,10 @@ service cloud.firestore {
              data.createdAt is string;
     }
 
+    function isClientSnapshot(data) {
+      return (!('kind' in data) || data.kind == 'holdings') && !('verifiedBy' in data);
+    }
+
     // User Profiles
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -135,6 +143,39 @@ service cloud.firestore {
       }
 
       // Favorites Subcollection
+      match /cash/{currency} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['currency', 'balanceExact', 'updatedAt']) &&
+          request.resource.data.currency == currency && currency in ['USD', 'EUR', 'ARS', 'GBP'] &&
+          request.resource.data.balanceExact is string && request.resource.data.balanceExact.size() <= 100 && request.resource.data.balanceExact.matches('^-?[0-9]+(\\.[0-9]+)?$') &&
+          request.resource.data.updatedAt is string;
+        allow delete: if isOwner(userId);
+      }
+      match /watchlists/{watchlistId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['name', 'assets', 'pinned', 'updatedAt']) &&
+          request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60 &&
+          request.resource.data.assets is list && request.resource.data.assets.size() <= 40 &&
+          request.resource.data.pinned is bool && request.resource.data.updatedAt is string;
+        allow delete: if isOwner(userId);
+      }
+      match /socialSubscriptions/{subscriptionId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['username', 'group', 'muted']) &&
+          request.resource.data.username is string && request.resource.data.username.matches('^[A-Za-z0-9_]{1,15}$') &&
+          request.resource.data.group in ['companies', 'crypto', 'news', 'macro', 'custom'] && request.resource.data.muted is bool;
+        allow delete: if isOwner(userId);
+      }
+      match /preferences/{preferenceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && preferenceId == 'news' &&
+          request.resource.data.keys().hasOnly(['topics', 'updatedAt']) &&
+          request.resource.data.topics is list && request.resource.data.topics.size() <= 20 && request.resource.data.updatedAt is string;
+        allow delete: if isOwner(userId);
+      }
       match /favorites/{favoriteId} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidFavorite(request.resource.data);
@@ -153,9 +194,9 @@ service cloud.firestore {
       // Portfolio Snapshots Subcollection
       match /snapshots/{snapshotId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidSnapshot(request.resource.data);
-        allow update: if isOwner(userId) && isValidSnapshot(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSnapshot(request.resource.data) && isClientSnapshot(request.resource.data);
+        allow update: if isOwner(userId) && isValidSnapshot(request.resource.data) && isClientSnapshot(request.resource.data) && isClientSnapshot(resource.data);
+        allow delete: if isOwner(userId) && isClientSnapshot(resource.data);
       }
 
       // In-App Notifications
