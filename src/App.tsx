@@ -67,15 +67,20 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let generation = 0;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const current = ++generation;
       queryClient.clear();
+      setUser(user);
+      setProfile(null);
+      // Routes depend on the verified Auth session, not a network profile read.
+      setLoading(false);
       try {
-        setUser(user);
         if (user) {
           const docRef = doc(db, 'users', user.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
+            if (current === generation) setProfile(docSnap.data() as UserProfile);
           } else {
             const newProfile: UserProfile = {
               uid: user.uid,
@@ -85,20 +90,21 @@ export default function App() {
               currency: 'USD',
             };
             await setDoc(docRef, newProfile);
-            setProfile(newProfile);
+            if (current === generation) setProfile(newProfile);
           }
         } else {
-          setProfile(null);
+          if (current === generation) setProfile(null);
         }
       } catch (error) {
         console.error('Auth profile bootstrap failed:', error);
-        setProfile(null);
-      } finally {
-        setLoading(false);
+        if (current === generation) setProfile(null);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      generation++;
+      unsubscribe();
+    };
   }, []);
 
   if (loading) {

@@ -1,5 +1,6 @@
 import type express from 'express';
 import { z } from 'zod';
+import { firebaseIdToken } from '../services/authService';
 import { groundedInsight, insightSources } from '../services/intelligenceService';
 import { userIntelligence } from '../services/userIntelligence';
 export function registerAiBriefingRoutes(app: express.Express) {
@@ -7,7 +8,7 @@ export function registerAiBriefingRoutes(app: express.Express) {
     const language = z.enum(['es', 'en', 'pt']).safeParse(req.body?.language || 'en');
     if (!language.success) return res.status(400).json({ error: 'Invalid language' });
     try {
-      const context = await userIntelligence(req.user!.uid);
+      const context = await userIntelligence(req.user!.uid, firebaseIdToken(req));
       if (!context)
         return res.json({
           fallback: true,

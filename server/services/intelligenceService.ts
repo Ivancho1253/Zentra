@@ -69,7 +69,10 @@ export async function groundedInsight(
     return fallback;
   const encoded = JSON.stringify({ context, sources });
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: { timeout: 30_000 },
+    });
     const response = await ai.models.generateContent({
       model: process.env.AI_MODEL || 'gemini-2.5-flash',
       config: {

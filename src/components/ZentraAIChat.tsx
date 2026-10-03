@@ -121,6 +121,7 @@ export default function ZentraAIChat() {
 
           <form onSubmit={askZentra} className="flex gap-2 border-t border-border-accent p-3">
             <input
+              aria-label="Ask Zentra"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               placeholder={t('zentraChatPlaceholder')}
@@ -131,6 +132,7 @@ export default function ZentraAIChat() {
               disabled={!question.trim() || loading}
               className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-black disabled:cursor-not-allowed disabled:opacity-50"
               title={t('sendMessage')}
+              aria-label="Send message to Zentra"
             >
               <Send className="h-4 w-4" />
             </button>
@@ -139,6 +141,7 @@ export default function ZentraAIChat() {
       )}
 
       <button
+        aria-label="Open Zentra chat"
         onClick={() => setOpen((nextOpen) => !nextOpen)}
         className={`fixed right-4 z-[60] flex items-center gap-2 rounded-2xl border border-accent/40 bg-accent px-4 py-3 text-sm font-bold tracking-tight text-black shadow-2xl transition-all hover:brightness-110 ${isAssetDetailRoute ? 'bottom-24' : 'bottom-6'}`}
       >

@@ -64,7 +64,9 @@ export default function SmartAlertForm() {
               status: 'active',
               createdAt: new Date().toISOString(),
             });
-            setStatus('Alert saved. The server evaluates only verified available inputs.');
+            setStatus(
+              'Alert saved. Automatic evaluation depends on the service connection shown below.',
+            );
             form.reset();
           } catch {
             setStatus('Could not save the alert.');

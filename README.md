@@ -40,6 +40,10 @@ See [Firebase domain setup](docs/firebase-auth-domains.md) and
   movers, relevant reporting, monitored X sources and reported earnings dates.
 - Replaceable market, crypto, news, social, FX and event adapters. Quotes retain
   their provider, currency, exchange, source timestamp and known latency.
+- A slow continuous top-gainers tape, with pause/resume and reduced-motion
+  support. Rankings cover available catalog quotes with positive daily changes.
+- Paginated asset discovery loads focused quotes for visible catalog entries.
+  The heatmap supports equal-sized daily-change tiles or observed market caps.
 - Shared bounded caches, request coalescing, quota budgets, circuit backoff,
   optional Redis cache/rate limits and SSE with heartbeat/reconnection.
 - Native candle/line charts, volume, crosshair, SMA and all requested period
@@ -58,6 +62,10 @@ See [Firebase domain setup](docs/firebase-auth-domains.md) and
 - Official X account subscriptions, groups, mute/search and permitted media previews.
 - Source-constrained AI interpretation and personal daily briefs with a clearly
   identified deterministic fallback. Server-side context is scoped to the caller.
+- CSV/TXT/XLSX labeled-column imports without an AI credential, with exact
+  decimal quantities and explicit purchase-price currencies. Images require AI;
+  unstructured documents produce editable review candidates. Read-only wallet
+  balances require the user to enter purchase cost before import.
 - Twelve smart alert conditions, atomic in-app notification claims, a retrying
   delivery outbox and optional verified-account email/FCM push.
 - Global Ctrl/Cmd+K search and actions, JSON export, recent-auth server account
@@ -82,6 +90,7 @@ qualified. ARS FX is the provider's indicative rate, not an inferred parallel ra
 npm run validate
 npm run format:check
 npm audit --audit-level=moderate
+npm run doctor
 ```
 
 Java **21+** is needed for Firebase emulators. Browser tests use Playwright Chromium.
@@ -96,6 +105,17 @@ The emulator scripts isolate Auth/Firestore on ports 9199/8180 and use the defau
 emulator database. Without emulators or `E2E_BASE_URL`, those suites report skips.
 They are separate from ordinary unit/API tests. Credentials, production users,
 actual email delivery and live licensed API entitlements are not exercised by them.
+
+`doctor` checks actual quotes, candles, news and FX from the running local server,
+and lists missing external connections without printing secrets. It consumes only
+the normal cached API paths. Use `ZENTRA_BASE_URL` for another instance and
+`npm run doctor -- --strict` to fail on incomplete connections as well.
+
+The `/info` page shows connection settings. Automatic alerts remain inactive
+without Firebase Admin even though rules can be saved. If the API serves pages
+but all external feeds are unavailable, restart the development server in an
+environment with outbound network access and run `doctor` again. A saved `.env`
+change takes effect after a server restart.
 
 ## Documentation
 

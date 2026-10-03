@@ -72,6 +72,7 @@ export default function TransactionLedger() {
             Transaction
             <select
               className="terminal-input"
+              aria-label="Transaction"
               value={kind}
               onChange={(e) => setKind(e.target.value as TransactionType)}
             >
@@ -86,6 +87,7 @@ export default function TransactionLedger() {
             Currency
             <select
               className="terminal-input"
+              aria-label="Currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value as Currency)}
             >
@@ -100,6 +102,7 @@ export default function TransactionLedger() {
                 Asset type
                 <select
                   className="terminal-input"
+                  aria-label="Asset type"
                   value={assetType}
                   onChange={(e) => setAssetType(e.target.value as 'stock' | 'crypto')}
                 >

@@ -1,39 +1,34 @@
 import { z } from 'zod';
-import { assetSchema } from '../../shared/userSchemas';
+import { assetSchema, validateUserRecord, watchlistSchema } from '../../shared/userSchemas';
 import { calculatePortfolioMetrics } from '../../src/services/portfolioService';
 import type { Asset } from '../../src/types';
 import { getMarketEvents } from './eventService';
-import { getAdminDatabase } from './firebaseAdmin';
+import { readOwnedCollection } from './accountReader';
 import { getQuote } from './marketService';
 import { getNewsArticles } from './newsService';
 import { getSocialPosts } from './socialService';
-export async function userIntelligence(userId: string) {
-  const database = getAdminDatabase();
-  if (!database) return null;
-  const user = database.collection('users').doc(userId);
-  const [holdings, watchlists, subscriptions] = await Promise.all([
-    user.collection('assets').limit(30).get(),
-    user.collection('watchlists').limit(10).get(),
-    user.collection('socialSubscriptions').limit(10).get(),
+export async function userIntelligence(userId: string, idToken?: string) {
+  const [holdings, watchlists, subscriptions, favorites] = await Promise.all([
+    readOwnedCollection(userId, 'assets', 30, idToken),
+    readOwnedCollection(userId, 'watchlists', 10, idToken),
+    readOwnedCollection(userId, 'socialSubscriptions', 10, idToken),
+    readOwnedCollection(userId, 'favorites', 30, idToken),
   ]);
-  const assets = holdings.docs.flatMap((d) => {
-    const parsed = assetSchema.safeParse(d.data());
+  const assets = holdings.flatMap((d) => {
+    const parsed = assetSchema.safeParse(d.data);
     return parsed.success ? [{ ...parsed.data, id: d.id } as Asset] : [];
   });
-  const followed = watchlists.docs.flatMap(
-    (d) =>
-      z
-        .array(
-          z.object({
-            symbol: z.string().regex(/^[A-Z0-9.-]{1,20}$/),
-            type: z.enum(['stock', 'crypto']),
-          }),
-        )
-        .max(40)
-        .safeParse(d.data().assets).data || [],
-  );
+  const followed = watchlists.flatMap((d) => watchlistSchema.safeParse(d.data).data?.assets || []);
+  const bookmarks = favorites.flatMap((d) => {
+    const parsed = validateUserRecord('favorites', d.data);
+    return parsed
+      ? [{ symbol: String(parsed.symbol), type: parsed.type as 'stock' | 'crypto' }]
+      : [];
+  });
   const symbols = [
-    ...new Map([...assets, ...followed].map((a) => [`${a.type}:${a.symbol}`, a])).values(),
+    ...new Map(
+      [...assets, ...followed, ...bookmarks].map((a) => [`${a.type}:${a.symbol}`, a]),
+    ).values(),
   ].slice(0, 20);
   const quotes = await Promise.all(symbols.map((a) => getQuote(a.symbol, a.type)));
   const news = await getNewsArticles(
@@ -51,14 +46,14 @@ export async function userIntelligence(userId: string) {
     assets,
     Object.fromEntries(quotes.map((q) => [q.symbol, q])),
   );
-  const accounts = subscriptions.docs
-    .filter((d) => !d.data().muted)
+  const accounts = subscriptions
+    .filter((d) => !d.data.muted)
     .map(
       (d) =>
         z
           .string()
           .regex(/^[A-Za-z0-9_]{1,15}$/)
-          .safeParse(d.data().username).data,
+          .safeParse(d.data.username).data,
     )
     .filter((u): u is string => !!u)
     .slice(0, 3);

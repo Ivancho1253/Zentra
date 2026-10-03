@@ -20,11 +20,20 @@ const env = {
   E2E_BASE_URL: base,
   E2E_FIREBASE_EMULATORS: 'true',
 };
-const server = spawn(
-  process.execPath,
-  [resolve('node_modules/tsx/dist/cli.mjs'), 'server/dev.ts'],
-  { env, windowsHide: true, stdio: 'ignore' },
-);
+const server = spawn(process.execPath, ['--import', 'tsx', 'server/dev.ts'], {
+  env,
+  windowsHide: true,
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+let startupLog = '';
+for (const stream of [server.stdout, server.stderr])
+  stream.on('data', (chunk) => {
+    startupLog = (startupLog + chunk.toString()).slice(-8000);
+  });
+let startupError;
+server.on('error', (error) => {
+  startupError = error;
+});
 const cleanup = () => {
   server.kill();
 };
@@ -32,16 +41,21 @@ process.on('exit', cleanup);
 process.on('SIGINT', () => process.exit(130));
 try {
   let ready = false;
-  for (let i = 0; i < 80; i++) {
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    if (startupError || server.exitCode !== null)
+      throw new Error(
+        `Integration server exited: ${startupError || server.exitCode}\n${startupLog}`,
+      );
     try {
-      if ((await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })).ok) {
+      if ((await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1500) })).ok) {
         ready = true;
         break;
       }
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  if (!ready) throw new Error('Integration server did not start');
+  if (!ready) throw new Error(`Integration server did not start\n${startupLog}`);
   const test = spawn(
     process.execPath,
     [resolve('node_modules/vitest/vitest.mjs'), 'run', 'server/mobileSmoke.test.ts'],

@@ -79,9 +79,14 @@ export default function Dashboard() {
       refetchInterval: 60_000,
     })),
   });
+  const marks = quotes.map((query) =>
+    query.data && query.isError
+      ? { ...query.data, stale: true, status: 'stale' as const }
+      : query.data,
+  );
   const metrics = calculatePortfolioMetrics(
     positions,
-    Object.fromEntries(quotes.flatMap((q, i) => (q.data ? [[positions[i].symbol, q.data]] : []))),
+    Object.fromEntries(marks.flatMap((quote, i) => (quote ? [[positions[i].symbol, quote]] : []))),
   );
   const watchlist =
     [...lists.data].sort((a, b) => Number(b.pinned) - Number(a.pinned))[0] ||
@@ -122,8 +127,8 @@ export default function Dashboard() {
     .filter((s) => s.kind !== 'net-worth' && (!s.currency || s.currency === 'USD'))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-90);
-  const movers = quotes
-    .flatMap((q) => (q.data?.change != null && q.data.price ? [q.data] : []))
+  const movers = marks
+    .flatMap((quote) => (quote?.change != null && quote.price && !quote.stale ? [quote] : []))
     .sort((a, b) => Math.abs(Number(b.change)) - Math.abs(Number(a.change)))
     .slice(0, 4);
   const incomplete =

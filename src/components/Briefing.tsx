@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { apiFetch } from '../lib/api';
+import { errorMessage } from '../lib/errors';
 import InsightSources, { type InsightSource } from './InsightSources';
 
 export default function Briefing() {
@@ -38,7 +39,7 @@ export default function Briefing() {
       );
     } catch (error) {
       console.error('Briefing generation failed:', error);
-      setStatus('Could not generate the briefing right now.');
+      setStatus(errorMessage(error));
     } finally {
       setLoading(false);
     }

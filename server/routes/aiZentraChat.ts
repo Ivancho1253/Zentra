@@ -1,5 +1,6 @@
 import type express from 'express';
 import { z } from 'zod';
+import { firebaseIdToken } from '../services/authService';
 import { groundedInsight, insightSources } from '../services/intelligenceService';
 import { getQuote } from '../services/marketService';
 import { getNewsArticles } from '../services/newsService';
@@ -32,7 +33,7 @@ export function registerAiZentraChatRoutes(app: express.Express, options: Option
           ),
         );
       }
-      const context = await userIntelligence(req.user!.uid);
+      const context = await userIntelligence(req.user!.uid, firebaseIdToken(req));
       if (!context)
         return res.json({
           answer:

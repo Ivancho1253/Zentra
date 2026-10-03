@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Info as InfoIcon, LayoutDashboard, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import ConnectionStatus from './ConnectionStatus';
 
 export default function Info() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ export default function Info() {
           </div>
         </div>
       </section>
+
+      <ConnectionStatus />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="panel-card p-6 lg:col-span-2">

@@ -22,13 +22,17 @@ declare global {
   }
 }
 
+export function firebaseIdToken(req: express.Request): string {
+  const header = req.headers.authorization || '';
+  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+}
+
 export const requireFirebaseAuth = async (
   req: express.Request,
   res: express.Response,
   next: express.NextFunction,
 ) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const token = firebaseIdToken(req);
 
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });

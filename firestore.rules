@@ -200,6 +200,11 @@ service cloud.firestore {
       }
 
       // In-App Notifications
+      match /briefs/{briefId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
       match /notifications/{notificationId} {
         allow read: if isOwner(userId);
         allow create: if false;

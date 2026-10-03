@@ -3,6 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../server';
 
 describe('API endpoints', () => {
+  it('serves actual positive ranked gainers for the ticker', async () => {
+    const app = await createApp({ includeFrontend: false });
+    const response = await request(app).get('/api/market/hot');
+    expect(response.status).toBe(200);
+    expect(response.body.data.length).toBeGreaterThan(0);
+    expect(response.body.data.every((quote: { change: string }) => Number(quote.change) > 0)).toBe(
+      true,
+    );
+    const changes = response.body.data.map((quote: { change: string }) => Number(quote.change));
+    expect(changes).toEqual([...changes].sort((a, b) => b - a));
+  });
   it('rejects invalid market symbols', async () => {
     const app = await createApp({ includeFrontend: false });
 

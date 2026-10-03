@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { doc, setDoc } from 'firebase/firestore';
 import { ExternalLink, Newspaper, Search } from 'lucide-react';
-import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { NewsItem, Watchlist } from '../../shared/domain';
 import { auth, db } from '../lib/firebase';
 import { readJson } from '../lib/query';
@@ -24,10 +24,20 @@ const categories = [
 ];
 export default function NewsFeed() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [search, setSearch] = useState(params.get('q') || ''),
     [personal, setPersonal] = useState(false),
     [topic, setTopic] = useState(''),
-    [status, setStatus] = useState('');
+    [status, setStatus] = useState(''),
+    [topicBusy, setTopicBusy] = useState(false);
+  const urlQuery = params.get('q') || '';
+  const searchEdited = useRef(false);
+  const [previousQuery, setPreviousQuery] = useState(urlQuery);
+  // A pending navigation must not replace edits made after the last search.
+  if (previousQuery !== urlQuery) {
+    setPreviousQuery(urlQuery);
+    if (!searchEdited.current) setSearch(urlQuery);
+  }
   const assets = useUserCollection<Asset>('assets'),
     lists = useUserCollection<Watchlist>('watchlists');
   const preferences = useUserCollection<{ id: string; topics: string[] }>('preferences');
@@ -73,13 +83,20 @@ export default function NewsFeed() {
         : Date.parse(b.article.publishedAt) - Date.parse(a.article.publishedAt),
     );
   const saveTopics = async (next: string[]) => {
+    if (topicBusy) return false;
+    setTopicBusy(true);
+    setStatus('');
     try {
       await setDoc(doc(db, 'users', auth.currentUser!.uid, 'preferences', 'news'), {
         topics: next,
         updatedAt: new Date().toISOString(),
       });
+      return true;
     } catch {
       setStatus('Could not save followed topics.');
+      return false;
+    } finally {
+      setTopicBusy(false);
     }
   };
   return (
@@ -104,7 +121,11 @@ export default function NewsFeed() {
         className="flex gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (search.trim()) setParams({ q: search.trim() });
+          const submitted = String(new FormData(e.currentTarget).get('q') || '').trim();
+          searchEdited.current = false;
+          setSearch(submitted);
+          if (submitted) setParams({ q: submitted });
+          else navigate('/news');
         }}
       >
         <label className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-border-accent bg-surface px-4">
@@ -112,10 +133,14 @@ export default function NewsFeed() {
           <input
             className="w-full bg-transparent py-3 text-sm outline-none"
             aria-label="Search financial news"
+            name="q"
             placeholder="Search companies, keywords or topics"
             maxLength={120}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              searchEdited.current = true;
+              setSearch(e.target.value);
+            }}
           />
         </label>
         <button className="primary-button">Search</button>
@@ -123,9 +148,10 @@ export default function NewsFeed() {
       <div className="flex flex-wrap gap-1">
         {categories.map((c) => (
           <button
-            className={`chart-control ${query === c.toLowerCase() ? 'active' : ''}`}
+            className={`chart-control ${query === (c === 'Latest' ? 'finance markets' : c.toLowerCase()) ? 'active' : ''}`}
             key={c}
             onClick={() => {
+              searchEdited.current = false;
               setSearch('');
               setParams({ q: c === 'Latest' ? 'finance markets' : c.toLowerCase() });
             }}
@@ -138,9 +164,17 @@ export default function NewsFeed() {
         <span className="mr-2 text-xs text-text-dim">Following</span>
         {topics.map((t) => (
           <span className="quiet-chip" key={t}>
-            <button onClick={() => setParams({ q: t })}>{t}</button>
+            <button
+              onClick={() => {
+                searchEdited.current = false;
+                setParams({ q: t });
+              }}
+            >
+              {t}
+            </button>
             <button
               aria-label={`Unfollow ${t}`}
+              disabled={topicBusy}
               onClick={() => void saveTopics(topics.filter((v) => v !== t))}
             >
               ×
@@ -151,10 +185,19 @@ export default function NewsFeed() {
           className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (topic.trim() && topics.length < 20 && !topics.includes(topic.trim())) {
-              void saveTopics([...topics, topic.trim()]);
-              setTopic('');
+            const clean = topic.trim();
+            if (topicBusy || !clean) return;
+            if (topics.some((value) => value.toLowerCase() === clean.toLowerCase())) {
+              setStatus('You already follow this topic.');
+              return;
             }
+            if (topics.length >= 20) {
+              setStatus('You can follow up to 20 topics. Unfollow one before adding another.');
+              return;
+            }
+            void saveTopics([...topics, clean]).then((saved) => {
+              if (saved) setTopic('');
+            });
           }}
         >
           <input
@@ -166,7 +209,9 @@ export default function NewsFeed() {
             onChange={(e) => setTopic(e.target.value)}
             required
           />
-          <button className="chart-control">＋ Follow</button>
+          <button className="chart-control" disabled={topicBusy}>
+            ＋ Follow
+          </button>
         </form>
       </section>
       {(status ||

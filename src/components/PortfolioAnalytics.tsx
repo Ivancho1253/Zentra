@@ -15,6 +15,7 @@ export default function PortfolioAnalytics() {
   const snapshots = useUserCollection<PortfolioSnapshot>('snapshots');
   const cash = useUserCollection<{ id: string; currency: Currency; balanceExact: string }>('cash');
   const [status, setStatus] = useState('');
+  const [currencyBusy, setCurrencyBusy] = useState(false);
   const profile = useQuery({
     queryKey: ['profile', auth.currentUser?.uid],
     queryFn: async () => {
@@ -148,16 +149,24 @@ export default function PortfolioAnalytics() {
         <label className="field-label">
           Base currency
           <select
+            aria-label="Base currency"
             className="terminal-input"
             value={base}
+            disabled={currencyBusy || profile.isPending}
             onChange={async (e) => {
+              if (currencyBusy) return;
+              const currency = e.target.value;
+              setCurrencyBusy(true);
+              setStatus('');
               try {
                 await updateDoc(doc(db, 'users', auth.currentUser!.uid), {
-                  currency: e.target.value,
+                  currency,
                 });
                 await profile.refetch();
               } catch {
                 setStatus('Could not update your base currency.');
+              } finally {
+                setCurrencyBusy(false);
               }
             }}
           >
@@ -167,11 +176,22 @@ export default function PortfolioAnalytics() {
           </select>
         </label>
       </div>
-      {(missing.length > 0 || status || holdings.error || cash.error) && (
+      {(missing.length > 0 ||
+        status ||
+        holdings.error ||
+        cash.error ||
+        profile.isError ||
+        fx.isError ||
+        fx.data?.stale) && (
         <p className="status-message" role="status">
           {status ||
             holdings.error ||
             cash.error ||
+            (profile.isError
+              ? 'Could not load your base currency preference. Displaying USD.'
+              : fx.isError || fx.data?.stale
+                ? 'FX rates could not be refreshed. Converted totals may be incomplete or use cached rates.'
+                : '') ||
             `Incomplete totals: FX rates are missing for ${missing.join(', ')}.`}
         </p>
       )}

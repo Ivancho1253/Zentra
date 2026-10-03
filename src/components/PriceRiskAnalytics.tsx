@@ -46,14 +46,18 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
     ? assets.map((a, i) => ({
         symbol: a.symbol,
         quantity: a.quantityExact || String(a.totalQuantity),
-        history: queries[i].data!,
+        history: queries[i].isError
+          ? { ...queries[i].data!, stale: true, status: 'stale' as const }
+          : queries[i].data!,
       }))
     : [];
   const metrics = basketRisk(
     inputs,
     annualPeriods,
     riskFree.trim() ? Number(riskFree) : null,
-    benchmark.data,
+    benchmark.isError && benchmark.data
+      ? { ...benchmark.data, stale: true, status: 'stale' }
+      : benchmark.data,
   );
   const format = (value: number | null | undefined, percent = false) =>
     value == null
@@ -72,10 +76,17 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
         </div>
         <button
           className="terminal-button"
-          onClick={() => setEnabled(true)}
-          disabled={enabled || !supported}
+          onClick={() => {
+            if (!enabled) setEnabled(true);
+            else
+              void Promise.allSettled([
+                ...queries.map((query) => query.refetch()),
+                benchmark.refetch(),
+              ]);
+          }}
+          disabled={!supported || (enabled && queries.some((query) => query.isFetching))}
         >
-          {enabled ? 'History requested' : 'Load observed history'}
+          {enabled ? (metrics ? 'Refresh history' : 'Retry history') : 'Load observed history'}
         </button>
       </div>
       {!supported && (

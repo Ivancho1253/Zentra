@@ -186,4 +186,18 @@ runIfEmulator('Firestore rules emulator', () => {
     await assertSucceeds(updateDoc(notificationRef, { status: 'read' }));
     await assertFails(updateDoc(notificationRef, { message: 'edited' }));
   });
+  it('allows owners to export briefs while denying cross-user reads and client writes', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/brief-owner/briefs/daily'), {
+        text: 'Server source summary',
+      });
+    });
+    const owner = testEnv.authenticatedContext('brief-owner').firestore();
+    const other = testEnv.authenticatedContext('brief-other').firestore();
+    await assertSucceeds(getDoc(doc(owner, 'users/brief-owner/briefs/daily')));
+    await assertFails(getDoc(doc(other, 'users/brief-owner/briefs/daily')));
+    await assertFails(
+      setDoc(doc(owner, 'users/brief-owner/briefs/daily'), { text: 'Forged summary' }),
+    );
+  });
 });

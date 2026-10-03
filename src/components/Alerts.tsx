@@ -24,7 +24,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { evaluateAlert } from '../../shared/alerts';
 import type { AssetQuote } from '../../shared/domain';
 import { auth, db } from '../lib/firebase';
+import { errorMessage } from '../lib/errors';
 import { registerPushNotifications } from '../lib/notifications';
+import { useReadiness } from '../lib/readiness';
 import { PriceAlert, UserNotification } from '../types';
 import CompanyLogo from './CompanyLogo';
 import SmartAlertForm from './SmartAlertForm';
@@ -63,6 +65,7 @@ const isTriggered = (alert: PriceAlert, quote?: AssetQuote) => {
 };
 
 export default function Alerts() {
+  const readiness = useReadiness();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, AlertSnapshot>>({});
@@ -174,28 +177,48 @@ export default function Alerts() {
 
   const updateAlertStatus = async (alert: PriceAlert, status: PriceAlert['status']) => {
     if (!auth.currentUser) return;
-    await updateDoc(doc(db, 'users', auth.currentUser.uid, 'alerts', alert.id), {
-      status,
-      lastCheckedAt: new Date().toISOString(),
-    });
+    try {
+      setError('');
+      await updateDoc(doc(db, 'users', auth.currentUser.uid, 'alerts', alert.id), { status });
+    } catch (error) {
+      setError(errorMessage(error));
+    }
   };
 
   const deleteAlert = async (alert: PriceAlert) => {
     if (!auth.currentUser) return;
-    await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'alerts', alert.id));
+    try {
+      setError('');
+      await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'alerts', alert.id));
+    } catch (error) {
+      setError(errorMessage(error));
+    }
   };
 
   const markNotificationRead = async (notification: UserNotification) => {
     if (!auth.currentUser) return;
-    await updateDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notification.id), {
-      status: 'read',
-    });
+    try {
+      setError('');
+      await updateDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notification.id), {
+        status: 'read',
+      });
+    } catch (error) {
+      setError(errorMessage(error));
+    }
   };
 
   const enablePushNotifications = async () => {
     setPushStatus('');
-    const result = await registerPushNotifications();
-    setPushStatus(result.ok ? 'Push notifications enabled.' : `Push unavailable: ${result.reason}`);
+    try {
+      const result = await registerPushNotifications();
+      setPushStatus(
+        result.ok ? 'Push notifications enabled.' : `Push unavailable: ${result.reason}`,
+      );
+    } catch {
+      setPushStatus(
+        'Push notifications could not be enabled. Check the connection and browser permissions.',
+      );
+    }
   };
 
   if (loading) {
@@ -233,7 +256,8 @@ export default function Alerts() {
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-text-dim">
                 Monitor prices, portfolio exposure, reported earnings, relevant news and official X
-                posts. Verified inputs are evaluated by the server even when the app is closed.
+                posts. Automatic evaluation requires a configured background service and available
+                provider inputs.
               </p>
             </div>
           </div>
@@ -257,6 +281,21 @@ export default function Alerts() {
         <div className="rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-bold text-text-dim">
           {pushStatus}
         </div>
+      )}
+
+      {(!readiness.data?.firebaseAdmin || readiness.data.demo) && (
+        <p className="rounded-2xl border border-border-accent bg-surface p-4 text-sm text-text-dim">
+          {readiness.isPending
+            ? 'Checking automatic alert service...'
+            : readiness.isError
+              ? 'Could not verify automatic alert service. Your saved alerts remain available.'
+              : readiness.data?.demo
+                ? 'Demo mode: automatic delivery is not verified against live providers.'
+                : 'Automatic alerts are inactive until the account background service is connected. Alerts can be saved and price conditions viewed here.'}
+          <Link to="/info" className="ml-2 text-accent underline">
+            View service connections
+          </Link>
+        </p>
       )}
 
       {error && (

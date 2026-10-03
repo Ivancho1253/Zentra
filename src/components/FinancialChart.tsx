@@ -7,11 +7,11 @@ import {
   LineSeries,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AssetType, HistoryRange, MarketHistory } from '../../shared/domain';
 import { movingAverage } from '../../shared/indicators';
 import { readJson } from '../lib/query';
-const ranges: HistoryRange[] = ['1D', '5D', '1M', '3M', '6M', 'YTD', '1Y', '5Y', 'MAX'];
+const ranges: HistoryRange[] = ['1D', '5D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '5Y', 'MAX'];
 export default function FinancialChart({
   symbol,
   type,
@@ -37,7 +37,14 @@ export default function FinancialChart({
     enabled: !fixture,
     staleTime: 300_000,
   });
-  const history = fixture || query.data;
+  const history = useMemo(
+    () =>
+      fixture ||
+      (query.isError && query.data
+        ? { ...query.data, stale: true, status: 'stale' as const }
+        : query.data),
+    [fixture, query.data, query.isError],
+  );
   useEffect(() => {
     const observer = new MutationObserver(() =>
       setLight(document.documentElement.classList.contains('light')),
@@ -193,6 +200,15 @@ export default function FinancialChart({
         </div>
       )}
       <footer className="flex flex-wrap justify-between gap-2 border-t border-border-accent px-4 py-3 text-[10px] text-text-dim">
+        {!fixture && !query.isPending && (!history?.candles.length || query.isError) && (
+          <button
+            className="text-accent underline"
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {query.isFetching ? 'Retrying history...' : 'Retry chart data'}
+          </button>
+        )}
         <span>
           {fixture ? 'DEMO DATA' : history?.stale ? 'Stale' : history?.status || 'Unavailable'} ·{' '}
           {history?.provider || 'Awaiting provider'} ·{' '}

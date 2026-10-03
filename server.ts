@@ -25,11 +25,7 @@ import { registerWalletRoutes } from './server/routes/wallet';
 import { startAlertWorker } from './server/services/alertWorker';
 import { requireFirebaseAuth } from './server/services/authService';
 import { cacheJsonResponse } from './server/services/cacheService';
-import {
-  extractJsonObject,
-  heuristicPortfolioExtract,
-  parseLooseNumber,
-} from './server/services/importParser';
+import { extractJsonObject, heuristicPortfolioExtract } from './server/services/importParser';
 import { requestLogger } from './server/services/logger';
 import { getQuote } from './server/services/marketService';
 import { startSnapshotWorker } from './server/services/snapshotWorker';
@@ -635,6 +631,7 @@ export async function createApp(
 
   applySecurityMiddleware(app);
   app.use(requestLogger);
+  app.use('/api/ai/import-file', express.json({ limit: '17mb' }));
   app.use(express.json({ limit: '12mb' }));
   applyRateLimits(app);
 
@@ -680,7 +677,6 @@ export async function createApp(
   registerAiBriefingRoutes(app);
 
   registerAiImportRoutes(app, {
-    parseLooseNumber,
     extractJsonObject,
     heuristicPortfolioExtract,
   });

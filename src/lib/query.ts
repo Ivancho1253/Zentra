@@ -4,13 +4,18 @@ export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
 });
 export async function readJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal });
+  const timeout = AbortSignal.timeout(20_000);
+  const response = await fetch(url, {
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  });
   if (!response.ok) throw new Error('Data is temporarily unavailable.');
   return response.json() as Promise<T>;
 }
-export function useQuote(symbol: string, type: string) {
+export function useQuote(symbol: string, type: string, initialQuote?: AssetQuote) {
   const query = useQuery({
     queryKey: ['quote', type, symbol],
+    initialData: initialQuote,
+    initialDataUpdatedAt: initialQuote ? Date.parse(initialQuote.fetchedAt) : undefined,
     queryFn: ({ signal }) =>
       readJson<AssetQuote>(
         `/api/market/asset?symbol=${encodeURIComponent(symbol)}&type=${type}`,

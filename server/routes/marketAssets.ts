@@ -1,5 +1,6 @@
 import type express from 'express';
 import { z } from 'zod';
+import { topGainers } from '../../shared/marketMovers';
 import { getQuote, marketList } from '../services/marketService';
 export const symbolSchema = z
   .string()
@@ -32,17 +33,15 @@ export function registerMarketAssetRoutes(app: express.Express) {
     });
   });
   app.get('/api/market/hot', async (_req, res) => {
-    const lists = await Promise.all([marketList('stock'), marketList('crypto')]);
-    const data = lists
-      .flat()
-      .filter((q) => q.price && q.change !== null && !q.stale)
-      .sort((a, b) => Number(b.change) - Number(a.change))
-      .slice(0, 12);
+    const lists = await Promise.allSettled([marketList('stock'), marketList('crypto')]);
+    const quotes = lists.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
+    const data = topGainers(quotes);
     res.json({
       data,
       source: 'Zentra normalized providers',
       updatedAt: new Date().toISOString(),
       fallback: data.length === 0,
+      universe: 'Available stock catalog and crypto quotes; not an exchange-wide ranking',
     });
   });
 }

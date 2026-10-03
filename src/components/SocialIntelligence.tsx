@@ -41,6 +41,7 @@ export default function SocialIntelligence() {
   });
   const ref = (id: string) => doc(db, 'users', auth.currentUser!.uid, 'socialSubscriptions', id);
   const execute = async (action: () => Promise<unknown>) => {
+    if (busy) return;
     setBusy(true);
     setStatus('');
     try {
@@ -148,6 +149,7 @@ export default function SocialIntelligence() {
                 <button
                   className="icon-button"
                   aria-label={`${s.muted ? 'Unmute' : 'Mute'} ${s.username}`}
+                  disabled={busy}
                   onClick={() => void execute(() => updateDoc(ref(s.id), { muted: !s.muted }))}
                 >
                   {s.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
@@ -155,6 +157,7 @@ export default function SocialIntelligence() {
                 <button
                   className="icon-button"
                   aria-label={`Remove ${s.username}`}
+                  disabled={busy}
                   onClick={() => void execute(() => deleteDoc(ref(s.id)))}
                 >
                   <Trash2 size={15} />

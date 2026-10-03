@@ -1,26 +1,23 @@
-import { collection, deleteDoc, doc, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowLeft,
-  ArrowUpRight,
-  Flame,
   Maximize2,
   Minimize2,
   Minus,
   Plus,
   Search,
   Sparkles,
-  Star,
-  TrendingUp,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { AssetQuote } from '../../shared/domain';
-import { auth, db } from '../lib/firebase';
+import { savedFavoriteQuote, useFavorites } from '../lib/favorites';
 import { cn } from '../lib/utils';
 import CompanyLogo from './CompanyLogo';
-import DataProvenance from './DataProvenance';
+import MarketAssetCard from './MarketAssetCard';
+import { readJson } from '../lib/query';
 
 interface MarketAsset {
   id?: string;
@@ -158,16 +155,37 @@ const DEFAULT_HEAT_ZOOM = 0.72;
 export default function MarketExplorer() {
   const navigate = useNavigate();
   const heatMapRef = useRef<HTMLDivElement>(null);
+  const heatViewportRef = useRef<HTMLDivElement>(null);
   const dragMovedRef = useRef(false);
-  const [stocks, setStocks] = useState<MarketAsset[]>([]);
-  const [cryptos, setCryptos] = useState<MarketAsset[]>([]);
-  const [hotAssets, setHotAssets] = useState<MarketAsset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const stockQuery = useQuery({
+    queryKey: ['market', 'stocks'],
+    queryFn: ({ signal }) =>
+      readJson<{ data: AssetQuote[]; source: string }>('/api/market/stocks', signal),
+    refetchInterval: 60_000,
+  });
+  const cryptoQuery = useQuery({
+    queryKey: ['market', 'cryptos'],
+    queryFn: ({ signal }) =>
+      readJson<{ data: AssetQuote[]; source: string }>('/api/market/cryptos', signal),
+    refetchInterval: 60_000,
+  });
+  const normalize = (item: AssetQuote, stale = false): MarketAsset => ({
+    ...item,
+    exchange: item.exchange || undefined,
+    raw: stale ? { ...item, stale: true, status: 'stale' } : item,
+  });
+  const stocks = (stockQuery.data?.data || []).map((item) => normalize(item, stockQuery.isError));
+  const cryptos = (cryptoQuery.data?.data || []).map((item) =>
+    normalize(item, cryptoQuery.isError),
+  );
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'stocks' | 'cryptos' | 'heatmap' | 'favorites'>(
     'stocks',
   );
   const [heatMapType, setHeatMapType] = useState<'stocks' | 'cryptos'>('stocks');
+  const [heatWeight, setHeatWeight] = useState<'moves' | 'market-cap'>('moves');
+  const fitZoom = useRef(DEFAULT_HEAT_ZOOM);
   const [heatZoom, setHeatZoom] = useState(DEFAULT_HEAT_ZOOM);
   const [heatPan, setHeatPan] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState<{
@@ -177,22 +195,45 @@ export default function MarketExplorer() {
     panY: number;
   } | null>(null);
   const [isHeatMapFullscreen, setIsHeatMapFullscreen] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const favorites = useFavorites();
   const [error, setError] = useState('');
-  const [dataSource, setDataSource] = useState('Loading');
+  const selectedQuery =
+    activeTab === 'cryptos' || (activeTab === 'heatmap' && heatMapType === 'cryptos')
+      ? cryptoQuery
+      : stockQuery;
+  const loading = activeTab === 'favorites' ? favorites.loading : selectedQuery.isPending;
+  const dataSource =
+    selectedQuery.data?.source || (selectedQuery.isError ? 'Unavailable' : 'Loading');
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, search]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (activeTab !== 'heatmap' || !heatMapRef.current) return;
+    const resize = () => {
+      fitZoom.current = Math.max(
+        0.1,
+        Math.min((heatMapRef.current!.clientWidth - 16) / 1600, 0.72),
+      );
+      setHeatZoom(fitZoom.current);
+      setHeatPan({ x: 0, y: 0 });
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(heatMapRef.current);
+    resize();
+    return () => observer.disconnect();
+  }, [activeTab, loading]);
 
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'users', auth.currentUser.uid, 'favorites')),
-      (snapshot) => {
-        setFavorites(snapshot.docs.map((item) => item.id));
-      },
-    );
-
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    const viewport = heatViewportRef.current;
+    if (activeTab !== 'heatmap' || !viewport) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setHeatZoom((zoom) => Math.min(3.5, Math.max(0.1, zoom + (event.deltaY > 0 ? -0.12 : 0.12))));
+    };
+    viewport.addEventListener('wheel', wheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', wheel);
+  }, [activeTab, loading]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -203,82 +244,20 @@ export default function MarketExplorer() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  useEffect(() => {
-    const normalize = (item: AssetQuote, defaultType: string): MarketAsset => ({
-      ...item,
-      type: item.type || defaultType,
-      exchange: item.exchange || undefined,
-      raw: item,
-    });
-
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const [stocksRes, cryptosRes, hotRes] = await Promise.all([
-          fetch('/api/market/stocks'),
-          fetch('/api/market/cryptos'),
-          fetch('/api/market/hot'),
-        ]);
-
-        if (!stocksRes.ok || !cryptosRes.ok || !hotRes.ok)
-          throw new Error('Market services are temporarily unavailable.');
-
-        const [stocksData, cryptosData, hotData] = await Promise.all([
-          stocksRes.json(),
-          cryptosRes.json(),
-          hotRes.json(),
-        ]);
-        setStocks((stocksData.data || []).map((item: AssetQuote) => normalize(item, 'stock')));
-        setCryptos((cryptosData.data || []).map((item: AssetQuote) => normalize(item, 'crypto')));
-        setHotAssets(
-          (hotData.data || []).map((item: AssetQuote) =>
-            normalize(
-              item,
-              item.type || (['BTC', 'ETH', 'SOL'].includes(item.symbol) ? 'crypto' : 'stock'),
-            ),
-          ),
-        );
-        setDataSource(
-          `${stocksData.source || (stocksData.fallback ? 'fallback' : 'market')} / ${cryptosData.source || (cryptosData.fallback ? 'fallback' : 'crypto')}`,
-        );
-      } catch (fetchError) {
-        console.error('Error fetching market data:', fetchError);
-        setError(fetchError instanceof Error ? fetchError.message : 'Unable to load market data.');
-        setDataSource('Unavailable');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const toggleFavorite = async (event: React.MouseEvent, asset: MarketAsset) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!auth.currentUser) return;
-
-    const id = asset.symbol || asset.raw?.symbol || asset.raw?.id;
-    if (!id) return;
-
-    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', id);
-    if (favorites.includes(id)) {
-      await deleteDoc(favRef);
-    } else {
-      await setDoc(favRef, {
-        symbol: id,
-        name: asset.name || id,
-        type: asset.type || 'stock',
-        addedAt: new Date().toISOString(),
-      });
-    }
-  };
-
   const getAssetsToDisplay = () => {
     const allAssets = [...stocks, ...cryptos];
     if (activeTab === 'favorites')
-      return allAssets.filter((asset) => asset.symbol && favorites.includes(asset.symbol));
+      return [
+        ...new Map(
+          favorites.data.map((favorite) => {
+            const asset =
+              allAssets.find(
+                (item) => item.symbol === favorite.symbol && item.type === favorite.type,
+              ) || normalize(savedFavoriteQuote(favorite));
+            return [`${favorite.type}:${favorite.symbol}`, asset] as const;
+          }),
+        ).values(),
+      ];
     if (activeTab === 'stocks') return stocks;
     if (activeTab === 'cryptos') return cryptos;
     return heatMapType === 'stocks' ? stocks : cryptos;
@@ -294,6 +273,11 @@ export default function MarketExplorer() {
   const heatAssets = (heatMapType === 'stocks' ? stocks : cryptos).filter((asset) => asset.symbol);
   const heatItems = heatAssets
     .flatMap((asset) => {
+      if (asset.raw?.stale) return [];
+      if (heatWeight === 'moves')
+        return toNumber(asset.price) && toNumber(asset.change) !== null && !asset.raw?.stale
+          ? [{ asset, value: 1 }]
+          : [];
       const marketCap = toNumber(asset.marketCap);
       return marketCap && marketCap > 0 ? [{ asset, value: marketCap }] : [];
     })
@@ -302,29 +286,28 @@ export default function MarketExplorer() {
   const heatMapHeight = 900;
   const heatRects = splitTreemap(heatItems, 0, 0, heatMapWidth, heatMapHeight);
   const resetHeatMap = () => {
-    setHeatZoom(DEFAULT_HEAT_ZOOM);
+    setHeatZoom(fitZoom.current);
     setHeatPan({ x: 0, y: 0 });
   };
   const zoomHeatMap = (nextZoom: number) => {
-    setHeatZoom(Math.min(Math.max(nextZoom, 0.45), 3.5));
-  };
-  const handleHeatWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    zoomHeatMap(heatZoom + (event.deltaY > 0 ? -0.12 : 0.12));
+    setHeatZoom(Math.min(Math.max(nextZoom, 0.1), 3.5));
   };
   const toggleHeatMapFullscreen = async () => {
     if (!heatMapRef.current) return;
 
-    if (document.fullscreenElement === heatMapRef.current) {
-      await document.exitFullscreen();
-      return;
-    }
+    try {
+      if (document.fullscreenElement === heatMapRef.current) {
+        await document.exitFullscreen();
+        return;
+      }
 
-    await heatMapRef.current.requestFullscreen();
+      await heatMapRef.current.requestFullscreen();
+    } catch {
+      setError('Full screen is unavailable in this browser. Zoom and drag remain available.');
+    }
   };
   const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
     dragMovedRef.current = false;
     setDragStart({ x: event.clientX, y: event.clientY, panX: heatPan.x, panY: heatPan.y });
   };
@@ -334,7 +317,9 @@ export default function MarketExplorer() {
     const deltaY = event.clientY - dragStart.y;
     if (Math.abs(deltaX) + Math.abs(deltaY) > 4) {
       dragMovedRef.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
     }
+    if (!dragMovedRef.current) return;
     setHeatPan({
       x: dragStart.panX + deltaX,
       y: dragStart.panY + deltaY,
@@ -397,13 +382,20 @@ export default function MarketExplorer() {
         <div className="absolute bottom-0 left-0 h-px w-full scanline" />
       </motion.section>
 
-      {error && (
+      {(error || favorites.error || selectedQuery.isError) && (
         <motion.div
           variants={motionItem}
           className="flex items-center gap-3 rounded-2xl border border-loss/40 bg-loss/10 px-4 py-3 text-xs font-bold text-loss"
         >
           <AlertCircle className="h-4 w-4" />
-          {error}
+          {error ||
+            favorites.error ||
+            'Could not refresh this market. Other market categories remain available.'}
+          {selectedQuery.isError && (
+            <button onClick={() => void selectedQuery.refetch()} className="ml-2 underline">
+              Retry
+            </button>
+          )}
         </motion.div>
       )}
 
@@ -433,53 +425,6 @@ export default function MarketExplorer() {
         </div>
       </motion.div>
 
-      {!loading && hotAssets.length > 0 && (
-        <motion.div variants={motionItem} className="panel-card p-4">
-          <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-text-dim">
-            <Flame className="h-4 w-4 text-accent" />
-            Hot right now
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-3">
-            {hotAssets.slice(0, 12).map((asset, index) => {
-              const changeValue = toNumber(asset.change) ?? 0;
-              const symbol = asset.symbol || asset.id || `hot-${index}`;
-              return (
-                <button
-                  key={symbol}
-                  onClick={() => {
-                    setSearch(symbol);
-                    setActiveTab(asset.type === 'crypto' ? 'cryptos' : 'stocks');
-                  }}
-                  className="min-w-[170px] rounded-2xl border border-border-accent bg-bg/45 p-3 text-left transition-all hover:border-accent/50 hover:bg-accent/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <CompanyLogo
-                      symbol={symbol}
-                      name={asset.name || symbol}
-                      type={asset.type === 'crypto' ? 'crypto' : 'stock'}
-                      className="h-10 w-10 rounded-xl"
-                      imgClassName="h-6 w-6"
-                    />
-                    <div className="min-w-0">
-                      <div className="truncate text-xs font-black">{symbol}</div>
-                      <div
-                        className={cn(
-                          'text-[10px] font-black',
-                          changeValue >= 0 ? 'text-accent' : 'text-loss',
-                        )}
-                      >
-                        {changeValue >= 0 ? '+' : ''}
-                        {changeValue.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
-
       {loading ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(8)].map((_, index) => (
@@ -499,10 +444,21 @@ export default function MarketExplorer() {
             <div className="flex items-center gap-2">
               <div className="accent-chip">Heat Map</div>
               <span className="hidden text-[10px] font-black uppercase tracking-widest text-text-dim sm:inline">
-                {heatMapType === 'stocks' ? 'Stocks by company value' : 'Crypto by market cap'}
+                {heatWeight === 'moves'
+                  ? 'Daily changes · equal-sized tiles'
+                  : 'Known market caps · proportional tiles'}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Heat map weighting"
+                className="terminal-input"
+                value={heatWeight}
+                onChange={(event) => setHeatWeight(event.target.value as 'moves' | 'market-cap')}
+              >
+                <option value="moves">Daily moves</option>
+                <option value="market-cap">Market cap</option>
+              </select>
               {(['stocks', 'cryptos'] as const).map((type) => (
                 <button
                   key={type}
@@ -558,13 +514,20 @@ export default function MarketExplorer() {
           </div>
 
           <div
+            ref={heatViewportRef}
             className="relative h-[72vh] min-h-[560px] cursor-grab touch-none select-none overflow-hidden bg-[#050705] active:cursor-grabbing fullscreen:h-[calc(100vh-57px)] fullscreen:min-h-0"
-            onWheel={handleHeatWheel}
             onPointerDown={handleDragStart}
             onPointerMove={handleDragMove}
             onPointerUp={handleDragEnd}
             onPointerCancel={handleDragEnd}
           >
+            {!heatRects.length && (
+              <p className="relative z-10 p-6 text-sm text-text-dim" role="status">
+                {heatWeight === 'market-cap'
+                  ? 'Market caps are unavailable from these providers. Choose Daily moves to view observed changes.'
+                  : 'No observed daily changes are available for this category.'}
+              </p>
+            )}
             <div
               className={cn(
                 'absolute left-1/2 top-1/2 origin-center',
@@ -645,116 +608,15 @@ export default function MarketExplorer() {
           variants={motionItem}
           className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4"
         >
-          {filteredAssets.map((asset, index) => {
-            const changeValue = toNumber(asset.change);
-            const priceValue = toNumber(asset.price);
-            const isPositive = (changeValue ?? 0) >= 0;
-            const symbol = asset.symbol || asset.id || `asset-${index}`;
-            const assetType =
-              asset.type === 'crypto' || asset.type === 'cryptocurrency' ? 'cryptos' : 'stocks';
-            const formattedPrice =
-              priceValue !== null && priceValue > 0
-                ? new Intl.NumberFormat(undefined, {
-                    style: 'currency',
-                    currency: asset.currency || 'USD',
-                    minimumFractionDigits: priceValue < 1 ? 4 : 2,
-                    maximumFractionDigits: priceValue < 1 ? 6 : 2,
-                  }).format(priceValue)
-                : 'Unavailable';
-            const formattedChange =
-              changeValue !== null
-                ? `${isPositive ? '+' : ''}${changeValue.toFixed(2)}%`
-                : 'Unavailable';
-
-            return (
-              <motion.div
-                key={symbol}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index * 0.025, 0.35) }}
-              >
-                <Link
-                  to={`/market/${assetType}/${symbol}`}
-                  className="panel-card group block h-full p-5"
-                >
-                  <div
-                    className={cn(
-                      'absolute left-0 top-0 h-1 w-full',
-                      isPositive ? 'bg-accent' : 'bg-loss',
-                    )}
-                  />
-                  <div className="relative z-10 flex h-full flex-col">
-                    <DataProvenance quote={asset.raw as AssetQuote | undefined} />
-                    <div className="mb-5 flex items-start justify-between gap-3">
-                      <CompanyLogo
-                        symbol={symbol}
-                        name={asset.name || symbol}
-                        type={asset.type === 'crypto' ? 'crypto' : 'stock'}
-                        className="h-14 w-14 rounded-2xl shadow-lg"
-                        imgClassName="h-9 w-9"
-                      />
-                      <button
-                        onClick={(event) => toggleFavorite(event, asset)}
-                        className="rounded-full border border-border-accent bg-bg/50 p-2 transition-all hover:border-accent hover:bg-accent/10"
-                      >
-                        <Star
-                          className={cn(
-                            'h-5 w-5 transition-colors',
-                            favorites.includes(symbol)
-                              ? 'fill-accent text-accent'
-                              : 'text-text-dim',
-                          )}
-                        />
-                      </button>
-                    </div>
-                    <div className="min-h-[74px]">
-                      <div className="text-xl font-black tracking-tight">{symbol}</div>
-                      <div className="mt-1 line-clamp-2 text-xs leading-5 text-text-dim">
-                        {asset.name || 'Unknown asset'}
-                      </div>
-                    </div>
-                    <div className="mt-5 rounded-2xl border border-border-accent/50 bg-bg/55 p-4 shadow-inner shadow-black/20">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-text-dim">
-                          Price
-                        </span>
-                        <span
-                          className={cn(
-                            'data-value text-lg font-black',
-                            priceValue === null ? 'text-text-dim' : 'text-text-main',
-                          )}
-                        >
-                          {formattedPrice}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-text-dim">
-                          24h
-                        </span>
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 text-sm font-black',
-                            isPositive ? 'text-accent' : 'text-loss',
-                          )}
-                        >
-                          {isPositive ? (
-                            <ArrowUpRight className="h-4 w-4" />
-                          ) : (
-                            <TrendingUp className="h-4 w-4 rotate-180" />
-                          )}
-                          {formattedChange}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-border-accent/40 pt-4 text-[10px] font-black uppercase tracking-widest text-text-dim">
-                      <span>{asset.exchange || 'Global'}</span>
-                      <span>{asset.type || 'asset'}</span>
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
+          {filteredAssets.slice((page - 1) * 12, page * 12).map((asset) => (
+            <MarketAssetCard
+              key={asset.type + ':' + asset.symbol}
+              asset={asset.raw as AssetQuote}
+              favorite={favorites.has(asset.raw as AssetQuote)}
+              favoriteBusy={favorites.busy || favorites.loading}
+              onFavorite={() => favorites.toggle(asset.raw as AssetQuote)}
+            />
+          ))}
           {filteredAssets.length === 0 && (
             <div className="panel-card col-span-full p-8 text-center">
               <div className="text-sm font-black">No assets found</div>
@@ -764,6 +626,27 @@ export default function MarketExplorer() {
             </div>
           )}
         </motion.div>
+      )}
+      {activeTab !== 'heatmap' && filteredAssets.length > 12 && (
+        <nav aria-label="Market pages" className="flex flex-wrap items-center justify-center gap-4">
+          <button
+            className="secondary-button"
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+          >
+            Previous page
+          </button>
+          <span className="text-xs text-text-dim">
+            Page {page} of {Math.ceil(filteredAssets.length / 12)}
+          </span>
+          <button
+            className="secondary-button"
+            disabled={page * 12 >= filteredAssets.length}
+            onClick={() => setPage(page + 1)}
+          >
+            Next page
+          </button>
+        </nav>
       )}
     </motion.div>
   );

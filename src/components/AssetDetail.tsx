@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import {
   ArrowLeft,
   BellRing,
@@ -11,7 +11,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { AssetQuote, MarketHistory } from '../../shared/domain';
 import {
@@ -23,6 +23,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { trackEvent } from '../lib/analytics';
 import { apiFetch } from '../lib/api';
 import { auth, db } from '../lib/firebase';
+import { useFavorites } from '../lib/favorites';
 import { readJson, useQuote } from '../lib/query';
 import { useQuoteStream } from '../lib/quoteStream';
 import CompanyLogo from './CompanyLogo';
@@ -34,7 +35,7 @@ export default function AssetDetail() {
   const { type, symbol } = useParams<{ type: string; symbol: string }>();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const favorites = useFavorites();
   const [addStatus, setAddStatus] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatQuestion, setChatQuestion] = useState('');
@@ -42,6 +43,7 @@ export default function AssetDetail() {
   const [alertCondition, setAlertCondition] = useState<'above' | 'below'>('above');
   const [alertTarget, setAlertTarget] = useState('');
   const [alertStatus, setAlertStatus] = useState('');
+  const [alertBusy, setAlertBusy] = useState(false);
   const [chatMessages, setChatMessages] = useState<
     Array<{
       role: 'user' | 'assistant';
@@ -62,6 +64,7 @@ export default function AssetDetail() {
             ? 'forex'
             : 'stock';
   const quote = useQuote(normalizedSymbol, assetKind);
+  const isFavorite = favorites.has({ symbol: normalizedSymbol, type: assetKind });
   useQuoteStream([normalizedSymbol], assetKind);
   const assetSnapshot: AssetQuote | undefined = quote.data;
   const historical = useQuery({
@@ -110,31 +113,13 @@ export default function AssetDetail() {
     }).format(value);
   };
 
-  useEffect(() => {
-    if (!auth.currentUser || !normalizedSymbol) return;
-
-    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', normalizedSymbol);
-    const unsubscribe = onSnapshot(favRef, (doc) => {
-      setIsFavorite(doc.exists());
-    });
-
-    return () => unsubscribe();
-  }, [normalizedSymbol]);
-
   const toggleFavorite = async () => {
-    if (!auth.currentUser || !normalizedSymbol) return;
-
-    const favRef = doc(db, 'users', auth.currentUser.uid, 'favorites', normalizedSymbol);
-    if (isFavorite) {
-      await deleteDoc(favRef);
-    } else {
-      await setDoc(favRef, {
-        symbol: normalizedSymbol,
-        name: normalizedSymbol, // In detail view we might not have the full name easily without fetching
-        type: assetKind,
-        addedAt: new Date().toISOString(),
-      });
-    }
+    if (!normalizedSymbol) return;
+    await favorites.toggle({
+      symbol: normalizedSymbol,
+      name: assetSnapshot?.name || normalizedSymbol,
+      type: assetKind,
+    });
   };
 
   const openPortfolioAddAsset = () => {
@@ -154,6 +139,7 @@ export default function AssetDetail() {
 
   const savePriceAlert = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (alertBusy || !['stock', 'crypto'].includes(assetKind)) return;
     setAlertStatus('');
 
     if (!auth.currentUser || !normalizedSymbol) {
@@ -167,6 +153,7 @@ export default function AssetDetail() {
       return;
     }
 
+    setAlertBusy(true);
     try {
       const alertId = `${normalizedSymbol}-${alertCondition}-${targetPrice}`.replace(
         /[^A-Z0-9.-]/gi,
@@ -198,6 +185,8 @@ export default function AssetDetail() {
         condition: alertCondition,
       });
       setAlertStatus('Could not save the alert. Check permissions or try again.');
+    } finally {
+      setAlertBusy(false);
     }
   };
 
@@ -245,6 +234,11 @@ export default function AssetDetail() {
 
   return (
     <div className="space-y-6">
+      {favorites.error && (
+        <p className="status-message" role="status">
+          {favorites.error}
+        </p>
+      )}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
         <button
           aria-label="Back"
@@ -307,7 +301,11 @@ export default function AssetDetail() {
             </div>
 
             <button
-              disabled={!['stock', 'crypto'].includes(assetKind)}
+              aria-label={`${isFavorite ? 'Remove' : 'Add'} ${normalizedSymbol} ${isFavorite ? 'from' : 'to'} favorites`}
+              aria-pressed={isFavorite}
+              disabled={
+                favorites.busy || favorites.loading || !['stock', 'crypto'].includes(assetKind)
+              }
               onClick={toggleFavorite}
               className={`p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-widest ${isFavorite ? 'bg-accent/10 border-accent/50 text-accent' : 'bg-surface border-border-accent text-text-dim hover:text-text-main'}`}
             >
@@ -469,6 +467,7 @@ export default function AssetDetail() {
             </div>
             <div className="space-y-3">
               <select
+                aria-label="Price alert condition"
                 value={alertCondition}
                 onChange={(event) => setAlertCondition(event.target.value as 'above' | 'below')}
                 className="w-full rounded-xl border border-border-accent bg-bg px-3 py-2 text-xs font-bold outline-none focus:border-accent"
@@ -477,6 +476,7 @@ export default function AssetDetail() {
                 <option value="below">Price moves below</option>
               </select>
               <input
+                aria-label="Price alert target"
                 value={alertTarget}
                 onChange={(event) => setAlertTarget(event.target.value)}
                 type="number"
@@ -487,12 +487,16 @@ export default function AssetDetail() {
               />
               <button
                 type="submit"
+                disabled={alertBusy || !['stock', 'crypto'].includes(assetKind)}
                 className="w-full rounded-xl bg-accent px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-110"
               >
-                Save alert
+                {alertBusy ? 'Saving alert...' : 'Save alert'}
               </button>
               {alertStatus && (
-                <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-[10px] font-bold text-text-dim">
+                <div
+                  role="status"
+                  className="rounded-xl border border-border-accent bg-bg/45 p-3 text-[10px] font-bold text-text-dim"
+                >
                   {alertStatus}
                 </div>
               )}

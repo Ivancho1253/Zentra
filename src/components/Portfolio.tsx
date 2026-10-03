@@ -31,10 +31,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { AssetQuote } from '../../shared/domain';
+import type { AssetQuote, Currency } from '../../shared/domain';
+import { amount } from '../../shared/finance';
 import { trackEvent } from '../lib/analytics';
 import { apiFetch } from '../lib/api';
+import { errorMessage } from '../lib/errors';
 import { auth, db } from '../lib/firebase';
+import { readJson } from '../lib/query';
 import { calculatePortfolioMetrics, PortfolioPriceSnapshot } from '../services/portfolioService';
 import { registerTransaction } from '../services/transactionService';
 import { Asset, PortfolioSnapshot, Transaction } from '../types';
@@ -82,6 +85,7 @@ interface ImportCandidate {
   type: 'stock' | 'crypto';
   quantity: string;
   price: string;
+  currency?: Currency | '';
   confidence?: number | null;
   notes?: string;
 }
@@ -110,6 +114,7 @@ export default function Portfolio() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState('');
   const [formError, setFormError] = useState('');
   const [txSearch, setTxSearch] = useState('');
   const [symbol, setSymbol] = useState('');
@@ -128,6 +133,7 @@ export default function Portfolio() {
   const [screenshotStatus, setScreenshotStatus] = useState('');
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([]);
+  const [importing, setImporting] = useState(false);
   const [priceSnapshots, setPriceSnapshots] = useState<Record<string, PortfolioPriceSnapshot>>({});
   const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
 
@@ -161,12 +167,24 @@ export default function Portfolio() {
       (snapshot) => {
         setAssets(snapshot.docs.map((d) => ({ ...d.data(), id: d.id }) as Asset));
       },
+      () => {
+        setDataError(
+          'Could not load your positions. Check your connection and account permissions.',
+        );
+        setLoading(false);
+      },
     );
 
     const unsubTx = onSnapshot(
       query(collection(db, 'users', auth.currentUser.uid, 'transactions')),
       (snapshot) => {
         setTransactions(snapshot.docs.map((d) => ({ ...d.data(), id: d.id }) as Transaction));
+        setLoading(false);
+      },
+      () => {
+        setDataError(
+          'Could not load your transaction history. Check your connection and account permissions.',
+        );
         setLoading(false);
       },
     );
@@ -207,19 +225,19 @@ export default function Portfolio() {
 
     const fetchSuggestions = async () => {
       try {
-        const [stocksRes, cryptosRes] = await Promise.all([
-          fetch(`/api/market/stocks?t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/market/cryptos?t=${Date.now()}`, { cache: 'no-store' }),
+        const results = await Promise.allSettled([
+          readJson<{ data: AssetQuote[] }>(`/api/market/stocks?t=${Date.now()}`),
+          readJson<{ data: AssetQuote[] }>(`/api/market/cryptos?t=${Date.now()}`),
         ]);
-        const [stocksData, cryptosData] = await Promise.all([stocksRes.json(), cryptosRes.json()]);
-        const combined = [
-          ...(stocksData.data || []).map((asset: Partial<AssetQuote>) =>
-            normalizeAsset(asset, 'stock'),
-          ),
-          ...(cryptosData.data || []).map((asset: Partial<AssetQuote>) =>
-            normalizeAsset(asset, 'crypto'),
-          ),
-        ].filter((asset) => asset.symbol);
+        const combined = results
+          .flatMap((result, index) =>
+            result.status === 'fulfilled'
+              ? (result.value.data || []).map((asset) =>
+                  normalizeAsset(asset, index === 0 ? 'stock' : 'crypto'),
+                )
+              : [],
+          )
+          .filter((asset) => asset.symbol);
         setMarketSuggestions(combined);
       } catch (error) {
         console.error('Could not load asset suggestions:', error);
@@ -239,12 +257,9 @@ export default function Portfolio() {
     const fetchPortfolioPrices = async () => {
       const results = await Promise.allSettled(
         assets.map(async (asset) => {
-          const response = await fetch(
+          const data = await readJson<AssetQuote>(
             `/api/market/asset?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&t=${Date.now()}`,
-            { cache: 'no-store' },
           );
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || 'Market snapshot failed');
           return [asset.symbol.toUpperCase(), data] as const;
         }),
       );
@@ -417,6 +432,7 @@ export default function Portfolio() {
     type: 'stock' | 'crypto';
     quantity: number | string;
     price: number | string;
+    currency?: Currency;
   }) => {
     if (!auth.currentUser) throw new Error('Not authenticated');
     const cleanSymbol = position.symbol.trim().toUpperCase();
@@ -429,7 +445,7 @@ export default function Portfolio() {
         quantity: String(position.quantity),
         price: String(position.price),
         fee: '0',
-        currency: 'USD',
+        currency: position.currency || 'USD',
         date: new Date().toISOString(),
         broker: '',
         notes: '',
@@ -475,8 +491,8 @@ export default function Portfolio() {
       trackEvent('portfolio_position_added', { type, source: 'manual' });
     } catch (error) {
       console.error('Error adding asset:', error);
+      setFormError(errorMessage(error));
       trackEvent('portfolio_position_add_failed', { type, source: 'manual' });
-      setFormError('Could not save the position. Please try again.');
     }
   };
 
@@ -543,9 +559,9 @@ export default function Portfolio() {
           name: position.name || position.symbol || '',
           type: 'crypto',
           quantity: position.quantityExact || (position.quantity ? String(position.quantity) : ''),
-          price: position.price ? String(position.price) : '',
+          price: '',
           confidence: 1,
-          notes: `${position.chain} ${position.source === 'native' ? 'native balance' : 'token balance'} read-only.`,
+          notes: `${position.chain} ${position.source === 'native' ? 'native balance' : 'token balance'} read-only. Enter your purchase price; wallet balances do not include cost basis.`,
         }),
       )
       .filter((asset: ImportCandidate) => asset.symbol && Number(asset.quantity) > 0);
@@ -716,12 +732,14 @@ export default function Portfolio() {
             averagePrice?: string | number;
             confidence?: number;
             notes?: string;
+            currency?: Currency | null;
           }): ImportCandidate => ({
             symbol: String(asset.symbol || '').toUpperCase(),
             name: asset.name || asset.symbol || '',
             type: asset.type === 'crypto' ? 'crypto' : 'stock',
             quantity: asset.quantity ? String(asset.quantity) : '',
             price: asset.averagePrice ? String(asset.averagePrice) : '',
+            currency: asset.currency === null ? '' : asset.currency || 'USD',
             confidence: asset.confidence,
             notes: asset.notes || '',
           }),
@@ -731,7 +749,7 @@ export default function Portfolio() {
       setImportCandidates(candidates);
       setScreenshotStatus(
         candidates.length > 0
-          ? `${data.source === 'fallback-parser' ? 'Fallback parser' : 'AI'} detected ${candidates.length} position${candidates.length === 1 ? '' : 's'}. Review every row before importing.`
+          ? `${data.source === 'structured-parser' ? 'File reader' : data.source === 'fallback-parser' ? 'Fallback parser' : 'AI'} detected ${candidates.length} position${candidates.length === 1 ? '' : 's'}. Review every row before importing.`
           : 'No positions were detected. Make sure the file shows ticker/symbol, quantity and buy or average price.',
       );
       trackEvent('portfolio_import_file_analyzed', {
@@ -742,9 +760,7 @@ export default function Portfolio() {
     } catch (error) {
       console.error('Screenshot analysis failed:', error);
       trackEvent('portfolio_import_file_failed', { mimeType: file.type || 'unknown' });
-      setScreenshotStatus(
-        'Could not read that file. Try a clearer screenshot, CSV, Excel or Word document with symbols, quantities and average prices visible.',
-      );
+      setScreenshotStatus(errorMessage(error));
     } finally {
       setScreenshotLoading(false);
     }
@@ -757,22 +773,20 @@ export default function Portfolio() {
   };
 
   const importDetectedPositions = async () => {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser || importing) return;
 
-    const validCandidates = importCandidates
-      .map((candidate) => ({
-        ...candidate,
-        parsedQuantity: Number(candidate.quantity),
-        parsedPrice: Number(candidate.price),
-      }))
-      .filter(
-        (candidate) =>
-          candidate.symbol &&
-          Number.isFinite(candidate.parsedQuantity) &&
-          candidate.parsedQuantity > 0 &&
-          Number.isFinite(candidate.parsedPrice) &&
-          candidate.parsedPrice > 0,
-      );
+    const validCandidates = importCandidates.filter((candidate) => {
+      try {
+        return (
+          /^[A-Z0-9][A-Z0-9.-]{0,19}$/.test(candidate.symbol) &&
+          candidate.currency !== '' &&
+          amount(candidate.quantity).gt(0) &&
+          amount(candidate.price).gt(0)
+        );
+      } catch {
+        return false;
+      }
+    });
 
     if (validCandidates.length === 0) {
       setFormError('Review the detected rows. Every import needs symbol, quantity and buy price.');
@@ -780,15 +794,18 @@ export default function Portfolio() {
     }
 
     try {
+      setImporting(true);
       setFormError('');
       for (const candidate of validCandidates) {
         await savePosition({
           symbol: candidate.symbol,
           name: candidate.name || candidate.symbol,
           type: candidate.type,
-          quantity: candidate.parsedQuantity,
-          price: candidate.parsedPrice,
+          quantity: candidate.quantity,
+          price: candidate.price,
+          currency: candidate.currency || 'USD',
         });
+        setImportCandidates((remaining) => remaining.filter((item) => item !== candidate));
       }
       setImportCandidates([]);
       setScreenshotStatus('');
@@ -798,7 +815,9 @@ export default function Portfolio() {
     } catch (error) {
       console.error('Bulk import failed:', error);
       trackEvent('portfolio_import_positions_failed', { positions: validCandidates.length });
-      setFormError('Could not import the detected positions. Please try again.');
+      setFormError(errorMessage(error));
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -823,6 +842,18 @@ export default function Portfolio() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <section className="terminal-panel p-6 space-y-4" role="alert">
+        <h1 className="text-2xl font-semibold">Portfolio connection</h1>
+        <p className="text-sm text-text-dim">{dataError}</p>
+        <button className="primary-button" onClick={() => window.location.reload()}>
+          Retry connection
+        </button>
+      </section>
     );
   }
 
@@ -1240,7 +1271,7 @@ export default function Portfolio() {
                 </label>
                 {screenshotLoading && (
                   <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">
-                    Reading file with AI...
+                    Reading file...
                   </div>
                 )}
                 {screenshotStatus && (
@@ -1295,13 +1326,14 @@ export default function Portfolio() {
                   <button
                     type="button"
                     onClick={importDetectedPositions}
+                    disabled={importing}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg"
                   >
                     <Check className="h-4 w-4" />
-                    Import valid rows
+                    {importing ? 'Saving positions...' : 'Import valid rows'}
                   </button>
                 </div>
-                <div className="overflow-x-auto">
+                <fieldset disabled={importing} className="min-w-0 overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-bg/35 text-[10px] uppercase tracking-widest text-text-dim">
@@ -1310,6 +1342,7 @@ export default function Portfolio() {
                         <th className="p-3">Type</th>
                         <th className="p-3">Quantity</th>
                         <th className="p-3">Buy price</th>
+                        <th className="p-3">Currency</th>
                         <th className="p-3">Confidence</th>
                       </tr>
                     </thead>
@@ -1370,6 +1403,23 @@ export default function Portfolio() {
                             />
                           </td>
                           <td className="p-3 text-xs text-text-dim">
+                            <select
+                              aria-label={`Import currency ${index + 1}`}
+                              value={candidate.currency ?? 'USD'}
+                              onChange={(event) =>
+                                updateCandidate(index, { currency: event.target.value as Currency })
+                              }
+                              className="rounded-lg border border-border-accent bg-bg p-2 text-xs"
+                            >
+                              <option value="" disabled>
+                                Select currency
+                              </option>
+                              {(['USD', 'EUR', 'ARS', 'GBP'] as const).map((currency) => (
+                                <option key={currency}>{currency}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="p-3 text-xs text-text-dim">
                             {candidate.confidence != null
                               ? `${Math.round(candidate.confidence * 100)}%`
                               : 'Review'}
@@ -1379,7 +1429,7 @@ export default function Portfolio() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </fieldset>
               </div>
             )}
           </section>
@@ -1692,7 +1742,7 @@ export default function Portfolio() {
               </label>
               {screenshotLoading && (
                 <div className="rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-accent">
-                  Reading file with AI...
+                  Reading file...
                 </div>
               )}
               {screenshotStatus && (
@@ -1710,13 +1760,14 @@ export default function Portfolio() {
                 <button
                   type="button"
                   onClick={importDetectedPositions}
+                  disabled={importing}
                   className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg"
                 >
                   <Check className="h-4 w-4" />
-                  Import valid rows
+                  {importing ? 'Saving positions...' : 'Import valid rows'}
                 </button>
               </div>
-              <div className="overflow-x-auto">
+              <fieldset disabled={importing} className="min-w-0 overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-bg/35 text-[10px] uppercase tracking-widest text-text-dim">
@@ -1725,6 +1776,7 @@ export default function Portfolio() {
                       <th className="p-3">Type</th>
                       <th className="p-3">Quantity</th>
                       <th className="p-3">Buy price</th>
+                      <th className="p-3">Currency</th>
                       <th className="p-3">Confidence</th>
                     </tr>
                   </thead>
@@ -1785,6 +1837,23 @@ export default function Portfolio() {
                           />
                         </td>
                         <td className="p-3 text-xs text-text-dim">
+                          <select
+                            aria-label={`Import currency ${index + 1}`}
+                            value={candidate.currency ?? 'USD'}
+                            onChange={(event) =>
+                              updateCandidate(index, { currency: event.target.value as Currency })
+                            }
+                            className="rounded-lg border border-border-accent bg-bg p-2 text-xs"
+                          >
+                            <option value="" disabled>
+                              Select currency
+                            </option>
+                            {(['USD', 'EUR', 'ARS', 'GBP'] as const).map((currency) => (
+                              <option key={currency}>{currency}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3 text-xs text-text-dim">
                           {candidate.confidence != null
                             ? `${Math.round(candidate.confidence * 100)}%`
                             : 'Review'}
@@ -1794,7 +1863,7 @@ export default function Portfolio() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </fieldset>
             </div>
           )}
         </motion.div>

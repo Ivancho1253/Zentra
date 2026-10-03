@@ -16,12 +16,14 @@ function QuoteRow({
   onMove,
   first,
   last,
+  busy,
 }: {
   asset: WatchlistAsset;
   onRemove: () => void;
   onMove: (step: number) => void;
   first: boolean;
   last: boolean;
+  busy: boolean;
 }) {
   const quote = useQuote(asset.symbol, asset.type);
   return (
@@ -68,7 +70,7 @@ function QuoteRow({
         <div className="flex gap-1">
           <button
             className="icon-button"
-            disabled={first}
+            disabled={busy || first}
             onClick={() => onMove(-1)}
             aria-label={`Move ${asset.symbol} up`}
           >
@@ -76,13 +78,18 @@ function QuoteRow({
           </button>
           <button
             className="icon-button"
-            disabled={last}
+            disabled={busy || last}
             onClick={() => onMove(1)}
             aria-label={`Move ${asset.symbol} down`}
           >
             <ArrowDown size={15} />
           </button>
-          <button className="icon-button" onClick={onRemove} aria-label={`Remove ${asset.symbol}`}>
+          <button
+            className="icon-button"
+            disabled={busy}
+            onClick={onRemove}
+            aria-label={`Remove ${asset.symbol}`}
+          >
             <Trash2 size={15} />
           </button>
         </div>
@@ -230,7 +237,9 @@ export default function Watchlists() {
                 onClick={() =>
                   void execute(() => updateDoc(ref(list.id), { pinned: !list.pinned }))
                 }
-                aria-label="Pin watchlist"
+                aria-label={list.pinned ? 'Unpin watchlist' : 'Pin watchlist'}
+                aria-pressed={list.pinned}
+                disabled={busy}
               >
                 <Star size={16} fill={list.pinned ? 'currentColor' : 'none'} />
               </button>
@@ -290,6 +299,7 @@ export default function Watchlists() {
                     asset={a}
                     first={i === 0}
                     last={i === list.assets.length - 1}
+                    busy={busy}
                     onRemove={() => void saveAssets(list.assets.filter((_, j) => j !== i))}
                     onMove={(step) => {
                       const assets = [...list.assets];

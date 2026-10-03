@@ -26,6 +26,7 @@ import {
 import CompanyLogo from './CompanyLogo';
 import DataProvenance from './DataProvenance';
 import FinancialChart from './FinancialChart';
+import TickerTape from './TickerTape';
 const money = (value: string | number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value));
 const initial: Record<string, PositionBalance> = {
@@ -234,6 +235,7 @@ export default function DemoTerminal() {
             <Link to="/auth">Connect your real portfolio →</Link>
           </div>
         </div>
+        <TickerTape fixture={demoQuotes} onSelect={selectAsset} sticky={false} />
         <header className="demo-header">
           <div className="relative min-w-0 flex-1 max-w-lg">
             <label className="command-trigger">

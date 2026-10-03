@@ -172,9 +172,9 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
+      <main className="min-w-0 flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
         <TickerTape />
-        <header className="h-16 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-12 z-20">
+        <header className="h-16 shrink-0 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-14 z-20">
           <CommandPalette />
           <div className="sm:hidden flex items-center gap-2">
             <img
