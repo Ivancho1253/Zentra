@@ -8,16 +8,16 @@ results describe local validation, not a production deployment or certification.
 | TypeScript                         | `tsc --noEmit` passed with strict mode                        |
 | ESLint                             | Passed                                                        |
 | Prettier                           | All configured source, script and documentation files passed  |
-| Unit/API suites                    | 63 tests passed; 10 environment-dependent tests skipped       |
-| Firestore emulator suites          | All 8 rules/worker tests passed separately                    |
-| Auth/Firestore browser integration | Both Chromium journeys passed separately                      |
+| Unit/API suites                    | 75 tests passed; environment-dependent tests run separately   |
+| Firestore emulator suites          | All 9 rules/worker tests passed separately                    |
+| Auth/Firestore browser integration | Three Chromium journeys passed separately                     |
 | Production build                   | Frontend and executable server bundles built successfully     |
 | Production startup                 | `npm start` served the built app and health endpoint          |
 | Production browser smoke           | Correct title/manifest, no page errors, no 390px overflow     |
 | Dependency audit                   | 0 reported vulnerabilities                                    |
 | Repository checks                  | No unintended old-brand text found; `git diff --check` passed |
 
-The ten skipped tests in the default run are the eight emulator tests and two
+The twelve skipped tests in the default run are the nine emulator tests and three
 browser tests; they were executed using their dedicated commands. Emulator
 accounts and records are isolated from the configured production Firebase data.
 
@@ -87,19 +87,27 @@ those environments were prepared but not executed locally.
 
 ## Release boundaries
 
-Live production Auth domains/rules, Admin credentials, licensed market/news/X
-plans, AI outputs, actual email/push delivery, a Redis deployment and backups
-still require staging verification. Docker was unavailable on this machine.
+On 2026-10-04, Admin access to production Auth/Firestore, authorized domains and
+enabled Google/email-password providers were checked. The named-database rules
+were deployed and matched the local source; all five compatible Enterprise indexes
+reached `READY`. The deployment generator passed five checks for edition selection
+and rejection of invalid editions or mismatched project/database identifiers.
+Licensed market/news/X plans, AI outputs beyond the receipt check, actual
+email/push delivery, a Redis deployment and database backups still require staging
+verification. Docker was unavailable on this machine.
 Neither CI execution nor container deployment is claimed as tested.
 
 The current local instance has Twelve Data, NewsAPI and Gemini configuration;
-Firebase Admin, X, Finnhub, Resend and the push VAPID configuration are absent.
-AI-generated outputs and
-live user-account reads have not been verified with a production session.
+Firebase Admin is now configured; X, Finnhub, Resend and the push VAPID configuration
+are absent.
+Receipt recognition was verified with a real Gemini call using a synthetic image;
+the separate market quote was verified against Twelve Data. Wallet RPC scans,
+NewsAPI and the RSS fallback were verified live. See [FEATURE_VERIFICATION.md](FEATURE_VERIFICATION.md).
+Live user-account writes have not been verified with a production session.
 Automatic alerts, server-verified wealth snapshots and account deletion require
 Admin. X feeds require official X access; earnings dates require Finnhub access.
-The corrected `briefs` owner-read rule must be deployed to the named database
-before export can be confirmed there. Service configuration is visible under
+The corrected `briefs` owner-read and new `wallets` rules are deployed to the named
+database; export still needs a real signed-in account check. Service configuration is visible under
 `/info`; configuration alone does not confirm provider access.
 
 Historical FX, corporate-action reconciliation, backdated ledger replay,

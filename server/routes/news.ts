@@ -13,7 +13,10 @@ export function registerNewsRoutes(app: express.Express) {
     if (!parsed.success)
       return res.status(400).json({ error: 'Query must contain 1 to 120 characters' });
     const query = parsed.data;
+    const language = z.enum(['en', 'es', 'pt']).safeParse(req.query.language ?? 'en');
+    if (!language.success)
+      return res.status(400).json({ error: 'Choose English, Spanish or Portuguese.' });
     res.setHeader('Cache-Control', 'no-store');
-    res.json(await getNewsArticles(query));
+    res.json(await getNewsArticles(query, language.data));
   });
 }

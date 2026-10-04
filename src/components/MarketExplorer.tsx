@@ -1,3 +1,4 @@
+import { I18n, UiText } from './Localized';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -347,39 +348,39 @@ export default function MarketExplorer() {
       transition={{ staggerChildren: 0.06 }}
     >
       <motion.section variants={motionItem} className="app-hero">
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-start gap-4">
-            <button
+        <I18n.div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <I18n.div className="flex items-start gap-4">
+            <I18n.button
               aria-label="Back"
               onClick={() => navigate(-1)}
               className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent"
             >
               <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div>
-              <div className="accent-chip mb-4">
+            </I18n.button>
+            <I18n.div>
+              <I18n.div className="accent-chip mb-4">
                 <Sparkles className="h-3.5 w-3.5" /> Markets
-              </div>
-              <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter">
+              </I18n.div>
+              <I18n.h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter">
                 Asset discovery
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-text-dim">
-                Acciones, criptos y favoritos con logos reales, filtros rapidos y lectura visual de
-                momentum.
-              </p>
-            </div>
-          </div>
-          <div className="relative w-full max-w-xl">
+              </I18n.h1>
+              <I18n.p className="mt-3 max-w-2xl text-sm text-text-dim">
+                Stocks, crypto and favorites with asset logos, quick filters and a visual view of
+                market moves.
+              </I18n.p>
+            </I18n.div>
+          </I18n.div>
+          <I18n.div className="relative w-full max-w-xl">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-dim" />
-            <input
+            <I18n.input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search symbol or company"
               className="w-full rounded-2xl border border-border-accent bg-bg/65 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-accent focus:shadow-[0_0_32px_rgba(124,255,26,0.12)]"
             />
-          </div>
-        </div>
-        <div className="absolute bottom-0 left-0 h-px w-full scanline" />
+          </I18n.div>
+        </I18n.div>
+        <I18n.div className="absolute bottom-0 left-0 h-px w-full scanline" />
       </motion.section>
 
       {(error || favorites.error || selectedQuery.isError) && (
@@ -388,13 +389,15 @@ export default function MarketExplorer() {
           className="flex items-center gap-3 rounded-2xl border border-loss/40 bg-loss/10 px-4 py-3 text-xs font-bold text-loss"
         >
           <AlertCircle className="h-4 w-4" />
-          {error ||
-            favorites.error ||
-            'Could not refresh this market. Other market categories remain available.'}
+          <UiText>
+            {error ||
+              favorites.error ||
+              'Could not refresh this market. Other market categories remain available.'}
+          </UiText>
           {selectedQuery.isError && (
-            <button onClick={() => void selectedQuery.refetch()} className="ml-2 underline">
+            <I18n.button onClick={() => void selectedQuery.refetch()} className="ml-2 underline">
               Retry
-            </button>
+            </I18n.button>
           )}
         </motion.div>
       )}
@@ -403,9 +406,9 @@ export default function MarketExplorer() {
         variants={motionItem}
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <I18n.div className="flex gap-2 overflow-x-auto pb-1">
           {(['stocks', 'cryptos', 'heatmap', 'favorites'] as const).map((tab) => (
-            <button
+            <I18n.button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
@@ -416,51 +419,53 @@ export default function MarketExplorer() {
               )}
             >
               {tab === 'cryptos' ? 'Crypto' : tab === 'heatmap' ? 'Heat Map' : tab}
-            </button>
+            </I18n.button>
           ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="quiet-chip">{filteredAssets.length} visible assets</div>
-          <div className="quiet-chip">Source: {dataSource} · Provider timestamps on each asset</div>
-        </div>
+        </I18n.div>
+        <I18n.div className="flex flex-wrap gap-2">
+          <I18n.div className="quiet-chip">{filteredAssets.length} visible assets</I18n.div>
+          <I18n.div className="quiet-chip">
+            Source: {dataSource} · Provider timestamps on each asset
+          </I18n.div>
+        </I18n.div>
       </motion.div>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <I18n.div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(8)].map((_, index) => (
-            <div
+            <I18n.div
               key={index}
               className="h-72 animate-pulse rounded-3xl border border-border-accent bg-surface"
             />
           ))}
-        </div>
+        </I18n.div>
       ) : activeTab === 'heatmap' ? (
         <motion.div
           ref={heatMapRef}
           variants={motionItem}
           className="panel-card overflow-hidden p-0 fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-bg"
         >
-          <div className="flex flex-col gap-3 border-b border-border-accent bg-bg/55 p-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <div className="accent-chip">Heat Map</div>
-              <span className="hidden text-[10px] font-black uppercase tracking-widest text-text-dim sm:inline">
+          <I18n.div className="flex flex-col gap-3 border-b border-border-accent bg-bg/55 p-3 md:flex-row md:items-center md:justify-between">
+            <I18n.div className="flex items-center gap-2">
+              <I18n.div className="accent-chip">Heat Map</I18n.div>
+              <I18n.span className="hidden text-[10px] font-black uppercase tracking-widest text-text-dim sm:inline">
                 {heatWeight === 'moves'
                   ? 'Daily changes · equal-sized tiles'
                   : 'Known market caps · proportional tiles'}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
+              </I18n.span>
+            </I18n.div>
+            <I18n.div className="flex flex-wrap items-center gap-2">
+              <I18n.select
                 aria-label="Heat map weighting"
                 className="terminal-input"
                 value={heatWeight}
                 onChange={(event) => setHeatWeight(event.target.value as 'moves' | 'market-cap')}
               >
-                <option value="moves">Daily moves</option>
-                <option value="market-cap">Market cap</option>
-              </select>
+                <I18n.option value="moves">Daily moves</I18n.option>
+                <I18n.option value="market-cap">Market cap</I18n.option>
+              </I18n.select>
               {(['stocks', 'cryptos'] as const).map((type) => (
-                <button
+                <I18n.button
                   key={type}
                   onClick={() => {
                     setHeatMapType(type);
@@ -474,31 +479,31 @@ export default function MarketExplorer() {
                   )}
                 >
                   {type === 'stocks' ? 'Stocks' : 'Crypto'}
-                </button>
+                </I18n.button>
               ))}
-              <div className="ml-0 flex items-center overflow-hidden rounded-xl border border-border-accent bg-surface md:ml-2">
-                <button
+              <I18n.div className="ml-0 flex items-center overflow-hidden rounded-xl border border-border-accent bg-surface md:ml-2">
+                <I18n.button
                   onClick={() => zoomHeatMap(heatZoom - 0.2)}
                   className="p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent"
                   title="Zoom out"
                 >
                   <Minus className="h-4 w-4" />
-                </button>
-                <button
+                </I18n.button>
+                <I18n.button
                   onClick={() => zoomHeatMap(heatZoom + 0.2)}
                   className="border-l border-border-accent p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent"
                   title="Zoom in"
                 >
                   <Plus className="h-4 w-4" />
-                </button>
-                <button
+                </I18n.button>
+                <I18n.button
                   onClick={resetHeatMap}
                   className="border-l border-border-accent px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-dim transition-all hover:bg-accent/10 hover:text-accent"
                   title="Reset view"
                 >
                   Reset
-                </button>
-                <button
+                </I18n.button>
+                <I18n.button
                   onClick={toggleHeatMapFullscreen}
                   className="border-l border-border-accent p-2 text-text-dim transition-all hover:bg-accent/10 hover:text-accent"
                   title={isHeatMapFullscreen ? 'Exit full screen' : 'Full screen'}
@@ -508,12 +513,12 @@ export default function MarketExplorer() {
                   ) : (
                     <Maximize2 className="h-4 w-4" />
                   )}
-                </button>
-              </div>
-            </div>
-          </div>
+                </I18n.button>
+              </I18n.div>
+            </I18n.div>
+          </I18n.div>
 
-          <div
+          <I18n.div
             ref={heatViewportRef}
             className="relative h-[72vh] min-h-[560px] cursor-grab touch-none select-none overflow-hidden bg-[#050705] active:cursor-grabbing fullscreen:h-[calc(100vh-57px)] fullscreen:min-h-0"
             onPointerDown={handleDragStart}
@@ -522,13 +527,13 @@ export default function MarketExplorer() {
             onPointerCancel={handleDragEnd}
           >
             {!heatRects.length && (
-              <p className="relative z-10 p-6 text-sm text-text-dim" role="status">
+              <I18n.p className="relative z-10 p-6 text-sm text-text-dim" role="status">
                 {heatWeight === 'market-cap'
                   ? 'Market caps are unavailable from these providers. Choose Daily moves to view observed changes.'
                   : 'No observed daily changes are available for this category.'}
-              </p>
+              </I18n.p>
             )}
-            <div
+            <I18n.div
               className={cn(
                 'absolute left-1/2 top-1/2 origin-center',
                 dragStart ? '' : 'transition-transform duration-100',
@@ -571,7 +576,7 @@ export default function MarketExplorer() {
                     title={`${symbol} ${formattedChange} · ${rect.asset.raw?.provider || 'Unknown provider'} · ${rect.asset.currency || 'Unknown currency'} · ${rect.asset.raw?.status || 'unavailable'} · ${rect.asset.raw?.updatedAt || 'No provider timestamp'}`}
                   >
                     {!tiny && (
-                      <div className="flex max-w-full flex-col items-center justify-center px-2 text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                      <I18n.div className="flex max-w-full flex-col items-center justify-center px-2 text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
                         {!compact && (
                           <CompanyLogo
                             symbol={symbol}
@@ -581,27 +586,29 @@ export default function MarketExplorer() {
                             imgClassName="h-9 w-9"
                           />
                         )}
-                        <div
+                        <I18n.div
                           className={cn(
                             'font-black tracking-tight',
                             compact ? 'text-xs' : 'text-2xl',
                           )}
                         >
                           {symbol}
-                        </div>
-                        <div className={cn('font-medium', compact ? 'text-[10px]' : 'text-xl')}>
+                        </I18n.div>
+                        <I18n.div
+                          className={cn('font-medium', compact ? 'text-[10px]' : 'text-xl')}
+                        >
                           {formattedChange}
-                        </div>
-                      </div>
+                        </I18n.div>
+                      </I18n.div>
                     )}
                   </Link>
                 );
               })}
-            </div>
-            <div className="pointer-events-none absolute bottom-3 left-3 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+            </I18n.div>
+            <I18n.div className="pointer-events-none absolute bottom-3 left-3 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/70">
               Wheel to zoom - hold click and drag to move - click tile for chart
-            </div>
-          </div>
+            </I18n.div>
+          </I18n.div>
         </motion.div>
       ) : (
         <motion.div
@@ -618,35 +625,38 @@ export default function MarketExplorer() {
             />
           ))}
           {filteredAssets.length === 0 && (
-            <div className="panel-card col-span-full p-8 text-center">
-              <div className="text-sm font-black">No assets found</div>
-              <div className="mt-2 text-xs text-text-dim">
+            <I18n.div className="panel-card col-span-full p-8 text-center">
+              <I18n.div className="text-sm font-black">No assets found</I18n.div>
+              <I18n.div className="mt-2 text-xs text-text-dim">
                 Clear the search or select another filter.
-              </div>
-            </div>
+              </I18n.div>
+            </I18n.div>
           )}
         </motion.div>
       )}
       {activeTab !== 'heatmap' && filteredAssets.length > 12 && (
-        <nav aria-label="Market pages" className="flex flex-wrap items-center justify-center gap-4">
-          <button
+        <I18n.nav
+          aria-label="Market pages"
+          className="flex flex-wrap items-center justify-center gap-4"
+        >
+          <I18n.button
             className="secondary-button"
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
           >
             Previous page
-          </button>
-          <span className="text-xs text-text-dim">
+          </I18n.button>
+          <I18n.span className="text-xs text-text-dim">
             Page {page} of {Math.ceil(filteredAssets.length / 12)}
-          </span>
-          <button
+          </I18n.span>
+          <I18n.button
             className="secondary-button"
             disabled={page * 12 >= filteredAssets.length}
             onClick={() => setPage(page + 1)}
           >
             Next page
-          </button>
-        </nav>
+          </I18n.button>
+        </I18n.nav>
       )}
     </motion.div>
   );

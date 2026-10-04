@@ -1,9 +1,11 @@
 # Remaining work and release boundaries
 
 The implemented terminal is locally buildable and testable, with explicit
-unavailable states for missing external inputs. A production rollout still needs
-operator credentials, provider commercial rights, deployed named-database rules,
-authorized Auth domains and hosting/backup verification.
+unavailable states for missing external inputs. On 2026-10-04, named-database rules
+and Enterprise indexes were deployed, Auth domains/providers were checked and
+local Admin credentials were verified. A public rollout still needs hosting
+credentials/configuration, provider commercial rights, real account journeys and
+hosting/backup verification.
 
 ## Financial depth
 

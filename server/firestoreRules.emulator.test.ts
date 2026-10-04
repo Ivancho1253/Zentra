@@ -47,6 +47,21 @@ runIfEmulator('Firestore rules emulator', () => {
     );
     await assertSucceeds(getDoc(alertRef));
   });
+  it('persists only public wallet addresses and isolates them between users', async () => {
+    const owner = testEnv.authenticatedContext('wallet-owner').firestore();
+    const other = testEnv.authenticatedContext('wallet-other').firestore();
+    const ref = doc(owner, 'users/wallet-owner/wallets/solana-test');
+    const wallet = {
+      address: '11111111111111111111111111111111',
+      ecosystem: 'solana',
+      updatedAt: new Date().toISOString(),
+    };
+    await assertSucceeds(setDoc(ref, wallet));
+    await assertSucceeds(getDoc(ref));
+    await assertFails(getDoc(doc(other, 'users/wallet-owner/wallets/solana-test')));
+    await assertFails(setDoc(ref, { ...wallet, privateKey: 'must never be stored' }));
+    await assertFails(setDoc(ref, { ...wallet, ecosystem: 'evm' }));
+  });
 
   it('blocks users from reading another user portfolio', async () => {
     const ownerDb = testEnv.authenticatedContext('owner', { email: 'owner@test.com' }).firestore();

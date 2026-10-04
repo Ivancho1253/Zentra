@@ -1,3 +1,4 @@
+import { I18n, UiText } from './Localized';
 import { User } from 'firebase/auth';
 import {
   BellRing,
@@ -82,26 +83,28 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
   const mobileMoreItems = [...navItems.slice(4), ...secondaryItems];
 
   return (
-    <div className="flex h-screen bg-bg text-text-main font-sans">
+    <I18n.div className="flex h-screen bg-bg text-text-main font-sans">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-60 shrink-0 overflow-y-auto border-r border-border-accent/70 bg-surface/30 flex-col p-4 gap-5">
-        <div className="flex items-center gap-3">
-          <img
+      <I18n.aside className="hidden md:flex w-60 shrink-0 overflow-y-auto border-r border-border-accent/70 bg-surface/30 flex-col p-4 gap-5">
+        <I18n.div className="flex items-center gap-3">
+          <I18n.img
             src={brand.icon}
             alt={brand.name + ' Logo'}
             className="w-9 h-9 object-contain"
             referrerPolicy="no-referrer"
           />
-          <span className="flex flex-col leading-none">
-            <span className="font-extrabold tracking-tight text-xl uppercase">{brand.name}</span>
-            <span className="mt-0.5 text-[10px] text-text-dim">{brand.tagline}</span>
-          </span>
-        </div>
+          <I18n.span className="flex flex-col leading-none">
+            <I18n.span className="font-extrabold tracking-tight text-xl uppercase">
+              {brand.name}
+            </I18n.span>
+            <I18n.span className="mt-0.5 text-[10px] text-text-dim">{brand.tagline}</I18n.span>
+          </I18n.span>
+        </I18n.div>
 
-        <nav className="flex-1">
-          <ul className="space-y-2">
+        <I18n.nav className="flex-1">
+          <I18n.ul className="space-y-2">
             {navItems.map((item) => (
-              <li key={item.path}>
+              <I18n.li key={item.path}>
                 <Link
                   to={item.path}
                   className={cn(
@@ -112,18 +115,18 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
                   )}
                 >
                   <item.icon className="w-4 h-4" />
-                  {item.label}
+                  <UiText>{item.label}</UiText>
                 </Link>
-              </li>
+              </I18n.li>
             ))}
-          </ul>
-          <div className="mt-6 border-t border-border-accent/50 pt-4">
-            <div className="mb-2 px-4 text-[9px] font-black uppercase tracking-widest text-text-dim">
+          </I18n.ul>
+          <I18n.div className="mt-6 border-t border-border-accent/50 pt-4">
+            <I18n.div className="mb-2 px-4 text-[9px] font-black uppercase tracking-widest text-text-dim">
               {t('support')}
-            </div>
-            <ul className="space-y-1">
+            </I18n.div>
+            <I18n.ul className="space-y-1">
               {secondaryItems.map((item) => (
-                <li key={item.path}>
+                <I18n.li key={item.path}>
                   <Link
                     to={item.path}
                     className={cn(
@@ -134,79 +137,79 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
                     )}
                   >
                     <item.icon className="w-4 h-4" />
-                    {item.label}
+                    <UiText>{item.label}</UiText>
                   </Link>
-                </li>
+                </I18n.li>
               ))}
-            </ul>
-          </div>
-        </nav>
+            </I18n.ul>
+          </I18n.div>
+        </I18n.nav>
 
-        <div className="mt-auto space-y-4">
-          <div className="relative overflow-hidden rounded-3xl border border-accent/20 bg-accent/10 p-4">
-            <div className="text-[10px] text-accent uppercase font-black tracking-widest">
+        <I18n.div className="mt-auto space-y-4">
+          <I18n.div className="relative overflow-hidden rounded-3xl border border-accent/20 bg-accent/10 p-4">
+            <I18n.div className="text-[10px] text-accent uppercase font-black tracking-widest">
               {brand.name} intelligence
-            </div>
-            <div className="text-xs font-bold mt-1">Your market, in context</div>
-            <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-accent/20 blur-2xl" />
-          </div>
+            </I18n.div>
+            <I18n.div className="text-xs font-bold mt-1">Your market, in context</I18n.div>
+            <I18n.div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-accent/20 blur-2xl" />
+          </I18n.div>
 
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 bg-accent rounded-2xl flex items-center justify-center text-bg font-bold text-xs shadow-[0_0_18px_rgba(124,255,26,0.25)]">
+          <I18n.div className="flex items-center gap-3 px-2">
+            <I18n.div className="w-9 h-9 bg-accent rounded-2xl flex items-center justify-center text-bg font-bold text-xs shadow-[0_0_18px_rgba(124,255,26,0.25)]">
               {user.email?.[0].toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{user.email}</p>
-              <p className="text-[10px] text-text-dim uppercase">Personal workspace</p>
-            </div>
-          </div>
+            </I18n.div>
+            <I18n.div className="flex-1 min-w-0">
+              <I18n.p className="text-xs font-medium truncate">{user.email}</I18n.p>
+              <I18n.p className="text-[10px] text-text-dim uppercase">Personal workspace</I18n.p>
+            </I18n.div>
+          </I18n.div>
 
-          <button
+          <I18n.button
             onClick={() => auth.signOut()}
             className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-xs text-text-dim hover:text-loss hover:bg-loss/10 transition-all"
           >
             <LogOut className="w-4 h-4" />
             {t('logout')}
-          </button>
-        </div>
-      </aside>
+          </I18n.button>
+        </I18n.div>
+      </I18n.aside>
 
       {/* Main Content */}
-      <main className="min-w-0 flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
+      <I18n.main className="min-w-0 flex-1 overflow-auto flex flex-col pb-16 md:pb-0">
         <TickerTape />
-        <header className="h-16 shrink-0 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-14 z-20">
+        <I18n.header className="h-16 shrink-0 border-b border-border-accent/70 flex items-center justify-between gap-4 px-4 md:px-8 bg-bg/72 backdrop-blur-xl sticky top-14 z-20">
           <CommandPalette />
-          <div className="sm:hidden flex items-center gap-2">
-            <img
+          <I18n.div className="sm:hidden flex items-center gap-2">
+            <I18n.img
               src={brand.icon}
               alt={brand.name + ' Logo'}
               className="w-7 h-7 object-contain"
               referrerPolicy="no-referrer"
             />
-            <span className="font-extrabold tracking-tight uppercase">{brand.name}</span>
-          </div>
-          <div className="flex items-center gap-3 text-xs">
+            <I18n.span className="font-extrabold tracking-tight uppercase">{brand.name}</I18n.span>
+          </I18n.div>
+          <I18n.div className="flex items-center gap-3 text-xs">
             <LanguageSelector />
-            <button
+            <I18n.button
               onClick={toggleTheme}
               className="p-2 bg-surface border border-border-accent rounded-xl hover:border-accent hover:text-accent transition-all"
               title={isLight ? t('switchDarkMode') : t('switchLightMode')}
             >
               {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
+            </I18n.button>
             <Link to="/alerts" aria-label="Alerts and notifications" className="icon-button">
               <BellRing size={18} />
             </Link>
-          </div>
-        </header>
-        <div className="p-4 md:p-6 max-w-7xl mx-auto w-full">
+          </I18n.div>
+        </I18n.header>
+        <I18n.div className="p-4 pb-36 md:p-6 max-w-7xl mx-auto w-full">
           <Outlet />
-        </div>
-      </main>
+        </I18n.div>
+      </I18n.main>
       <ZentraAIChat />
       {mobileMoreOpen && (
-        <div className="fixed bottom-[4.35rem] left-3 right-3 z-40 rounded-2xl border border-border-accent bg-bg/95 p-3 shadow-2xl backdrop-blur md:hidden">
-          <div className="grid grid-cols-3 gap-2">
+        <I18n.div className="fixed bottom-[4.35rem] left-3 right-3 z-[70] rounded-2xl border border-border-accent bg-bg/95 p-3 shadow-2xl backdrop-blur md:hidden">
+          <I18n.div className="grid grid-cols-3 gap-2">
             {mobileMoreItems.map((item) => (
               <Link
                 key={item.path}
@@ -220,15 +223,15 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                <span className="max-w-full truncate">
+                <I18n.span className="max-w-full truncate">
                   {item.label.replace('Market ', '').replace('Mercado ', '')}
-                </span>
+                </I18n.span>
               </Link>
             ))}
-          </div>
-        </div>
+          </I18n.div>
+        </I18n.div>
       )}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
+      <I18n.nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-border-accent bg-bg/95 backdrop-blur md:hidden">
         {mobilePrimaryItems.map((item) => (
           <Link
             key={item.path}
@@ -240,12 +243,12 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
             )}
           >
             <item.icon className="w-4 h-4" />
-            <span className="max-w-full truncate">
+            <I18n.span className="max-w-full truncate">
               {item.label.replace('Market ', '').replace('Mercado ', '')}
-            </span>
+            </I18n.span>
           </Link>
         ))}
-        <button
+        <I18n.button
           onClick={() => setMobileMoreOpen((open) => !open)}
           className={cn(
             'flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-bold',
@@ -255,9 +258,9 @@ export default function Layout({ user, profile: _profile }: LayoutProps) {
           )}
         >
           <MoreHorizontal className="h-4 w-4" />
-          <span>{t('more')}</span>
-        </button>
-      </nav>
-    </div>
+          <I18n.span>{t('more')}</I18n.span>
+        </I18n.button>
+      </I18n.nav>
+    </I18n.div>
   );
 }

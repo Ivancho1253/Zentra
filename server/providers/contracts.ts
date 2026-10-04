@@ -19,7 +19,7 @@ export interface CryptoDataProvider {
 }
 export interface NewsProvider {
   readonly name: string;
-  articles(query: string): Promise<NewsItem[]>;
+  articles(query: string, language?: 'en' | 'es' | 'pt'): Promise<NewsItem[]>;
 }
 export interface SocialProvider {
   readonly name: string;

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { brand } from '../../shared/brand';
+import { translateText } from '../locales/translate';
 
 export type Language = 'es' | 'en' | 'pt';
 
@@ -605,30 +606,56 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  text: (value: string) => string;
+  locale: string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('language');
-    const hasUserPreference = localStorage.getItem('languagePreferenceSet') === 'true';
-    return hasUserPreference && (saved === 'es' || saved === 'en' || saved === 'pt') ? saved : 'en';
+    try {
+      const saved = localStorage.getItem('language');
+      const hasUserPreference = localStorage.getItem('languagePreferenceSet') === 'true';
+      return hasUserPreference && (saved === 'es' || saved === 'en' || saved === 'pt')
+        ? saved
+        : 'en';
+    } catch {
+      return 'en';
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('language', language);
+    document.documentElement.lang = language;
+    document.title = `${brand.name} — ${translateText(brand.tagline, language)}`;
+    try {
+      localStorage.setItem('language', language);
+    } catch {
+      /* Preference remains active for this session. */
+    }
   }, [language]);
 
   const setLanguage = (lang: Language) => {
-    localStorage.setItem('languagePreferenceSet', 'true');
+    try {
+      localStorage.setItem('languagePreferenceSet', 'true');
+    } catch {
+      /* Storage can be disabled. */
+    }
     setLanguageState(lang);
   };
 
   const t = (key: string) => (translations[key]?.[language] || key).replace(/ZENTRA/g, brand.name);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider
+      value={{
+        language,
+        setLanguage,
+        t,
+        text: (value) => translateText(value, language),
+        locale: language === 'es' ? 'es-UY' : language === 'pt' ? 'pt-BR' : 'en-US',
+      }}
+    >
       {children}
     </LanguageContext.Provider>
   );

@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n } from './Localized';
 import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { ArrowDown, ArrowUp, Plus, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -25,10 +27,11 @@ function QuoteRow({
   last: boolean;
   busy: boolean;
 }) {
+  const { locale } = useLanguage();
   const quote = useQuote(asset.symbol, asset.type);
   return (
-    <tr>
-      <td>
+    <I18n.tr>
+      <I18n.td>
         <Link
           to={`/market/${asset.type === 'crypto' ? 'cryptos' : 'stocks'}/${asset.symbol}`}
           className="flex items-center gap-3"
@@ -39,15 +42,15 @@ function QuoteRow({
             name={asset.name}
             className="h-9 w-9"
           />
-          <span>
-            <strong>{asset.symbol}</strong>
-            <span className="block text-xs text-text-dim">{asset.name}</span>
-          </span>
+          <I18n.span>
+            <I18n.strong>{asset.symbol}</I18n.strong>
+            <I18n.span className="block text-xs text-text-dim">{asset.name}</I18n.span>
+          </I18n.span>
         </Link>
-      </td>
-      <td className="font-mono">
+      </I18n.td>
+      <I18n.td className="font-mono">
         {quote.data?.price
-          ? new Intl.NumberFormat('en-US', {
+          ? new Intl.NumberFormat(locale, {
               style: 'currency',
               currency: quote.data.currency,
               maximumFractionDigits: Number(quote.data.price) < 1 ? 6 : 2,
@@ -55,46 +58,50 @@ function QuoteRow({
           : quote.isPending
             ? 'Loading…'
             : '—'}
-      </td>
-      <td className={`font-mono ${Number(quote.data?.change) < 0 ? 'text-loss' : 'text-accent'}`}>
+      </I18n.td>
+      <I18n.td
+        className={`font-mono ${Number(quote.data?.change) < 0 ? 'text-loss' : 'text-accent'}`}
+      >
         {quote.data?.change == null ? '—' : `${Number(quote.data.change).toFixed(2)}%`}
-      </td>
-      <td>
+      </I18n.td>
+      <I18n.td>
         <MiniChart asset={asset} />
-      </td>
-      <td>
-        <span className="block text-xs text-text-dim">{quote.data?.marketStatus || 'unknown'}</span>
+      </I18n.td>
+      <I18n.td>
+        <I18n.span className="block text-xs text-text-dim">
+          {quote.data?.marketStatus || 'unknown'}
+        </I18n.span>
         <DataProvenance quote={quote.data} />
-      </td>
-      <td>
-        <div className="flex gap-1">
-          <button
+      </I18n.td>
+      <I18n.td>
+        <I18n.div className="flex gap-1">
+          <I18n.button
             className="icon-button"
             disabled={busy || first}
             onClick={() => onMove(-1)}
             aria-label={`Move ${asset.symbol} up`}
           >
             <ArrowUp size={15} />
-          </button>
-          <button
+          </I18n.button>
+          <I18n.button
             className="icon-button"
             disabled={busy || last}
             onClick={() => onMove(1)}
             aria-label={`Move ${asset.symbol} down`}
           >
             <ArrowDown size={15} />
-          </button>
-          <button
+          </I18n.button>
+          <I18n.button
             className="icon-button"
             disabled={busy}
             onClick={onRemove}
             aria-label={`Remove ${asset.symbol}`}
           >
             <Trash2 size={15} />
-          </button>
-        </div>
-      </td>
-    </tr>
+          </I18n.button>
+        </I18n.div>
+      </I18n.td>
+    </I18n.tr>
   );
 }
 export default function Watchlists() {
@@ -134,17 +141,17 @@ export default function Watchlists() {
     setSearch('');
   };
   return (
-    <div className="space-y-6">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Your market, organized</p>
-          <h1>Watchlists</h1>
-          <p className="text-sm text-text-dim">
+    <I18n.div className="space-y-6">
+      <I18n.div className="section-heading">
+        <I18n.div>
+          <I18n.p className="eyebrow">Your market, organized</I18n.p>
+          <I18n.h1>Watchlists</I18n.h1>
+          <I18n.p className="text-sm text-text-dim">
             Keep the assets that matter close. Quotes retain their provider and timestamp.
-          </p>
-        </div>
+          </I18n.p>
+        </I18n.div>
         {favorites.data.length > 0 && (
-          <button
+          <I18n.button
             className="secondary-button"
             disabled={busy}
             onClick={() =>
@@ -165,15 +172,15 @@ export default function Watchlists() {
             }
           >
             Copy saved favorites
-          </button>
+          </I18n.button>
         )}
-      </div>
+      </I18n.div>
       {(error || status) && (
-        <p className="status-message" role="status">
+        <I18n.p className="status-message" role="status">
           {error || status}
-        </p>
+        </I18n.p>
       )}
-      <form
+      <I18n.form
         className="flex flex-wrap gap-3"
         onSubmit={(e) => {
           e.preventDefault();
@@ -188,7 +195,7 @@ export default function Watchlists() {
           });
         }}
       >
-        <input
+        <I18n.input
           className="terminal-input"
           aria-label="New watchlist name"
           placeholder="Tech, Crypto, Long term…"
@@ -197,30 +204,32 @@ export default function Watchlists() {
           onChange={(e) => setName(e.target.value)}
           required
         />
-        <button className="primary-button" disabled={busy}>
+        <I18n.button className="primary-button" disabled={busy}>
           <Plus size={16} /> Create watchlist
-        </button>
-      </form>
-      <div className="flex flex-wrap gap-2">
+        </I18n.button>
+      </I18n.form>
+      <I18n.div className="flex flex-wrap gap-2">
         {lists.map((l) => (
-          <button
+          <I18n.button
             className={`chart-control ${list?.id === l.id ? 'active' : ''}`}
             onClick={() => setSelected(l.id)}
             key={l.id}
           >
             {l.pinned ? '★ ' : ''}
-            {l.name} <span className="text-text-dim">{l.assets.length}</span>
-          </button>
+            {l.name} <I18n.span className="text-text-dim">{l.assets.length}</I18n.span>
+          </I18n.button>
         ))}
-      </div>
+      </I18n.div>
       {loading ? (
-        <p className="text-text-dim">Loading your watchlists…</p>
+        <I18n.p className="text-text-dim">Loading your watchlists…</I18n.p>
       ) : !list ? (
-        <div className="empty-state">Create a watchlist to start following stocks and crypto.</div>
+        <I18n.div className="empty-state">
+          Create a watchlist to start following stocks and crypto.
+        </I18n.div>
       ) : (
-        <section className="terminal-panel">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-accent p-4">
-            <input
+        <I18n.section className="terminal-panel">
+          <I18n.div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-accent p-4">
+            <I18n.input
               key={list.id + list.name}
               className="terminal-input max-w-xs"
               aria-label="Rename watchlist"
@@ -231,8 +240,8 @@ export default function Watchlists() {
                   void execute(() => updateDoc(ref(list.id), { name: e.target.value.trim() }));
               }}
             />
-            <div className="flex gap-2">
-              <button
+            <I18n.div className="flex gap-2">
+              <I18n.button
                 className="icon-button"
                 onClick={() =>
                   void execute(() => updateDoc(ref(list.id), { pinned: !list.pinned }))
@@ -242,18 +251,18 @@ export default function Watchlists() {
                 disabled={busy}
               >
                 <Star size={16} fill={list.pinned ? 'currentColor' : 'none'} />
-              </button>
-              <button
+              </I18n.button>
+              <I18n.button
                 className="secondary-button"
                 onClick={() => void execute(() => deleteDoc(ref(list.id)))}
                 disabled={busy}
               >
                 Delete watchlist
-              </button>
-            </div>
-          </div>
-          <div className="p-4">
-            <input
+              </I18n.button>
+            </I18n.div>
+          </I18n.div>
+          <I18n.div className="p-4">
+            <I18n.input
               className="terminal-input w-full"
               aria-label="Search assets"
               placeholder="Search a ticker or company"
@@ -261,38 +270,38 @@ export default function Watchlists() {
               onChange={(e) => setSearch(e.target.value)}
             />
             {search.trim() && (
-              <div className="mt-2 grid gap-1 sm:grid-cols-2">
+              <I18n.div className="mt-2 grid gap-1 sm:grid-cols-2">
                 {catalog
                   .filter((a) =>
                     `${a.symbol} ${a.name}`.toLowerCase().includes(search.trim().toLowerCase()),
                   )
                   .slice(0, 8)
                   .map((a) => (
-                    <button
+                    <I18n.button
                       key={`${a.type}:${a.symbol}`}
                       className="search-result"
                       onClick={() => add(a)}
                       disabled={busy}
                     >
                       ＋ {a.symbol} · {a.name}
-                    </button>
+                    </I18n.button>
                   ))}
-              </div>
+              </I18n.div>
             )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="terminal-table">
-              <thead>
-                <tr>
-                  <th>Asset</th>
-                  <th>Price</th>
-                  <th>Daily move</th>
-                  <th>1M prices</th>
-                  <th>Data status</th>
-                  <th>Manage</th>
-                </tr>
-              </thead>
-              <tbody>
+          </I18n.div>
+          <I18n.div className="overflow-x-auto">
+            <I18n.table className="terminal-table">
+              <I18n.thead>
+                <I18n.tr>
+                  <I18n.th>Asset</I18n.th>
+                  <I18n.th>Price</I18n.th>
+                  <I18n.th>Daily move</I18n.th>
+                  <I18n.th>1M prices</I18n.th>
+                  <I18n.th>Data status</I18n.th>
+                  <I18n.th>Manage</I18n.th>
+                </I18n.tr>
+              </I18n.thead>
+              <I18n.tbody>
                 {list.assets.map((a, i) => (
                   <QuoteRow
                     key={`${a.type}:${a.symbol}`}
@@ -308,14 +317,14 @@ export default function Watchlists() {
                     }}
                   />
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </I18n.tbody>
+            </I18n.table>
+          </I18n.div>
           {!list.assets.length && (
-            <div className="empty-state">Search above to add your first asset.</div>
+            <I18n.div className="empty-state">Search above to add your first asset.</I18n.div>
           )}
-        </section>
+        </I18n.section>
       )}
-    </div>
+    </I18n.div>
   );
 }

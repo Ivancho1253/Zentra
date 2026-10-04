@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { collection, getDocs } from 'firebase/firestore';
 import { Download, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -14,6 +15,7 @@ const USER_COLLECTIONS = [
   'notifications',
   'cash',
   'watchlists',
+  'wallets',
   'socialSubscriptions',
   'preferences',
   'briefs',
@@ -98,31 +100,33 @@ export default function DataControls() {
   }
 
   return (
-    <section className="panel-card p-6">
-      <div className="mb-4">
-        <div className="accent-chip mb-3">{t('dataControls')}</div>
-        <h2 className="text-xl font-black uppercase tracking-tight">{t('privacyControlsTitle')}</h2>
-        <p className="mt-3 text-sm leading-7 text-text-dim">{t('privacyControlsText')}</p>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <button
+    <I18n.section className="panel-card p-6">
+      <I18n.div className="mb-4">
+        <I18n.div className="accent-chip mb-3">{t('dataControls')}</I18n.div>
+        <I18n.h2 className="text-xl font-black uppercase tracking-tight">
+          {t('privacyControlsTitle')}
+        </I18n.h2>
+        <I18n.p className="mt-3 text-sm leading-7 text-text-dim">{t('privacyControlsText')}</I18n.p>
+      </I18n.div>
+      <I18n.div className="flex flex-col gap-3 sm:flex-row">
+        <I18n.button
           onClick={exportData}
           disabled={busy}
           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border-accent bg-bg/50 px-5 py-3 text-xs font-black uppercase tracking-widest transition-all hover:border-accent hover:text-accent disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
           {t('exportData')}
-        </button>
-        <button
+        </I18n.button>
+        <I18n.button
           onClick={deleteAccountData}
           disabled={busy}
           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-loss/40 bg-loss/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-loss transition-all hover:bg-loss/15 disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" />
           {t('deleteData')}
-        </button>
-      </div>
-      {status && <p className="mt-4 text-xs font-bold text-text-dim">{status}</p>}
-    </section>
+        </I18n.button>
+      </I18n.div>
+      {status && <I18n.p className="mt-4 text-xs font-bold text-text-dim">{status}</I18n.p>}
+    </I18n.section>
   );
 }

@@ -17,6 +17,8 @@ project/database before building and keep Admin project/database aligned with it
 1. Enable selected Firebase Auth providers and authorized frontend domains.
 2. Configure service account credentials through a secret manager or mounted
    `GOOGLE_APPLICATION_CREDENTIALS` file; set project/database consistently.
+   Set `FIREBASE_DATABASE_EDITION` to the actual database edition (`STANDARD` or
+   `ENTERPRISE`). Zentra's configured named database is Enterprise Native mode.
 3. Run `npm run firebase:prepare-deploy`. Inspect the resulting ignored
    `.codex-runtime/firebase.deploy.json` and target project/database.
 4. When authorized to deploy, use Firebase CLI 15.32.1 with that configuration:
@@ -28,7 +30,11 @@ npx firebase-tools@15.32.1 deploy --config .codex-runtime/firebase.deploy.json -
 This deploys rules/indexes and can replace existing rules. Review the target and
 backup policy first. The checked-in `firebase.json` is for default-db local tooling;
 the generated configuration targets the actual named production database.
-No production rule deployment was performed during this implementation.
+The generator selects `firestore.indexes.json` for Standard databases and
+`firestore.enterprise.indexes.json` for Enterprise databases. Enterprise indexes
+cover alert/delivery scans, the notification feed and portfolio snapshot ordering;
+Standard single-field `fieldOverrides` are not supported on this Enterprise base.
+See the [Firebase index schema](https://firebase.google.com/docs/reference/firestore/indexes).
 
 ## Providers and scale
 

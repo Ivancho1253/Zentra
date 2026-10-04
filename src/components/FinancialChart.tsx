@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n } from './Localized';
 import { useQuery } from '@tanstack/react-query';
 import {
   CandlestickSeries,
@@ -21,6 +23,7 @@ export default function FinancialChart({
   type: AssetType;
   fixture?: MarketHistory;
 }) {
+  const { locale } = useLanguage();
   const [range, setRange] = useState<HistoryRange>('1M');
   const [mode, setMode] = useState<'candle' | 'line'>('candle');
   const [sma, setSma] = useState(false);
@@ -55,7 +58,7 @@ export default function FinancialChart({
   useEffect(() => {
     if (!host.current || !history?.candles.length) return;
     const formatPrice = (value: number) =>
-      new Intl.NumberFormat('en-US', {
+      new Intl.NumberFormat(locale, {
         style: 'currency',
         currency: history.currency,
         maximumFractionDigits: Math.abs(value) < 1 ? 8 : 2,
@@ -78,7 +81,7 @@ export default function FinancialChart({
         horzLines: { color: light ? '#eef1f3' : '#1c2429' },
       },
       timeScale: { timeVisible: range === '1D' || range === '5D', secondsVisible: false },
-      localization: { locale: 'en-US' },
+      localization: { locale },
     });
     const ordered = [...new Map(history.candles.map((c) => [c.timestamp, c])).values()].sort(
       (a, b) => a.timestamp - b.timestamp,
@@ -113,7 +116,7 @@ export default function FinancialChart({
         type: 'custom',
         minMove: 1,
         formatter: (value: number) =>
-          new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(
+          new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(
             value,
           ),
       },
@@ -140,18 +143,21 @@ export default function FinancialChart({
       }
       const value = 'close' in price ? price.close : 'value' in price ? price.value : null;
       setHover(
-        `${typeof param.time === 'number' ? new Date(param.time * 1000).toISOString().replace('T', ' ').slice(0, 16) : ''} UTC · ${value == null ? '' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 8 }).format(value)} ${history.currency}`,
+        `${typeof param.time === 'number' ? new Date(param.time * 1000).toISOString().replace('T', ' ').slice(0, 16) : ''} UTC · ${value == null ? '' : new Intl.NumberFormat(locale, { maximumFractionDigits: 8 }).format(value)} ${history.currency}`,
       );
     });
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [history, mode, sma, range, light]);
+  }, [history, mode, sma, range, light, locale]);
   return (
-    <section className="terminal-panel overflow-hidden" aria-label={`${symbol} financial chart`}>
-      <div className="flex flex-wrap justify-between gap-3 border-b border-border-accent px-4 py-3">
-        <div className="flex flex-wrap gap-1">
+    <I18n.section
+      className="terminal-panel overflow-hidden"
+      aria-label={`${symbol} financial chart`}
+    >
+      <I18n.div className="flex flex-wrap justify-between gap-3 border-b border-border-accent px-4 py-3">
+        <I18n.div className="flex flex-wrap gap-1">
           {ranges.map((r) => (
-            <button
+            <I18n.button
               key={r}
               onClick={() => setRange(r)}
               disabled={!!fixture && r !== '1M'}
@@ -159,65 +165,65 @@ export default function FinancialChart({
               className={`chart-control ${range === r ? 'active' : ''}`}
             >
               {r}
-            </button>
+            </I18n.button>
           ))}
-        </div>
-        <div className="flex gap-1">
-          <button
+        </I18n.div>
+        <I18n.div className="flex gap-1">
+          <I18n.button
             className={`chart-control ${mode === 'candle' ? 'active' : ''}`}
             onClick={() => setMode('candle')}
           >
             Candles
-          </button>
-          <button
+          </I18n.button>
+          <I18n.button
             className={`chart-control ${mode === 'line' ? 'active' : ''}`}
             onClick={() => setMode('line')}
           >
             Line
-          </button>
-          <button
+          </I18n.button>
+          <I18n.button
             className={`chart-control ${sma ? 'active' : ''}`}
             onClick={() => setSma(!sma)}
             aria-pressed={sma}
           >
             SMA 20
-          </button>
-        </div>
-      </div>
-      <div className="h-7 px-4 pt-2 font-mono text-[11px] text-text-dim" aria-live="polite">
+          </I18n.button>
+        </I18n.div>
+      </I18n.div>
+      <I18n.div className="h-7 px-4 pt-2 font-mono text-[11px] text-text-dim" aria-live="polite">
         {hover || `${symbol} · ${history?.currency || '—'} · UTC`}
-      </div>
+      </I18n.div>
       {history?.candles.length ? (
-        <div ref={host} className="h-[360px] w-full" />
+        <I18n.div ref={host} className="h-[360px] w-full" />
       ) : (
-        <div
+        <I18n.div
           className="flex h-[360px] items-center justify-center p-8 text-sm text-text-dim"
           role="status"
         >
           {query.isPending
             ? 'Loading provider candles…'
             : 'Historical data is unavailable for this asset. No synthetic chart is shown.'}
-        </div>
+        </I18n.div>
       )}
-      <footer className="flex flex-wrap justify-between gap-2 border-t border-border-accent px-4 py-3 text-[10px] text-text-dim">
+      <I18n.footer className="flex flex-wrap justify-between gap-2 border-t border-border-accent px-4 py-3 text-[10px] text-text-dim">
         {!fixture && !query.isPending && (!history?.candles.length || query.isError) && (
-          <button
+          <I18n.button
             className="text-accent underline"
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
             {query.isFetching ? 'Retrying history...' : 'Retry chart data'}
-          </button>
+          </I18n.button>
         )}
-        <span>
+        <I18n.span>
           {fixture ? 'DEMO DATA' : history?.stale ? 'Stale' : history?.status || 'Unavailable'} ·{' '}
           {history?.provider || 'Awaiting provider'} ·{' '}
-          {history?.updatedAt ? new Date(history.updatedAt).toLocaleString() : 'No timestamp'}
-        </span>
-        <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">
+          {history?.updatedAt ? new Date(history.updatedAt).toLocaleString(locale) : 'No timestamp'}
+        </I18n.span>
+        <I18n.a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">
           TradingView Lightweight Charts™
-        </a>
-      </footer>
-    </section>
+        </I18n.a>
+      </I18n.footer>
+    </I18n.section>
   );
 }

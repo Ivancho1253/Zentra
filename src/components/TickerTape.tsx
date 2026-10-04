@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n, UiText } from './Localized';
 import { useQuery } from '@tanstack/react-query';
 import { Flame, Pause, Play } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -16,6 +18,7 @@ export default function TickerTape({
   onSelect?: (quote: AssetQuote) => void;
   sticky?: boolean;
 }) {
+  const { locale } = useLanguage();
   const query = useQuery({
     queryKey: ['market', 'hot'],
     queryFn: ({ signal }) => readJson<{ data: AssetQuote[] }>('/api/market/hot', signal),
@@ -46,24 +49,26 @@ export default function TickerTape({
     return () => observer.disconnect();
   }, [assetKey, repeats]);
   return (
-    <section
+    <I18n.section
       className={`ticker-tape ${sticky ? 'sticky top-0 z-30' : ''}`}
       aria-label="Top gainers"
       title="Largest positive daily changes among available catalog quotes; not an exchange-wide ranking"
     >
-      <div className="ticker-label">
+      <I18n.div className="ticker-label">
         <Flame className="h-4 w-4 shrink-0 text-accent" />
-        <span className="text-[10px] font-bold uppercase tracking-wider">Top gainers</span>
-      </div>
-      <div className="ticker-viewport" ref={viewport}>
+        <I18n.span className="text-[10px] font-bold uppercase tracking-wider">
+          Top gainers
+        </I18n.span>
+      </I18n.div>
+      <I18n.div className="ticker-viewport" ref={viewport}>
         {assets.length ? (
-          <div
+          <I18n.div
             className="ticker-track"
             data-paused={paused}
             style={{ '--ticker-duration': `${duration}s` } as CSSProperties}
           >
             {[0, 1].map((copy) => (
-              <div
+              <I18n.div
                 className="ticker-group"
                 key={copy}
                 ref={copy === 0 ? group : undefined}
@@ -81,21 +86,21 @@ export default function TickerTape({
                           className="h-7 w-7 shrink-0 rounded-md"
                           imgClassName="h-5 w-5"
                         />
-                        <div>
-                          <div className="flex items-center gap-3 text-[11px]">
-                            <strong>{a.symbol}</strong>
-                            <span className="font-mono">
-                              {new Intl.NumberFormat('en-US', {
+                        <I18n.div>
+                          <I18n.div className="flex items-center gap-3 text-[11px]">
+                            <I18n.strong>{a.symbol}</I18n.strong>
+                            <I18n.span className="font-mono">
+                              {new Intl.NumberFormat(locale, {
                                 style: 'currency',
                                 currency: /^[A-Z]{3}$/.test(a.currency) ? a.currency : 'XXX',
                                 maximumFractionDigits: Number(a.price) < 1 ? 6 : 2,
                               }).format(Number(a.price))}
-                            </span>
-                            <span className="font-mono text-accent">
+                            </I18n.span>
+                            <I18n.span className="font-mono text-accent">
                               +{Number(a.change).toFixed(2)}%
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-[9px] text-text-dim">
+                            </I18n.span>
+                          </I18n.div>
+                          <I18n.p className="mt-0.5 text-[9px] text-text-dim">
                             {a.status === 'demo'
                               ? 'DEMO DATA · '
                               : query.isError
@@ -107,13 +112,13 @@ export default function TickerTape({
                               : a.status === 'realtime'
                                 ? 'Real time'
                                 : 'Timing unverified'}
-                          </p>
-                        </div>
+                          </I18n.p>
+                        </I18n.div>
                       </>
                     );
-                    const title = `${a.name} · ${a.currency} · ${a.updatedAt ? new Date(a.updatedAt).toLocaleString() : 'No provider timestamp'}`;
+                    const title = `${a.name} · ${a.currency} · ${a.updatedAt ? new Date(a.updatedAt).toLocaleString(locale) : 'No provider timestamp'}`;
                     return onSelect ? (
-                      <button
+                      <I18n.button
                         className="ticker-item"
                         key={`${a.type}:${a.symbol}:${index}`}
                         title={title}
@@ -122,7 +127,7 @@ export default function TickerTape({
                         aria-hidden={index >= assets.length ? true : undefined}
                       >
                         {content}
-                      </button>
+                      </I18n.button>
                     ) : (
                       <Link
                         className="ticker-item"
@@ -132,15 +137,18 @@ export default function TickerTape({
                         tabIndex={copy === 1 || index >= assets.length ? -1 : undefined}
                         aria-hidden={index >= assets.length ? true : undefined}
                       >
-                        {content}
+                        <UiText>{content}</UiText>
                       </Link>
                     );
                   })}
-              </div>
+              </I18n.div>
             ))}
-          </div>
+          </I18n.div>
         ) : (
-          <div className="flex h-full items-center gap-3 px-4 text-xs text-text-dim" role="status">
+          <I18n.div
+            className="flex h-full items-center gap-3 px-4 text-xs text-text-dim"
+            role="status"
+          >
             {fixture
               ? 'No positive moves in this sample.'
               : query.isPending
@@ -149,23 +157,23 @@ export default function TickerTape({
                   ? 'Could not load gainers.'
                   : 'No positive moves in available quotes.'}
             {!fixture && !query.isPending && (
-              <button onClick={() => void query.refetch()} className="text-accent underline">
+              <I18n.button onClick={() => void query.refetch()} className="text-accent underline">
                 Retry
-              </button>
+              </I18n.button>
             )}
-          </div>
+          </I18n.div>
         )}
-      </div>
+      </I18n.div>
       {!!assets.length && (
-        <button
+        <I18n.button
           className="ticker-pause"
           onClick={() => setPaused(!paused)}
           aria-label={paused ? 'Resume top gainers' : 'Pause top gainers'}
           aria-pressed={paused}
         >
           {paused ? <Play size={14} /> : <Pause size={14} />}
-        </button>
+        </I18n.button>
       )}
-    </section>
+    </I18n.section>
   );
 }

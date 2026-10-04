@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { addDoc, collection } from 'firebase/firestore';
 import { useState } from 'react';
 import type { AlertCondition } from '../../shared/alerts';
@@ -41,9 +42,9 @@ export default function SmartAlertForm() {
     [status, setStatus] = useState(''),
     [busy, setBusy] = useState(false);
   return (
-    <section className="terminal-panel p-5">
-      <h2 className="mb-4 font-semibold">Create a smart alert</h2>
-      <form
+    <I18n.section className="terminal-panel p-5">
+      <I18n.h2 className="mb-4 font-semibold">Create a smart alert</I18n.h2>
+      <I18n.form
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
         onSubmit={async (e) => {
           e.preventDefault();
@@ -75,40 +76,40 @@ export default function SmartAlertForm() {
           }
         }}
       >
-        <label className="field-label">
+        <I18n.label className="field-label">
           Asset
-          <input
+          <I18n.input
             className="terminal-input"
             name="symbol"
             placeholder="AAPL or BTC"
             pattern="[A-Za-z0-9.-]{1,20}"
             required
           />
-        </label>
-        <label className="field-label">
+        </I18n.label>
+        <I18n.label className="field-label">
           Type
-          <select className="terminal-input" name="type">
-            <option value="stock">Stock</option>
-            <option value="crypto">Crypto</option>
-          </select>
-        </label>
-        <label className="field-label">
+          <I18n.select className="terminal-input" name="type">
+            <I18n.option value="stock">Stock</I18n.option>
+            <I18n.option value="crypto">Crypto</I18n.option>
+          </I18n.select>
+        </I18n.label>
+        <I18n.label className="field-label">
           Condition
-          <select
+          <I18n.select
             className="terminal-input"
             value={condition}
             onChange={(e) => setCondition(e.target.value as AlertCondition)}
           >
             {conditions.map((c) => (
-              <option key={c.value} value={c.value}>
+              <I18n.option key={c.value} value={c.value}>
                 {c.label}
-              </option>
+              </I18n.option>
             ))}
-          </select>
-        </label>
-        <label className="field-label">
+          </I18n.select>
+        </I18n.label>
+        <I18n.label className="field-label">
           {conditions.find((c) => c.value === condition)?.unit}
-          <input
+          <I18n.input
             className="terminal-input"
             name="target"
             type="number"
@@ -117,16 +118,16 @@ export default function SmartAlertForm() {
             defaultValue="1"
             required
           />
-        </label>
-        <button className="primary-button self-end" disabled={busy}>
+        </I18n.label>
+        <I18n.button className="primary-button self-end" disabled={busy}>
           {busy ? 'Saving…' : 'Save alert'}
-        </button>
-      </form>
+        </I18n.button>
+      </I18n.form>
       {status && (
-        <p role="status" className="mt-4 text-sm text-text-dim">
+        <I18n.p role="status" className="mt-4 text-sm text-text-dim">
           {status}
-        </p>
+        </I18n.p>
       )}
-    </section>
+    </I18n.section>
   );
 }

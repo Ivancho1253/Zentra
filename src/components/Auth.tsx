@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import {
   createUserWithEmailAndPassword,
   getRedirectResult,
@@ -130,28 +131,28 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+    <I18n.div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 font-sans relative overflow-hidden">
       {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/5 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-lime-500/5 blur-[120px] rounded-full" />
+      <I18n.div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/5 blur-[120px] rounded-full" />
+      <I18n.div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-lime-500/5 blur-[120px] rounded-full" />
 
       {/* Language Selector Top Right */}
-      <div className="absolute top-6 right-6 z-50">
+      <I18n.div className="absolute top-6 right-6 z-50">
         <LanguageSelector />
-      </div>
+      </I18n.div>
 
-      <div className="w-full max-w-md relative z-10 pt-12">
+      <I18n.div className="w-full max-w-md relative z-10 pt-12">
         {/* Prominent back pill */}
-        <button
+        <I18n.button
           onClick={() => navigate('/landing')}
           className="absolute top-6 left-6 flex items-center gap-3 text-sm uppercase font-bold tracking-widest text-text-dim hover:text-accent transition-colors bg-white/3 hover:bg-white/5 px-3 py-2 rounded-full shadow-md backdrop-blur-sm"
         >
           <ArrowLeft className="w-5 h-5" />
           {t('backToLanding')}
-        </button>
+        </I18n.button>
 
-        <div className="text-center mb-6">
-          <div className="flex justify-center mb-2">
+        <I18n.div className="text-center mb-6">
+          <I18n.div className="flex justify-center mb-2">
             <motion.img
               src={brand.icon}
               alt={brand.name + ' Logo'}
@@ -160,12 +161,12 @@ export default function Auth() {
               whileHover={{ scale: 1.05 }}
               transition={{ type: 'spring', stiffness: 200 }}
             />
-          </div>
-          <h1 className="text-3xl font-black tracking-tighter uppercase">{brand.name}</h1>
-          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">
+          </I18n.div>
+          <I18n.h1 className="text-3xl font-black tracking-tighter uppercase">{brand.name}</I18n.h1>
+          <I18n.p className="text-[10px] text-text-dim uppercase tracking-widest mt-2 font-bold">
             {t('brandTagline')}
-          </p>
-        </div>
+          </I18n.p>
+        </I18n.div>
 
         <motion.div
           initial={{ opacity: 0, y: 18 }}
@@ -173,28 +174,28 @@ export default function Auth() {
           transition={{ duration: 0.5 }}
           className="bento-card !bg-white/5 border-white/10 backdrop-blur-xl"
         >
-          <h2 className="text-xs font-black uppercase mb-8 border-b border-white/5 pb-4 tracking-widest">
+          <I18n.h2 className="text-xs font-black uppercase mb-8 border-b border-white/5 pb-4 tracking-widest">
             {isLogin ? t('systemAccess') : t('createAccount')}
-          </h2>
+          </I18n.h2>
 
           {destination !== '/' && (
-            <p className="mb-6 text-sm leading-6 text-text-dim" role="status">
+            <I18n.p className="mb-6 text-sm leading-6 text-text-dim" role="status">
               {t('signInForSection')}
-            </p>
+            </I18n.p>
           )}
 
           {error && (
-            <div className="bg-loss/10 border border-loss/50 p-4 mb-8 text-[10px] text-loss uppercase font-black rounded-xl animate-shake">
+            <I18n.div className="bg-loss/10 border border-loss/50 p-4 mb-8 text-[10px] text-loss uppercase font-black rounded-xl animate-shake">
               {t('errorLabel')}: {error}
-            </div>
+            </I18n.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">
+          <I18n.form onSubmit={handleSubmit} className="space-y-6">
+            <I18n.div>
+              <I18n.label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">
                 {t('emailLabel')}
-              </label>
-              <input
+              </I18n.label>
+              <I18n.input
                 type="email"
                 aria-label="Email address"
                 autoComplete="email"
@@ -204,12 +205,12 @@ export default function Auth() {
                 placeholder="name@company.com"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">
+            </I18n.div>
+            <I18n.div>
+              <I18n.label className="block text-[10px] uppercase text-text-dim mb-2 font-bold tracking-widest">
                 {t('passwordLabel')}
-              </label>
-              <input
+              </I18n.label>
+              <I18n.input
                 type="password"
                 aria-label="Password"
                 value={password}
@@ -220,18 +221,18 @@ export default function Auth() {
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
               />
-            </div>
+            </I18n.div>
 
-            <button
+            <I18n.button
               type="submit"
               disabled={authLoading}
               className="w-full bg-gradient-to-r from-accent to-lime-500 text-bg py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-[1.01] active:scale-95 transition-all shadow-[0_14px_30px_-10px_rgba(124,255,26,0.28)]"
             >
               {authLoading ? t('sending') : isLogin ? t('signIn') : t('register')}
-            </button>
-          </form>
+            </I18n.button>
+          </I18n.form>
           {isLogin && (
-            <button
+            <I18n.button
               type="button"
               className="mt-4 text-xs text-accent"
               disabled={authLoading}
@@ -252,50 +253,54 @@ export default function Auth() {
               }}
             >
               Forgot password?
-            </button>
+            </I18n.button>
           )}
 
-          <div className="relative my-10">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/5"></div>
-            </div>
-            <div className="relative flex justify-center text-[9px] uppercase font-bold tracking-widest">
-              <span className="bg-[#0A0A0A] px-4 text-text-dim">{t('orContinueWith')}</span>
-            </div>
-          </div>
+          <I18n.div className="relative my-10">
+            <I18n.div className="absolute inset-0 flex items-center">
+              <I18n.div className="w-full border-t border-white/5"></I18n.div>
+            </I18n.div>
+            <I18n.div className="relative flex justify-center text-[9px] uppercase font-bold tracking-widest">
+              <I18n.span className="bg-[#0A0A0A] px-4 text-text-dim">
+                {t('orContinueWith')}
+              </I18n.span>
+            </I18n.div>
+          </I18n.div>
 
-          <button
+          <I18n.button
             onClick={handleGoogleSignIn}
             disabled={authLoading}
             className="w-full flex items-center justify-center gap-3 bg-[#0b0b0b] border border-white/6 py-4 rounded-xl text-sm uppercase font-black tracking-widest hover:scale-105 transition-transform shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)]"
           >
-            <img
+            <I18n.img
               src="https://www.google.com/favicon.ico"
               className="w-5 h-5"
               alt="Google"
               referrerPolicy="no-referrer"
             />
-            <span className="ml-2">{authLoading ? t('sending') : t('googleAccount')}</span>
-          </button>
+            <I18n.span className="ml-2">
+              {authLoading ? t('sending') : t('googleAccount')}
+            </I18n.span>
+          </I18n.button>
 
-          <p className="mt-10 text-center text-[10px] text-text-dim uppercase font-bold tracking-widest">
+          <I18n.p className="mt-10 text-center text-[10px] text-text-dim uppercase font-bold tracking-widest">
             {isLogin ? t('noAccount') : t('haveAccount')}
-            <button
+            <I18n.button
               onClick={() => setIsLogin(!isLogin)}
               className="ml-2 text-accent font-black hover:underline"
             >
               {isLogin ? t('registerNow') : t('signInNow')}
-            </button>
-          </p>
+            </I18n.button>
+          </I18n.p>
         </motion.div>
 
-        <div className="mt-12 flex items-center justify-center gap-2 opacity-20">
+        <I18n.div className="mt-12 flex items-center justify-center gap-2 opacity-20">
           <ShieldCheck className="w-4 h-4" />
-          <span className="text-[8px] uppercase tracking-widest font-bold">
+          <I18n.span className="text-[8px] uppercase tracking-widest font-bold">
             {t('authSecurityActive')}
-          </span>
-        </div>
-      </div>
-    </div>
+          </I18n.span>
+        </I18n.div>
+      </I18n.div>
+    </I18n.div>
   );
 }

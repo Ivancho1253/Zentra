@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { brand } from '../../shared/brand';
 import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -103,24 +104,24 @@ export default function CommandPalette() {
   };
   return (
     <>
-      <button
+      <I18n.button
         ref={button}
         className="command-trigger"
         onClick={() => setOpen(true)}
         aria-label="Open global search"
       >
         <Search size={16} />
-        <span className="hidden sm:inline">Search assets, news, pages…</span>
-        <kbd className="hidden lg:inline">Ctrl K</kbd>
-      </button>
+        <I18n.span className="hidden sm:inline">Search assets, news, pages…</I18n.span>
+        <I18n.kbd className="hidden lg:inline">Ctrl K</I18n.kbd>
+      </I18n.button>
       {open && (
-        <div
+        <I18n.div
           className="modal-backdrop"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
-          <div
+          <I18n.div
             ref={dialog}
             className="command-dialog"
             role="dialog"
@@ -155,9 +156,9 @@ export default function CommandPalette() {
               }
             }}
           >
-            <div className="flex items-center gap-3 border-b border-border-accent p-4">
+            <I18n.div className="flex items-center gap-3 border-b border-border-accent p-4">
               <Search size={18} className="text-accent" />
-              <input
+              <I18n.input
                 ref={input}
                 className="min-w-0 flex-1 bg-transparent outline-none"
                 aria-label={'Search ' + brand.name}
@@ -168,37 +169,37 @@ export default function CommandPalette() {
                   setActive(0);
                 }}
               />
-              <button
+              <I18n.button
                 className="icon-button"
                 aria-label="Close search"
                 onClick={() => setOpen(false)}
               >
                 <X size={18} />
-              </button>
-            </div>
+              </I18n.button>
+            </I18n.div>
             {error && (
-              <p role="alert" className="status-message">
+              <I18n.p role="alert" className="status-message">
                 {error}
-              </p>
+              </I18n.p>
             )}
-            <div className="max-h-[55vh] overflow-y-auto p-2">
+            <I18n.div className="max-h-[55vh] overflow-y-auto p-2">
               {results.map((r, i) => (
-                <button
+                <I18n.button
                   key={`${r.path}:${r.name}`}
                   className={`search-result w-full ${i === active ? 'active' : ''}`}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => go(r.path)}
                 >
                   {r.name}
-                  <span className="text-text-dim">↵</span>
-                </button>
+                  <I18n.span className="text-text-dim">↵</I18n.span>
+                </I18n.button>
               ))}
-            </div>
-            <p className="border-t border-border-accent px-4 py-3 text-xs text-text-dim">
+            </I18n.div>
+            <I18n.p className="border-t border-border-accent px-4 py-3 text-xs text-text-dim">
               ↑↓ navigate · Enter open · Esc close
-            </p>
-          </div>
-        </div>
+            </I18n.p>
+          </I18n.div>
+        </I18n.div>
       )}
     </>
   );

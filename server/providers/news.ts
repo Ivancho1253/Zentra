@@ -19,15 +19,19 @@ const getXmlTag = (item: string, tag: string) => {
   return decodeXmlText(match?.[1] || '');
 };
 
-export const fetchGoogleNewsRss = async (query: string) => {
+export const fetchGoogleNewsRss = async (query: string, language: 'en' | 'es' | 'pt' = 'en') => {
+  const edition =
+    language === 'es'
+      ? { hl: 'es-419', gl: 'UY', ceid: 'UY:es-419' }
+      : language === 'pt'
+        ? { hl: 'pt-BR', gl: 'BR', ceid: 'BR:pt-419' }
+        : { hl: 'en-US', gl: 'US', ceid: 'US:en' };
   const response = {
     data: await providerGet(
       'Google News RSS',
       endpoint('https://news.google.com/rss/search', {
         q: query,
-        hl: 'en-US',
-        gl: 'US',
-        ceid: 'US:en',
+        ...edition,
       }),
       {},
       1,
@@ -37,7 +41,7 @@ export const fetchGoogleNewsRss = async (query: string) => {
 
   const items = String(response.data || '').match(/<item>[\s\S]*?<\/item>/gi) || [];
   return items
-    .slice(0, 18)
+    .slice(0, 60)
     .map((item) => {
       const title = getXmlTag(item, 'title');
       const link = getXmlTag(item, 'link');
@@ -82,7 +86,11 @@ export function normalizeNews(raw: unknown, provider: string): NewsItem[] {
     [...url.searchParams.keys()]
       .filter((k) => k.startsWith('utm_'))
       .forEach((k) => url.searchParams.delete(k));
-    const key = a.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = a.title
+      .toLowerCase()
+      .normalize('NFKC')
+      .replace(/[^\p{L}\p{N}]/gu, '');
+    if (!key || a.title === '[Removed]') return [];
     if (seen.has(key)) return [];
     seen.add(key);
     const source =
@@ -110,22 +118,22 @@ export function normalizeNews(raw: unknown, provider: string): NewsItem[] {
 
 export class GoogleRssProvider implements NewsProvider {
   readonly name = 'Google News RSS';
-  async articles(query: string) {
-    return normalizeNews(await fetchGoogleNewsRss(query), this.name);
+  async articles(query: string, language: 'en' | 'es' | 'pt' = 'en') {
+    return normalizeNews(await fetchGoogleNewsRss(query, language), this.name);
   }
 }
 export class NewsApiProvider implements NewsProvider {
   readonly name = 'NewsAPI';
   constructor(private apiKey: string) {}
-  async articles(query: string) {
+  async articles(query: string, language: 'en' | 'es' | 'pt' = 'en') {
     const data = z.object({ status: z.literal('ok'), articles: z.array(z.unknown()) }).parse(
       await providerGet(
         this.name,
         endpoint('https://newsapi.org/v2/everything', {
           q: query,
           sortBy: 'publishedAt',
-          language: 'en',
-          pageSize: '30',
+          language,
+          pageSize: '60',
         }),
         { 'X-Api-Key': this.apiKey },
       ),

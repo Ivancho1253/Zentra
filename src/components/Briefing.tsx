@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { brand } from '../../shared/brand';
 import { ArrowLeft, Brain, RefreshCw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
@@ -46,31 +47,31 @@ export default function Briefing() {
   };
 
   return (
-    <div className="app-page">
-      <section className="app-hero">
-        <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div className="flex items-start gap-4">
-            <button
+    <I18n.div className="app-page">
+      <I18n.section className="app-hero">
+        <I18n.div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <I18n.div className="flex items-start gap-4">
+            <I18n.button
               aria-label="Back"
               onClick={() => navigate(-1)}
               className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent"
             >
               <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div>
-              <div className="accent-chip mb-4">
+            </I18n.button>
+            <I18n.div>
+              <I18n.div className="accent-chip mb-4">
                 <Brain className="h-3.5 w-3.5" /> AI Briefing
-              </div>
-              <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">
+              </I18n.div>
+              <I18n.h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">
                 Daily portfolio briefing
-              </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-text-dim">
+              </I18n.h1>
+              <I18n.p className="mt-3 max-w-3xl text-sm leading-6 text-text-dim">
                 Generates a concise readout from your holdings, live/estimated prices, risk signals,
                 alerts and recent market news.
-              </p>
-            </div>
-          </div>
-          <button
+              </I18n.p>
+            </I18n.div>
+          </I18n.div>
+          <I18n.button
             onClick={generateBriefing}
             disabled={loading}
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
@@ -81,36 +82,36 @@ export default function Briefing() {
               <Sparkles className="h-4 w-4" />
             )}
             {loading ? 'Generating' : 'Generate briefing'}
-          </button>
-        </div>
-        <div className="absolute bottom-0 left-0 h-px w-full scanline" />
-      </section>
+          </I18n.button>
+        </I18n.div>
+        <I18n.div className="absolute bottom-0 left-0 h-px w-full scanline" />
+      </I18n.section>
 
       {status && (
-        <div className="rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-bold text-text-dim">
+        <I18n.div className="rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-bold text-text-dim">
           {status}
-        </div>
+        </I18n.div>
       )}
 
-      <section className="panel-card p-6">
+      <I18n.section className="panel-card p-6">
         {briefing ? (
-          <div className="whitespace-pre-wrap text-sm leading-8 text-text-main">
+          <I18n.div className="whitespace-pre-wrap text-sm leading-8 text-text-main">
             {briefing}
             <InsightSources sources={sources} aiGenerated={aiGenerated} />
-          </div>
+          </I18n.div>
         ) : (
-          <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
+          <I18n.div className="flex min-h-[320px] flex-col items-center justify-center text-center">
             <Brain className="h-12 w-12 text-accent opacity-70" />
-            <h2 className="mt-5 text-lg font-black uppercase tracking-widest">
+            <I18n.h2 className="mt-5 text-lg font-black uppercase tracking-widest">
               No briefing generated yet
-            </h2>
-            <p className="mt-3 max-w-xl text-sm leading-7 text-text-dim">
+            </I18n.h2>
+            <I18n.p className="mt-3 max-w-xl text-sm leading-7 text-text-dim">
               Generate a briefing after adding positions. {brand.name} will use current portfolio,
               risk, alert and news context.
-            </p>
-          </div>
+            </I18n.p>
+          </I18n.div>
         )}
-      </section>
-    </div>
+      </I18n.section>
+    </I18n.div>
   );
 }

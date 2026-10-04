@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n } from './Localized';
 import { useQuery } from '@tanstack/react-query';
 import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { ExternalLink, Plus, Trash2, Volume2, VolumeX } from 'lucide-react';
@@ -8,6 +10,7 @@ import { auth, db } from '../lib/firebase';
 import { useUserCollection } from '../lib/userData';
 const groups = ['all', 'companies', 'crypto', 'news', 'macro', 'custom'] as const;
 export default function SocialIntelligence() {
+  const { locale } = useLanguage();
   const subscriptions = useUserCollection<SocialSubscription>('socialSubscriptions');
   const [username, setUsername] = useState(''),
     [group, setGroup] = useState<SocialSubscription['group']>('news'),
@@ -53,20 +56,20 @@ export default function SocialIntelligence() {
     }
   };
   return (
-    <div className="space-y-6">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Follow the source</p>
-          <h1>Social intelligence</h1>
-          <p className="text-sm text-text-dim">
+    <I18n.div className="space-y-6">
+      <I18n.div className="section-heading">
+        <I18n.div>
+          <I18n.p className="eyebrow">Follow the source</I18n.p>
+          <I18n.h1>Social intelligence</I18n.h1>
+          <I18n.p className="text-sm text-text-dim">
             Official X posts from the accounts you choose to follow.
-          </p>
-        </div>
-        <span className="quiet-chip">
+          </I18n.p>
+        </I18n.div>
+        <I18n.span className="quiet-chip">
           {feed.data?.configured ? 'X API connected' : 'Provider not connected'}
-        </span>
-      </div>
-      <form
+        </I18n.span>
+      </I18n.div>
+      <I18n.form
         className="terminal-panel flex flex-wrap gap-3 p-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -85,7 +88,7 @@ export default function SocialIntelligence() {
           });
         }}
       >
-        <input
+        <I18n.input
           className="terminal-input"
           aria-label="X account username"
           placeholder="@company or @journalist"
@@ -94,31 +97,31 @@ export default function SocialIntelligence() {
           pattern="@?[A-Za-z0-9_]{1,15}"
           required
         />
-        <select
+        <I18n.select
           className="terminal-input"
           aria-label="Account group"
           value={group}
           onChange={(e) => setGroup(e.target.value as SocialSubscription['group'])}
         >
           {groups.slice(1).map((g) => (
-            <option key={g} value={g}>
+            <I18n.option key={g} value={g}>
               {g}
-            </option>
+            </I18n.option>
           ))}
-        </select>
-        <button className="primary-button" disabled={busy}>
+        </I18n.select>
+        <I18n.button className="primary-button" disabled={busy}>
           <Plus size={16} /> Monitor account
-        </button>
-      </form>
+        </I18n.button>
+      </I18n.form>
       {(status || subscriptions.error) && (
-        <p className="status-message" role="status">
+        <I18n.p className="status-message" role="status">
           {status || subscriptions.error}
-        </p>
+        </I18n.p>
       )}
-      <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
-        <aside className="terminal-panel p-4">
-          <h2 className="mb-4 font-semibold">Monitored accounts</h2>
-          <input
+      <I18n.div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+        <I18n.aside className="terminal-panel p-4">
+          <I18n.h2 className="mb-4 font-semibold">Monitored accounts</I18n.h2>
+          <I18n.input
             className="terminal-input mb-3 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -128,79 +131,81 @@ export default function SocialIntelligence() {
           {subscriptions.data
             .filter((s) => s.username.toLowerCase().includes(search.toLowerCase()))
             .map((s) => (
-              <div
+              <I18n.div
                 className="flex items-center gap-2 border-b border-border-accent py-3"
                 key={s.id}
               >
-                <div className="min-w-0 flex-1">
-                  <a
+                <I18n.div className="min-w-0 flex-1">
+                  <I18n.a
                     className="text-sm font-semibold"
                     href={`https://x.com/${s.username}`}
                     target="_blank"
                     rel="noreferrer"
                   >
                     @{s.username}
-                  </a>
-                  <p className="text-xs text-text-dim">
+                  </I18n.a>
+                  <I18n.p className="text-xs text-text-dim">
                     {s.group}
                     {s.muted ? ' · muted' : ''}
-                  </p>
-                </div>
-                <button
+                  </I18n.p>
+                </I18n.div>
+                <I18n.button
                   className="icon-button"
                   aria-label={`${s.muted ? 'Unmute' : 'Mute'} ${s.username}`}
                   disabled={busy}
                   onClick={() => void execute(() => updateDoc(ref(s.id), { muted: !s.muted }))}
                 >
                   {s.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                </button>
-                <button
+                </I18n.button>
+                <I18n.button
                   className="icon-button"
                   aria-label={`Remove ${s.username}`}
                   disabled={busy}
                   onClick={() => void execute(() => deleteDoc(ref(s.id)))}
                 >
                   <Trash2 size={15} />
-                </button>
-              </div>
+                </I18n.button>
+              </I18n.div>
             ))}
           {!subscriptions.data.length && (
-            <p className="text-sm text-text-dim">Add your first account above.</p>
+            <I18n.p className="text-sm text-text-dim">Add your first account above.</I18n.p>
           )}
-        </aside>
-        <section className="space-y-3">
-          <div className="flex flex-wrap gap-1">
+        </I18n.aside>
+        <I18n.section className="space-y-3">
+          <I18n.div className="flex flex-wrap gap-1">
             {groups.map((g) => (
-              <button
+              <I18n.button
                 className={`chart-control ${filter === g ? 'active' : ''}`}
                 key={g}
                 onClick={() => setFilter(g)}
               >
                 {g}
-              </button>
+              </I18n.button>
             ))}
-          </div>
+          </I18n.div>
           {feed.data?.stale && (
-            <p className="status-message">
+            <I18n.p className="status-message">
               Showing cached posts. The provider is currently unavailable.
-            </p>
+            </I18n.p>
           )}
           {feed.data?.partial && (
-            <p className="status-message">Some accounts could not be refreshed.</p>
+            <I18n.p className="status-message">Some accounts could not be refreshed.</I18n.p>
           )}
           {feed.data?.posts.map((p) => (
-            <article key={p.id} className="terminal-panel p-5">
-              <div className="mb-3 flex justify-between gap-2">
-                <div>
-                  <h2 className="font-semibold">
+            <I18n.article key={p.id} className="terminal-panel p-5">
+              <I18n.div className="mb-3 flex justify-between gap-2">
+                <I18n.div>
+                  <I18n.h2 className="font-semibold">
                     {p.author}{' '}
-                    <span className="text-sm font-normal text-text-dim">@{p.username}</span>
-                  </h2>
-                  <time className="text-xs text-text-dim" dateTime={p.publishedAt}>
-                    {new Date(p.publishedAt).toLocaleString()} · X API
-                  </time>
-                </div>
-                <a
+                    <I18n.span className="text-sm font-normal text-text-dim">
+                      @{p.username}
+                    </I18n.span>
+                  </I18n.h2>
+                  <I18n.time className="text-xs text-text-dim" dateTime={p.publishedAt}>
+                    {new Date(p.publishedAt).toLocaleString(locale)} · X API
+                  </I18n.time>
+                </I18n.div>
+                <I18n.a
                   className="icon-button"
                   href={p.url}
                   target="_blank"
@@ -208,12 +213,12 @@ export default function SocialIntelligence() {
                   aria-label="Open original post"
                 >
                   <ExternalLink size={16} />
-                </a>
-              </div>
-              <p className="whitespace-pre-wrap text-sm leading-6">{p.text}</p>
+                </I18n.a>
+              </I18n.div>
+              <I18n.p className="whitespace-pre-wrap text-sm leading-6">{p.text}</I18n.p>
               {p.media?.map((m) => (
-                <a key={m.url} href={p.url} target="_blank" rel="noreferrer">
-                  <img
+                <I18n.a key={m.url} href={p.url} target="_blank" rel="noreferrer">
+                  <I18n.img
                     src={m.url}
                     alt={
                       m.type === 'photo'
@@ -223,12 +228,12 @@ export default function SocialIntelligence() {
                     loading="lazy"
                     className="mt-4 max-h-80 rounded-lg object-contain"
                   />
-                </a>
+                </I18n.a>
               ))}
-            </article>
+            </I18n.article>
           ))}
           {!feed.data?.posts.length && (
-            <div className="empty-state">
+            <I18n.div className="empty-state">
               {!accounts.length
                 ? 'Choose accounts to monitor. Muted accounts are excluded.'
                 : feed.isFetching
@@ -236,13 +241,13 @@ export default function SocialIntelligence() {
                   : feed.error
                     ? 'X could not be reached. Your subscriptions are saved.'
                     : feed.data?.message || 'No posts available for these accounts.'}
-              <p className="mt-3 text-xs">
+              <I18n.p className="mt-3 text-xs">
                 Posts appear only when the official provider returns them.
-              </p>
-            </div>
+              </I18n.p>
+            </I18n.div>
           )}
-        </section>
-      </div>
-    </div>
+        </I18n.section>
+      </I18n.div>
+    </I18n.div>
   );
 }

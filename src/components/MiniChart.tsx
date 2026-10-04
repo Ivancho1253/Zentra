@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { useQuery } from '@tanstack/react-query';
 import type { MarketHistory, WatchlistAsset } from '../../shared/domain';
 import { readJson } from '../lib/query';
@@ -15,7 +16,9 @@ export default function MiniChart({ asset }: { asset: WatchlistAsset }) {
   const closes = query.data?.candles.map((c) => c.close).filter(Number.isFinite) || [];
   if (closes.length < 2)
     return (
-      <span className="text-xs text-text-dim">{query.isPending ? 'Loading…' : 'Unavailable'}</span>
+      <I18n.span className="text-xs text-text-dim">
+        {query.isPending ? 'Loading…' : 'Unavailable'}
+      </I18n.span>
     );
   const min = Math.min(...closes),
     span = Math.max(...closes) - min || 1;
@@ -27,10 +30,10 @@ export default function MiniChart({ asset }: { asset: WatchlistAsset }) {
       role="img"
       aria-label={`${asset.symbol} one-month observed prices${query.data?.stale ? ', stale' : ''}`}
     >
-      <title>
+      <I18n.title>
         {query.data?.provider} · {query.data?.updatedAt || 'Unknown timestamp'} ·{' '}
         {query.data?.status}
-      </title>
+      </I18n.title>
       <polyline
         fill="none"
         stroke={closes.at(-1)! >= closes[0] ? 'var(--accent)' : 'var(--loss)'}

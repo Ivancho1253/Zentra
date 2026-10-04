@@ -58,7 +58,13 @@ try {
   if (!ready) throw new Error(`Integration server did not start\n${startupLog}`);
   const test = spawn(
     process.execPath,
-    [resolve('node_modules/vitest/vitest.mjs'), 'run', 'server/mobileSmoke.test.ts'],
+    [
+      resolve('node_modules/vitest/vitest.mjs'),
+      'run',
+      ...(process.env.E2E_FEATURE_ONLY === 'true'
+        ? ['server/featureFlows.test.ts']
+        : ['server/mobileSmoke.test.ts', 'server/featureFlows.test.ts']),
+    ],
     { env, windowsHide: true, stdio: 'inherit' },
   );
   const code = await new Promise((resolve) => test.on('exit', resolve));

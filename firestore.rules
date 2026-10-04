@@ -161,6 +161,16 @@ service cloud.firestore {
           request.resource.data.pinned is bool && request.resource.data.updatedAt is string;
         allow delete: if isOwner(userId);
       }
+      match /wallets/{walletId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['address', 'ecosystem', 'updatedAt']) &&
+          request.resource.data.updatedAt is string &&
+          ((request.resource.data.ecosystem == 'evm' && request.resource.data.address.matches('^0x[a-fA-F0-9]{40}$')) ||
+           (request.resource.data.ecosystem == 'solana' && request.resource.data.address.matches('^[1-9A-HJ-NP-Za-km-z]{32,44}$')) ||
+           (request.resource.data.ecosystem == 'sui' && request.resource.data.address.matches('^0x[a-fA-F0-9]{64}$')));
+        allow delete: if isOwner(userId);
+      }
       match /socialSubscriptions/{subscriptionId} {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId) &&

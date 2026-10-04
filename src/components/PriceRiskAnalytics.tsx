@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n } from './Localized';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -15,6 +17,7 @@ import { readJson } from '../lib/query';
 import type { Asset } from '../types';
 
 export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
+  const { locale } = useLanguage();
   const [riskFree, setRiskFree] = useState('');
   const [enabled, setEnabled] = useState(false);
   const supported =
@@ -64,17 +67,17 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
       ? 'Unavailable'
       : `${(percent ? value * 100 : value).toFixed(2)}${percent ? '%' : ''}`;
   return (
-    <section className="terminal-panel p-5 space-y-5">
-      <div className="section-heading">
-        <div>
-          <h2 className="font-semibold">Historical price risk</h2>
-          <p className="mt-2 max-w-3xl text-xs leading-5 text-text-dim">
+    <I18n.section className="terminal-panel p-5 space-y-5">
+      <I18n.div className="section-heading">
+        <I18n.div>
+          <I18n.h2 className="font-semibold">Historical price risk</I18n.h2>
+          <I18n.p className="mt-2 max-w-3xl text-xs leading-5 text-text-dim">
             Retrospective simulation of your current quantities using common daily USD closes. This
             is price risk, not your account performance. It excludes cash flows, dividends, splits
             and historical FX; unadjusted corporate actions can distort the result.
-          </p>
-        </div>
-        <button
+          </I18n.p>
+        </I18n.div>
+        <I18n.button
           className="terminal-button"
           onClick={() => {
             if (!enabled) setEnabled(true);
@@ -87,27 +90,27 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
           disabled={!supported || (enabled && queries.some((query) => query.isFetching))}
         >
           {enabled ? (metrics ? 'Refresh history' : 'Retry history') : 'Load observed history'}
-        </button>
-      </div>
+        </I18n.button>
+      </I18n.div>
       {!supported && (
-        <p className="status-message">
+        <I18n.p className="status-message">
           Price risk requires 1–20 positions with native USD prices. Historical FX and sector
           classifications are unavailable.
-        </p>
+        </I18n.p>
       )}
       {enabled && !metrics && (
-        <div className="empty-state">
+        <I18n.div className="empty-state">
           {queries.some((q) => q.isFetching)
             ? 'Loading shared provider history…'
             : 'At least 30 aligned daily returns for every position are required. Stale, demo, non-USD and incomplete histories are excluded.'}
-        </div>
+        </I18n.div>
       )}
       {metrics && (
         <>
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="field-label max-w-xs">
+          <I18n.div className="flex flex-wrap items-end gap-4">
+            <I18n.label className="field-label max-w-xs">
               Annual risk-free rate (%)
-              <input
+              <I18n.input
                 type="number"
                 min="-99"
                 max="100"
@@ -117,13 +120,13 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
                 value={riskFree}
                 onChange={(e) => setRiskFree(e.target.value)}
               />
-            </label>
-            <p className="text-xs text-text-dim">
+            </I18n.label>
+            <I18n.p className="text-xs text-text-dim">
               {metrics.samples} shared daily returns · {annualPeriods} periods/year ·{' '}
               {metrics.points[0].date} to {metrics.points.at(-1)!.date}
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            </I18n.p>
+          </I18n.div>
+          <I18n.div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 label: 'Annualized volatility',
@@ -146,15 +149,15 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
                 tip: 'Sample covariance of basket and S&P 500 price returns divided by benchmark variance, on shared dates.',
               },
             ].map((item) => (
-              <div key={item.label} className="rounded-xl border border-border-accent p-4">
-                <p className="eyebrow" title={item.tip}>
+              <I18n.div key={item.label} className="rounded-xl border border-border-accent p-4">
+                <I18n.p className="eyebrow" title={item.tip}>
                   {item.label} ⓘ
-                </p>
-                <p className="mt-3 font-mono text-xl">{item.value}</p>
-              </div>
+                </I18n.p>
+                <I18n.p className="mt-3 font-mono text-xl">{item.value}</I18n.p>
+              </I18n.div>
             ))}
-          </div>
-          <div className="h-64" aria-label="Historical fixed quantity price index">
+          </I18n.div>
+          <I18n.div className="h-64" aria-label="Historical fixed quantity price index">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={metrics.points}>
                 <CartesianGrid vertical={false} stroke="var(--color-border-accent)" />
@@ -183,49 +186,49 @@ export default function PriceRiskAnalytics({ assets }: { assets: Asset[] }) {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-          <div className="overflow-x-auto">
-            <h3
+          </I18n.div>
+          <I18n.div className="overflow-x-auto">
+            <I18n.h3
               className="mb-3 text-sm font-semibold"
               title="Pearson correlations on the same daily dates. Historical correlation does not guarantee future diversification."
             >
               Daily return correlation ⓘ
-            </h3>
-            <table className="terminal-table">
-              <thead>
-                <tr>
-                  <th>Asset</th>
+            </I18n.h3>
+            <I18n.table className="terminal-table">
+              <I18n.thead>
+                <I18n.tr>
+                  <I18n.th>Asset</I18n.th>
                   {inputs.map((a) => (
-                    <th key={a.symbol}>{a.symbol}</th>
+                    <I18n.th key={a.symbol}>{a.symbol}</I18n.th>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </I18n.tr>
+              </I18n.thead>
+              <I18n.tbody>
                 {inputs.map((a, i) => (
-                  <tr key={a.symbol}>
-                    <td>{a.symbol}</td>
+                  <I18n.tr key={a.symbol}>
+                    <I18n.td>{a.symbol}</I18n.td>
                     {metrics.correlations[i].map((c, j) => (
-                      <td key={inputs[j].symbol} className="font-mono">
+                      <I18n.td key={inputs[j].symbol} className="font-mono">
                         {c == null ? '—' : c.toFixed(2)}
-                      </td>
+                      </I18n.td>
                     ))}
-                  </tr>
+                  </I18n.tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="text-[11px] text-text-dim">
+              </I18n.tbody>
+            </I18n.table>
+          </I18n.div>
+          <I18n.div className="text-[11px] text-text-dim">
             {[...inputs.map((a) => a.history), ...(benchmark.data ? [benchmark.data] : [])].map(
               (h) => (
-                <p key={`${h.type}-${h.symbol}`}>
+                <I18n.p key={`${h.type}-${h.symbol}`}>
                   {h.symbol} · {h.provider} · {h.status} · {h.currency} ·{' '}
-                  {h.updatedAt ? new Date(h.updatedAt).toLocaleString() : 'No timestamp'}
-                </p>
+                  {h.updatedAt ? new Date(h.updatedAt).toLocaleString(locale) : 'No timestamp'}
+                </I18n.p>
               ),
             )}
-          </div>
+          </I18n.div>
         </>
       )}
-    </section>
+    </I18n.section>
   );
 }

@@ -7,7 +7,11 @@ import { readOwnedCollection } from './accountReader';
 import { getQuote } from './marketService';
 import { getNewsArticles } from './newsService';
 import { getSocialPosts } from './socialService';
-export async function userIntelligence(userId: string, idToken?: string) {
+export async function userIntelligence(
+  userId: string,
+  idToken?: string,
+  language: 'en' | 'es' | 'pt' = 'en',
+) {
   const [holdings, watchlists, subscriptions, favorites] = await Promise.all([
     readOwnedCollection(userId, 'assets', 30, idToken),
     readOwnedCollection(userId, 'watchlists', 10, idToken),
@@ -41,6 +45,7 @@ export async function userIntelligence(userId: string, idToken?: string) {
         .map((a) => a.symbol)
         .join(' OR ') ||
       'finance markets',
+    language,
   );
   const metrics = calculatePortfolioMetrics(
     assets,
@@ -74,6 +79,10 @@ export async function userIntelligence(userId: string, idToken?: string) {
     calendarStale: calendar.stale,
     userId: undefined,
     assets: assets.map((a) => ({ symbol: a.symbol, type: a.type, currency: a.currency || 'USD' })),
-    note: 'USD summary. Non-USD positions require explicit FX conversion in Portfolio Analytics. Net worth and returns are not inferred from missing cash flow history.',
+    note: {
+      en: 'USD summary. Non-USD positions require explicit FX conversion in Portfolio Analytics. Net worth and returns are not inferred from missing cash flow history.',
+      es: 'Resumen en USD. Las posiciones en otras monedas requieren conversión explícita en Analítica del portafolio. No se infieren patrimonio ni rendimientos cuando falta el historial de flujos de efectivo.',
+      pt: 'Resumo em USD. Posições em outras moedas exigem conversão explícita em Análise da carteira. Patrimônio e retornos não são inferidos quando falta o histórico de fluxos de caixa.',
+    }[language],
   };
 }

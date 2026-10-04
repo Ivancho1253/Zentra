@@ -62,7 +62,9 @@ describe('file import without an AI credential', () => {
       .send({
         fileName: 'portfolio.png',
         mimeType: 'image/png',
-        fileBase64: Buffer.from('isolated-image-fixture').toString('base64'),
+        fileBase64: readFileSync(new URL('../fixtures/receipt.png', import.meta.url)).toString(
+          'base64',
+        ),
       });
     expect(response.status).toBe(503);
     expect(response.body.error).toContain('CSV');

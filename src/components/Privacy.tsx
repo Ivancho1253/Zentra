@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { brand } from '../../shared/brand';
 import { ArrowLeft, Database, FileText, ShieldCheck, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,34 +10,34 @@ export default function Privacy() {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-bg px-5 py-8 text-text-main">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <button
+    <I18n.div className="min-h-screen bg-bg px-5 py-8 text-text-main">
+      <I18n.div className="mx-auto max-w-5xl space-y-6">
+        <I18n.button
           aria-label="Back"
           onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 rounded-2xl border border-border-accent bg-surface px-4 py-3 text-xs font-black uppercase tracking-widest text-text-dim transition-all hover:border-accent hover:text-accent"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
-        </button>
+        </I18n.button>
 
-        <section className="app-hero">
-          <div className="relative z-10">
-            <div className="accent-chip mb-4">
+        <I18n.section className="app-hero">
+          <I18n.div className="relative z-10">
+            <I18n.div className="accent-chip mb-4">
               <ShieldCheck className="h-3.5 w-3.5" /> Privacy
-            </div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter md:text-6xl">
+            </I18n.div>
+            <I18n.h1 className="text-4xl font-black uppercase tracking-tighter md:text-6xl">
               Privacy policy
-            </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-text-dim">
+            </I18n.h1>
+            <I18n.p className="mt-4 max-w-3xl text-sm leading-7 text-text-dim">
               {brand.name} handles portfolio data, wallet addresses and uploaded files as sensitive
               financial context. This page explains what the app uses and what it should never ask
               from you.
-            </p>
-          </div>
-        </section>
+            </I18n.p>
+          </I18n.div>
+        </I18n.section>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <I18n.div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {[
             {
               icon: Database,
@@ -62,15 +63,17 @@ export default function Privacy() {
               text: 'Signed-in users can export their data and request account deletion below. Deletion requires a recent sign-in and a configured server. Operator backup retention and external AI processing follow the relevant service policies.',
             },
           ].map((item) => (
-            <article key={item.title} className="panel-card p-6">
+            <I18n.article key={item.title} className="panel-card p-6">
               <item.icon className="mb-4 h-5 w-5 text-accent" />
-              <h2 className="text-sm font-black uppercase tracking-widest">{item.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-text-dim">{item.text}</p>
-            </article>
+              <I18n.h2 className="text-sm font-black uppercase tracking-widest">
+                {item.title}
+              </I18n.h2>
+              <I18n.p className="mt-3 text-sm leading-7 text-text-dim">{item.text}</I18n.p>
+            </I18n.article>
           ))}
-        </div>
+        </I18n.div>
         <DataControls />
-      </div>
-    </div>
+      </I18n.div>
+    </I18n.div>
   );
 }

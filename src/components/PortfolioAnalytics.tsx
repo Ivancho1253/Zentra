@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n } from './Localized';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useState } from 'react';
@@ -11,6 +13,7 @@ import type { Asset, PortfolioSnapshot, UserProfile } from '../types';
 import DataProvenance from './DataProvenance';
 import PriceRiskAnalytics from './PriceRiskAnalytics';
 export default function PortfolioAnalytics() {
+  const { locale } = useLanguage();
   const holdings = useUserCollection<Asset>('assets');
   const snapshots = useUserCollection<PortfolioSnapshot>('snapshots');
   const cash = useUserCollection<{ id: string; currency: Currency; balanceExact: string }>('cash');
@@ -113,7 +116,7 @@ export default function PortfolioAnalytics() {
     }
   }, amount(0));
   const format = (n: { toNumber: () => number }) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: base }).format(n.toNumber());
+    new Intl.NumberFormat(locale, { style: 'currency', currency: base }).format(n.toNumber());
   const types = [...new Set(rows.map((r) => r.asset.type))].map((type) => ({
     type,
     value: rows
@@ -137,18 +140,18 @@ export default function PortfolioAnalytics() {
   const dateBefore = (days: number) =>
     lastDate ? new Date(Date.parse(lastDate) - days * 86400000).toISOString().slice(0, 10) : '';
   return (
-    <div className="space-y-6">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Understand your exposure</p>
-          <h1>Portfolio analytics</h1>
-          <p className="text-sm text-text-dim">
+    <I18n.div className="space-y-6">
+      <I18n.div className="section-heading">
+        <I18n.div>
+          <I18n.p className="eyebrow">Understand your exposure</I18n.p>
+          <I18n.h1>Portfolio analytics</I18n.h1>
+          <I18n.p className="text-sm text-text-dim">
             Native positions converted using attributed daily FX rates.
-          </p>
-        </div>
-        <label className="field-label">
+          </I18n.p>
+        </I18n.div>
+        <I18n.label className="field-label">
           Base currency
-          <select
+          <I18n.select
             aria-label="Base currency"
             className="terminal-input"
             value={base}
@@ -171,11 +174,11 @@ export default function PortfolioAnalytics() {
             }}
           >
             {['USD', 'EUR', 'ARS', 'GBP'].map((c) => (
-              <option key={c}>{c}</option>
+              <I18n.option key={c}>{c}</I18n.option>
             ))}
-          </select>
-        </label>
-      </div>
+          </I18n.select>
+        </I18n.label>
+      </I18n.div>
       {(missing.length > 0 ||
         status ||
         holdings.error ||
@@ -183,7 +186,7 @@ export default function PortfolioAnalytics() {
         profile.isError ||
         fx.isError ||
         fx.data?.stale) && (
-        <p className="status-message" role="status">
+        <I18n.p className="status-message" role="status">
           {status ||
             holdings.error ||
             cash.error ||
@@ -193,14 +196,14 @@ export default function PortfolioAnalytics() {
                 ? 'FX rates could not be refreshed. Converted totals may be incomplete or use cached rates.'
                 : '') ||
             `Incomplete totals: FX rates are missing for ${missing.join(', ')}.`}
-        </p>
+        </I18n.p>
       )}
       {rows.some((r) => r.estimated) && (
-        <p className="status-message">
+        <I18n.p className="status-message">
           Some positions use cost basis estimates or stale quotes. Totals are indicative.
-        </p>
+        </I18n.p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <I18n.div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             label: 'Net worth',
@@ -223,18 +226,18 @@ export default function PortfolioAnalytics() {
             tip: 'Average-cost realized result of sells recorded in the decimal ledger, after fees.',
           },
         ].map((s) => (
-          <div className="terminal-panel p-5" key={s.label}>
-            <p className="eyebrow" title={s.tip}>
+          <I18n.div className="terminal-panel p-5" key={s.label}>
+            <I18n.p className="eyebrow" title={s.tip}>
               {s.label} ⓘ
-            </p>
-            <p className="mt-3 font-mono text-2xl">{format(s.value)}</p>
-          </div>
+            </I18n.p>
+            <I18n.p className="mt-3 font-mono text-2xl">{format(s.value)}</I18n.p>
+          </I18n.div>
         ))}
-      </div>
-      <section className="terminal-panel overflow-x-auto">
-        <div className="border-b border-border-accent p-4">
-          <h2 className="font-semibold">Asset allocation</h2>
-          <p
+      </I18n.div>
+      <I18n.section className="terminal-panel overflow-x-auto">
+        <I18n.div className="border-b border-border-accent p-4">
+          <I18n.h2 className="font-semibold">Asset allocation</I18n.h2>
+          <I18n.p
             className="mt-1 text-xs text-text-dim"
             title="A high weight in a single asset concentrates portfolio exposure."
           >
@@ -243,148 +246,152 @@ export default function PortfolioAnalytics() {
               ? `${Math.max(...rows.map((r) => r.value.div(value).mul(100).toNumber())).toFixed(1)}%`
               : '—'}{' '}
             · Values exclude cash.
-          </p>
-        </div>
-        <table className="terminal-table">
-          <thead>
-            <tr>
-              <th>Asset</th>
-              <th>Type</th>
-              <th>Value</th>
-              <th>Weight</th>
-              <th>Unrealized P&L</th>
-              <th>Source</th>
-            </tr>
-          </thead>
-          <tbody>
+          </I18n.p>
+        </I18n.div>
+        <I18n.table className="terminal-table">
+          <I18n.thead>
+            <I18n.tr>
+              <I18n.th>Asset</I18n.th>
+              <I18n.th>Type</I18n.th>
+              <I18n.th>Value</I18n.th>
+              <I18n.th>Weight</I18n.th>
+              <I18n.th>Unrealized P&L</I18n.th>
+              <I18n.th>Source</I18n.th>
+            </I18n.tr>
+          </I18n.thead>
+          <I18n.tbody>
             {rows.map((r) => (
-              <tr key={r.asset.id}>
-                <td>
-                  <strong>{r.asset.symbol}</strong>
-                  <p className="text-xs text-text-dim">{r.asset.name}</p>
-                </td>
-                <td>{r.asset.type}</td>
-                <td className="font-mono">{format(r.value)}</td>
-                <td>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono">
+              <I18n.tr key={r.asset.id}>
+                <I18n.td>
+                  <I18n.strong>{r.asset.symbol}</I18n.strong>
+                  <I18n.p className="text-xs text-text-dim">{r.asset.name}</I18n.p>
+                </I18n.td>
+                <I18n.td>{r.asset.type}</I18n.td>
+                <I18n.td className="font-mono">{format(r.value)}</I18n.td>
+                <I18n.td>
+                  <I18n.div className="flex items-center gap-3">
+                    <I18n.span className="font-mono">
                       {value.gt(0) ? r.value.div(value).mul(100).toFixed(1) : '0'}%
-                    </span>
-                    <div className="h-1.5 w-20 bg-border-accent">
-                      <div
+                    </I18n.span>
+                    <I18n.div className="h-1.5 w-20 bg-border-accent">
+                      <I18n.div
                         className="h-full bg-accent"
                         style={{
                           width: `${value.gt(0) ? r.value.div(value).mul(100).toNumber() : 0}%`,
                         }}
                       />
-                    </div>
-                  </div>
-                </td>
-                <td className={r.value.gte(r.cost) ? 'text-accent' : 'text-loss'}>
+                    </I18n.div>
+                  </I18n.div>
+                </I18n.td>
+                <I18n.td className={r.value.gte(r.cost) ? 'text-accent' : 'text-loss'}>
                   {format(r.value.minus(r.cost))}
-                </td>
-                <td>
+                </I18n.td>
+                <I18n.td>
                   <DataProvenance quote={r.quote} />
-                </td>
-              </tr>
+                </I18n.td>
+              </I18n.tr>
             ))}
-          </tbody>
-        </table>
+          </I18n.tbody>
+        </I18n.table>
         {!rows.length && (
-          <div className="empty-state">
+          <I18n.div className="empty-state">
             {holdings.loading ? 'Loading portfolio…' : 'Add positions to see your allocation.'}
-          </div>
+          </I18n.div>
         )}
-      </section>
-      <section className="terminal-panel p-5">
-        <h2 className="font-semibold">FX provenance</h2>
-        <p className="mt-2 text-xs text-text-dim">
+      </I18n.section>
+      <I18n.section className="terminal-panel p-5">
+        <I18n.h2 className="font-semibold">FX provenance</I18n.h2>
+        <I18n.p className="mt-2 text-xs text-text-dim">
           {fx.data?.notice || 'FX provider unavailable.'}
           {fx.data?.stale ? ' · Stale FX data' : ''}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-3">
+        </I18n.p>
+        <I18n.div className="mt-3 flex flex-wrap gap-3">
           {fx.data?.rates
             .filter((r) => r.quote !== base)
             .map((r) => (
-              <span className="quiet-chip" key={r.quote}>
-                1 {r.base} = {r.rate} {r.quote} · {new Date(r.updatedAt).toLocaleDateString()}
-              </span>
+              <I18n.span className="quiet-chip" key={r.quote}>
+                1 {r.base} = {r.rate} {r.quote} · {new Date(r.updatedAt).toLocaleDateString(locale)}
+              </I18n.span>
             ))}
-        </div>
-        <a
+        </I18n.div>
+        <I18n.a
           className="mt-4 inline-block text-xs text-accent"
           href="https://www.exchangerate-api.com"
           target="_blank"
           rel="noreferrer"
         >
           Rates by ExchangeRate-API
-        </a>
-      </section>
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="terminal-panel p-5">
-          <h2 className="font-semibold">Exposure and trading result</h2>
-          <p className="mt-2 text-xs text-text-dim">
+        </I18n.a>
+      </I18n.section>
+      <I18n.div className="grid gap-4 md:grid-cols-2">
+        <I18n.section className="terminal-panel p-5">
+          <I18n.h2 className="font-semibold">Exposure and trading result</I18n.h2>
+          <I18n.p className="mt-2 text-xs text-text-dim">
             Unrealized + realized trade P&L:{' '}
-            <strong className="text-text-main">{format(value.minus(cost).plus(realized))}</strong>.
-            Dividends and independent cash fees remain separate ledger entries.
-          </p>
-          <div className="mt-4 space-y-3">
+            <I18n.strong className="text-text-main">
+              {format(value.minus(cost).plus(realized))}
+            </I18n.strong>
+            . Dividends and independent cash fees remain separate ledger entries.
+          </I18n.p>
+          <I18n.div className="mt-4 space-y-3">
             {types.map((t) => (
-              <p key={t.type} className="flex justify-between text-sm">
-                <span>{t.type}</span>
-                <span className="font-mono">
+              <I18n.p key={t.type} className="flex justify-between text-sm">
+                <I18n.span>{t.type}</I18n.span>
+                <I18n.span className="font-mono">
                   {value.gt(0) ? t.value.div(value).mul(100).toFixed(1) : '—'}% · {format(t.value)}
-                </span>
-              </p>
+                </I18n.span>
+              </I18n.p>
             ))}
-          </div>
-          <p
+          </I18n.div>
+          <I18n.p
             className="mt-4 text-xs text-text-dim"
             title="1 divided by the sum of squared asset weights. Identical exposures can still be correlated."
           >
             Effective number of equal-weight positions:{' '}
             {concentration ? (1 / concentration).toFixed(2) : '—'} ⓘ
-          </p>
-          <p className="mt-3 text-xs text-text-dim">
+          </I18n.p>
+          <I18n.p className="mt-3 text-xs text-text-dim">
             Sector allocation: unavailable without verified provider classifications.
-          </p>
-        </section>
-        <section className="terminal-panel p-5">
-          <h2 className="font-semibold">Open-position performers</h2>
-          <p className="mt-2 text-xs text-text-dim">
+          </I18n.p>
+        </I18n.section>
+        <I18n.section className="terminal-panel p-5">
+          <I18n.h2 className="font-semibold">Open-position performers</I18n.h2>
+          <I18n.p className="mt-2 text-xs text-text-dim">
             Current marked return against remaining average cost, after purchase fees. Estimated
             positions are excluded.
-          </p>
+          </I18n.p>
           {performers.length ? (
-            <div className="mt-4 space-y-4">
+            <I18n.div className="mt-4 space-y-4">
               {[
                 { label: 'Best', row: performers[0] },
                 { label: 'Worst', row: performers.at(-1)! },
               ].map((p) => (
-                <p key={p.label} className="flex justify-between text-sm">
-                  <span>
+                <I18n.p key={p.label} className="flex justify-between text-sm">
+                  <I18n.span>
                     {p.label} · {p.row.symbol}
-                  </span>
-                  <span className={`font-mono ${p.row.result >= 0 ? 'text-accent' : 'text-loss'}`}>
+                  </I18n.span>
+                  <I18n.span
+                    className={`font-mono ${p.row.result >= 0 ? 'text-accent' : 'text-loss'}`}
+                  >
                     {p.row.result.toFixed(2)}%
-                  </span>
-                </p>
+                  </I18n.span>
+                </I18n.p>
               ))}
-            </div>
+            </I18n.div>
           ) : (
-            <p className="empty-state">
+            <I18n.p className="empty-state">
               Verified current prices and a positive cost basis are required.
-            </p>
+            </I18n.p>
           )}
-        </section>
-      </div>
-      <section className="terminal-panel p-5">
-        <h2 className="font-semibold">Recorded net worth history</h2>
-        <p className="mt-2 text-xs text-text-dim">
+        </I18n.section>
+      </I18n.div>
+      <I18n.section className="terminal-panel p-5">
+        <I18n.h2 className="font-semibold">Recorded net worth history</I18n.h2>
+        <I18n.p className="mt-2 text-xs text-text-dim">
           Server-recorded assets plus cash in {base}. Changes include deposits and withdrawals; they
           are not time-weighted investment returns. History begins when verified marks are recorded.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        </I18n.p>
+        <I18n.div className="mt-4 grid gap-3 sm:grid-cols-4">
           {[
             { label: 'Daily', cutoff: dateBefore(1) },
             { label: 'Weekly', cutoff: dateBefore(7) },
@@ -393,44 +400,46 @@ export default function PortfolioAnalytics() {
           ].map((p) => {
             const result = p.cutoff ? recordedWealthChange(history, p.cutoff) : null;
             return (
-              <div key={p.label}>
-                <p className="eyebrow">{p.label}</p>
-                <p className="mt-2 font-mono">
+              <I18n.div key={p.label}>
+                <I18n.p className="eyebrow">{p.label}</I18n.p>
+                <I18n.p className="mt-2 font-mono">
                   {result === null ? 'Unavailable' : `${result.toFixed(2)}%`}
-                </p>
-              </div>
+                </I18n.p>
+              </I18n.div>
             );
           })}
-        </div>
+        </I18n.div>
         {history.length ? (
-          <div className="mt-5 max-h-56 overflow-auto">
-            <table className="terminal-table">
-              <thead>
-                <tr>
-                  <th>Date (UTC)</th>
-                  <th>Net worth</th>
-                  <th>Providers</th>
-                </tr>
-              </thead>
-              <tbody>
+          <I18n.div className="mt-5 max-h-56 overflow-auto">
+            <I18n.table className="terminal-table">
+              <I18n.thead>
+                <I18n.tr>
+                  <I18n.th>Date (UTC)</I18n.th>
+                  <I18n.th>Net worth</I18n.th>
+                  <I18n.th>Providers</I18n.th>
+                </I18n.tr>
+              </I18n.thead>
+              <I18n.tbody>
                 {[...history]
                   .reverse()
                   .slice(0, 30)
                   .map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.date}</td>
-                      <td className="font-mono">{format(amount(p.totalValue))}</td>
-                      <td>{p.providers?.join(', ') || 'Unknown'}</td>
-                    </tr>
+                    <I18n.tr key={p.id}>
+                      <I18n.td>{p.date}</I18n.td>
+                      <I18n.td className="font-mono">{format(amount(p.totalValue))}</I18n.td>
+                      <I18n.td>{p.providers?.join(', ') || 'Unknown'}</I18n.td>
+                    </I18n.tr>
                   ))}
-              </tbody>
-            </table>
-          </div>
+              </I18n.tbody>
+            </I18n.table>
+          </I18n.div>
         ) : (
-          <p className="empty-state">No verified net worth snapshots in this currency yet.</p>
+          <I18n.p className="empty-state">
+            No verified net worth snapshots in this currency yet.
+          </I18n.p>
         )}
-      </section>
+      </I18n.section>
       <PriceRiskAnalytics assets={assets} />
-    </div>
+    </I18n.div>
   );
 }

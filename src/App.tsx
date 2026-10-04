@@ -6,6 +6,7 @@ import { brand } from '../shared/brand';
 import AnalyticsTracker from './components/AnalyticsTracker';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
+import { I18n } from './components/Localized';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { auth, db } from './lib/firebase';
 import { accountPaths, postLoginPath } from './lib/authNavigation';
@@ -56,7 +57,9 @@ function AppLoader({ label = `Loading ${brand.name}...` }: { label?: string }) {
         className="w-20 h-20 object-contain animate-pulse"
         referrerPolicy="no-referrer"
       />
-      <div className="text-accent text-xs uppercase tracking-[0.3em] font-bold">{label}</div>
+      <I18n.div className="text-accent text-xs uppercase tracking-[0.3em] font-bold">
+        {label}
+      </I18n.div>
     </div>
   );
 }
@@ -108,7 +111,11 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return <AppLoader label={`${brand.name} initializing...`} />;
+    return (
+      <LanguageProvider>
+        <AppLoader label={`${brand.name} initializing...`} />
+      </LanguageProvider>
+    );
   }
 
   return (

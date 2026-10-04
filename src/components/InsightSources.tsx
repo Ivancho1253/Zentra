@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n } from './Localized';
 export interface InsightSource {
   id: string;
   kind: string;
@@ -12,32 +14,34 @@ export default function InsightSources({
   sources?: InsightSource[];
   aiGenerated?: boolean;
 }) {
+  const { locale } = useLanguage();
   return (
-    <div className="mt-3 border-t border-border-accent pt-2 text-[10px] text-text-dim">
-      <p className="mb-1">
+    <I18n.div className="mt-3 border-t border-border-accent pt-2 text-[10px] text-text-dim">
+      <I18n.p className="mb-1">
         {aiGenerated
           ? 'AI-generated summary · verify the sources'
           : 'Source-based context · no AI-generated facts'}
-      </p>
+      </I18n.p>
       {sources.map((s) => (
-        <p className="mt-1" key={s.id}>
+        <I18n.p className="mt-1" key={s.id}>
           {s.url ? (
-            <a
+            <I18n.a
+              data-i18n="off"
               className="text-accent hover:underline"
               href={s.url}
               target="_blank"
               rel="noreferrer"
             >
               {s.label} ↗
-            </a>
+            </I18n.a>
           ) : (
-            s.label
+            <I18n.span data-i18n="off">{s.label}</I18n.span>
           )}
           {s.timestamp
-            ? ` · ${new Date(s.timestamp).toLocaleString()}`
+            ? ` · ${new Date(s.timestamp).toLocaleString(locale)}`
             : ' · Timestamp unavailable'}
-        </p>
+        </I18n.p>
       ))}
-    </div>
+    </I18n.div>
   );
 }

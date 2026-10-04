@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, HelpCircle, Mail, Send } from 'lucide-react';
 import React, { useState } from 'react';
@@ -50,53 +51,57 @@ export default function Help() {
 
   return (
     <motion.div className="app-page" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-      <section className="app-hero">
-        <div className="relative z-10 flex items-start gap-4">
-          <button
+      <I18n.section className="app-hero">
+        <I18n.div className="relative z-10 flex items-start gap-4">
+          <I18n.button
             aria-label="Back"
             onClick={() => navigate(-1)}
             className="rounded-2xl border border-border-accent bg-bg/50 p-3 transition-all hover:border-accent hover:text-accent"
           >
             <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <div className="accent-chip mb-4">
+          </I18n.button>
+          <I18n.div>
+            <I18n.div className="accent-chip mb-4">
               <HelpCircle className="h-3.5 w-3.5" /> {t('help')}
-            </div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter">{t('helpTitle')}</h1>
-            <p className="mt-3 max-w-2xl text-sm text-text-dim">{t('helpIntro')}</p>
-          </div>
-        </div>
-      </section>
+            </I18n.div>
+            <I18n.h1 className="text-4xl font-black uppercase tracking-tighter">
+              {t('helpTitle')}
+            </I18n.h1>
+            <I18n.p className="mt-3 max-w-2xl text-sm text-text-dim">{t('helpIntro')}</I18n.p>
+          </I18n.div>
+        </I18n.div>
+      </I18n.section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="panel-card p-6">
-          <h2 className="mb-5 text-sm font-black uppercase tracking-widest">{t('faqTitle')}</h2>
-          <div className="space-y-3">
+      <I18n.div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <I18n.div className="panel-card p-6">
+          <I18n.h2 className="mb-5 text-sm font-black uppercase tracking-widest">
+            {t('faqTitle')}
+          </I18n.h2>
+          <I18n.div className="space-y-3">
             {faqs.map((faq) => (
-              <div
+              <I18n.div
                 key={faq.question}
                 className="rounded-2xl border border-border-accent bg-bg/35 p-4"
               >
-                <div className="text-sm font-black">{faq.question}</div>
-                <p className="mt-2 text-xs leading-6 text-text-dim">{faq.answer}</p>
-              </div>
+                <I18n.div className="text-sm font-black">{faq.question}</I18n.div>
+                <I18n.p className="mt-2 text-xs leading-6 text-text-dim">{faq.answer}</I18n.p>
+              </I18n.div>
             ))}
-          </div>
-        </div>
+          </I18n.div>
+        </I18n.div>
 
-        <form onSubmit={sendSupport} className="panel-card p-6">
-          <h2 className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-widest">
+        <I18n.form onSubmit={sendSupport} className="panel-card p-6">
+          <I18n.h2 className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-widest">
             <Mail className="h-4 w-4 text-accent" /> {t('contactSupport')}
-          </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <input
+          </I18n.h2>
+          <I18n.div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <I18n.input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t('namePlaceholder')}
               className="rounded-xl border border-border-accent bg-bg p-3 text-sm outline-none focus:border-accent"
             />
-            <input
+            <I18n.input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder={t('yourEmailPlaceholder')}
@@ -104,14 +109,14 @@ export default function Help() {
               required
               className="rounded-xl border border-border-accent bg-bg p-3 text-sm outline-none focus:border-accent"
             />
-          </div>
-          <input
+          </I18n.div>
+          <I18n.input
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
             placeholder={t('subjectPlaceholder')}
             className="mt-4 w-full rounded-xl border border-border-accent bg-bg p-3 text-sm outline-none focus:border-accent"
           />
-          <textarea
+          <I18n.textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder={t('supportMessagePlaceholder')}
@@ -120,22 +125,22 @@ export default function Help() {
             className="mt-4 w-full resize-none rounded-xl border border-border-accent bg-bg p-3 text-sm outline-none focus:border-accent"
           />
           {status && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">
+            <I18n.div className="mt-4 flex items-center gap-2 rounded-xl border border-border-accent bg-bg/45 p-3 text-xs font-bold text-text-dim">
               <AlertCircle className="h-4 w-4 text-accent" />
               {status}
-            </div>
+            </I18n.div>
           )}
-          <div className="mt-5 flex justify-end">
-            <button
+          <I18n.div className="mt-5 flex justify-end">
+            <I18n.button
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-[10px] font-black uppercase tracking-widest text-bg disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
               {loading ? t('sending') : t('sendMessage')}
-            </button>
-          </div>
-        </form>
-      </div>
+            </I18n.button>
+          </I18n.div>
+        </I18n.form>
+      </I18n.div>
     </motion.div>
   );
 }

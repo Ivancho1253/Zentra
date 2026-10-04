@@ -4,14 +4,14 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { cn } from '../lib/utils';
 
 export default function LanguageSelector() {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, text } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const languages = [
-    { code: 'es', label: 'Espanol', short: 'ES' },
+    { code: 'es', label: 'Español', short: 'ES' },
     { code: 'en', label: 'English', short: 'EN' },
-    { code: 'pt', label: 'Portugues', short: 'PT' },
+    { code: 'pt', label: 'Português', short: 'PT' },
   ] as const;
 
   useEffect(() => {
@@ -22,7 +22,14 @@ export default function LanguageSelector() {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', escape);
+    };
   }, []);
 
   const currentLang = languages.find((lang) => lang.code === language);
@@ -32,7 +39,9 @@ export default function LanguageSelector() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 rounded-xl border border-border-accent bg-surface px-3 py-2 text-[11px] font-bold uppercase tracking-normal text-text-main transition-all hover:border-accent hover:text-accent"
-        title="Change language"
+        title={text('Change language')}
+        aria-label={text('Change language')}
+        aria-expanded={isOpen}
       >
         <Globe className="h-4 w-4 text-accent" />
         <span>{currentLang?.short}</span>

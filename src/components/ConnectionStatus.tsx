@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { useReadiness } from '../lib/readiness';
 
 const labels: Record<string, string> = {
@@ -15,46 +16,53 @@ const labels: Record<string, string> = {
 export default function ConnectionStatus() {
   const { data, isPending, isError, refetch } = useReadiness();
   return (
-    <section className="panel-card p-6">
-      <h2 className="font-semibold">Service connections</h2>
-      <p className="mt-2 text-sm text-text-dim">
+    <I18n.section className="panel-card p-6">
+      <I18n.h2 className="font-semibold">Service connections</I18n.h2>
+      <I18n.p className="mt-2 text-sm text-text-dim">
         Connection settings for this instance. Provider access and delivery still need live
         verification.
-      </p>
-      {isPending && <p className="mt-4 text-sm text-text-dim">Checking connections...</p>}
+      </I18n.p>
+      {isPending && <I18n.p className="mt-4 text-sm text-text-dim">Checking connections...</I18n.p>}
       {isError && (
-        <button className="quiet-chip mt-4" onClick={() => void refetch()}>
+        <I18n.button className="quiet-chip mt-4" onClick={() => void refetch()}>
           Could not check connections · Retry
-        </button>
+        </I18n.button>
       )}
       {data && (
         <>
           {data.demo && (
-            <p className="mt-4 text-sm text-text-dim">
+            <I18n.p className="mt-4 text-sm text-text-dim">
               Demo mode is enabled. Market inputs are fictional fixtures.
-            </p>
+            </I18n.p>
           )}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <I18n.div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.providers.map((provider) => {
               const needsAdmin = ['auth', 'notifications'].includes(provider.domain);
               const configured = needsAdmin ? data.firebaseAdmin : provider.status === 'configured';
               return (
-                <div key={provider.domain} className="rounded-xl border border-border-accent p-4">
-                  <div className="font-medium">{labels[provider.domain] || provider.domain}</div>
-                  <div className="mt-2 text-xs text-accent">
+                <I18n.div
+                  key={provider.domain}
+                  className="rounded-xl border border-border-accent p-4"
+                >
+                  <I18n.div className="font-medium">
+                    {labels[provider.domain] || provider.domain}
+                  </I18n.div>
+                  <I18n.div className="mt-2 text-xs text-accent">
                     {configured
                       ? 'Configured · access not verified'
                       : provider.status === 'fallback-only' && !needsAdmin
                         ? 'Fallback available'
                         : 'Connection required'}
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-text-dim">{provider.userLabel}</p>
-                </div>
+                  </I18n.div>
+                  <I18n.p className="mt-2 text-xs leading-5 text-text-dim">
+                    {provider.userLabel}
+                  </I18n.p>
+                </I18n.div>
               );
             })}
-          </div>
+          </I18n.div>
         </>
       )}
-    </section>
+    </I18n.section>
   );
 }

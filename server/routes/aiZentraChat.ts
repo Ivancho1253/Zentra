@@ -23,21 +23,32 @@ export function registerAiZentraChatRoutes(app: express.Express, options: Option
       const detected = options.detectQuestionAsset(parsed.data.question);
       if (detected) {
         const quote = await getQuote(detected.symbol, detected.type);
-        const news = await getNewsArticles(`${detected.name} ${detected.symbol}`);
+        const news = await getNewsArticles(
+          `${detected.name} ${detected.symbol}`,
+          parsed.data.language,
+        );
         const articles = news.articles.slice(0, 5);
         return res.json(
           await groundedInsight(
             parsed.data.question,
             { quote, articles },
             insightSources([quote], articles),
+            parsed.data.language,
           ),
         );
       }
-      const context = await userIntelligence(req.user!.uid, firebaseIdToken(req));
+      const context = await userIntelligence(
+        req.user!.uid,
+        firebaseIdToken(req),
+        parsed.data.language,
+      );
       if (!context)
         return res.json({
-          answer:
-            'Verified portfolio context is unavailable. Ask about a specific stock or crypto, or inspect your portfolio.',
+          answer: {
+            en: 'Verified portfolio context is unavailable. Ask about a specific stock or crypto, or inspect your portfolio.',
+            es: 'El contexto verificado del portafolio no está disponible. Pregunta por una acción o criptomoneda específica, o consulta tu portafolio.',
+            pt: 'O contexto verificado da carteira está indisponível. Pergunte sobre uma ação ou criptomoeda específica, ou consulte sua carteira.',
+          }[parsed.data.language],
           fallback: true,
           aiGenerated: false,
           sources: [],
@@ -47,6 +58,7 @@ export function registerAiZentraChatRoutes(app: express.Express, options: Option
           parsed.data.question,
           context,
           insightSources(context.quotes, context.articles, context.posts, context.events),
+          parsed.data.language,
         ),
       );
     } catch {

@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -232,23 +233,25 @@ export default function CompanyLogo({
 
   if (error || (!logoUrl && !error)) {
     return (
-      <div
+      <I18n.div
         className={`flex items-center justify-center bg-gradient-to-br from-accent/20 to-accent/5 rounded-xl ${className}`}
       >
         {cleanSymbol ? (
-          <span className="text-xs font-black text-accent">{cleanSymbol.slice(0, 3)}</span>
+          <I18n.span className="text-xs font-black text-accent">
+            {cleanSymbol.slice(0, 3)}
+          </I18n.span>
         ) : (
           <TrendingUp className="w-1/2 h-1/2 text-accent/70" />
         )}
-      </div>
+      </I18n.div>
     );
   }
 
   return (
-    <div
+    <I18n.div
       className={`flex items-center justify-center bg-bg border border-border-accent rounded-xl overflow-hidden ${className}`}
     >
-      <img
+      <I18n.img
         key={logoUrl}
         src={logoUrl!}
         alt={`${cleanSymbol} logo`}
@@ -257,6 +260,6 @@ export default function CompanyLogo({
         referrerPolicy="no-referrer"
         crossOrigin="anonymous"
       />
-    </div>
+    </I18n.div>
   );
 }

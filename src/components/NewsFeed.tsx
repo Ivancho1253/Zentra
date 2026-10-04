@@ -1,3 +1,4 @@
+import { I18n } from './Localized';
 import { useQuery } from '@tanstack/react-query';
 import { doc, setDoc } from 'firebase/firestore';
 import { ExternalLink, Newspaper, Search } from 'lucide-react';
@@ -9,6 +10,8 @@ import { readJson } from '../lib/query';
 import { useUserCollection } from '../lib/userData';
 import { relevantAssets } from '../services/newsRelevance';
 import type { Asset } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useFavorites } from '../lib/favorites';
 const categories = [
   'Latest',
   'Markets',
@@ -23,6 +26,9 @@ const categories = [
   'Commodities',
 ];
 export default function NewsFeed() {
+  const { language, locale, text } = useLanguage();
+  const favorites = useFavorites();
+  const [visibleCount, setVisibleCount] = useState(12);
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState(params.get('q') || ''),
@@ -44,25 +50,31 @@ export default function NewsFeed() {
   const topics = preferences.data.find((p) => p.id === 'news')?.topics || [];
   const followed = [
     ...new Map(
-      [...assets.data, ...lists.data.flatMap((l) => l.assets)].map((a) => [
+      [...assets.data, ...lists.data.flatMap((l) => l.assets), ...favorites.data].map((a) => [
         `${a.type}:${a.symbol}`,
         { symbol: a.symbol, name: a.name, type: a.type },
       ]),
     ).values(),
   ];
+  const defaultQuery =
+    language === 'es'
+      ? 'finanzas mercados'
+      : language === 'pt'
+        ? 'finanças mercados'
+        : 'finance markets';
+  const categoryQuery = (category: string) =>
+    category === 'Latest' ? defaultQuery : text(category).toLowerCase();
   const query =
-    params.get('q') ||
     (personal
       ? [...followed.slice(0, 3).map((a) => a.symbol), ...topics.slice(0, 2)]
           .join(' OR ')
           .slice(0, 120)
-      : '') ||
-    'finance markets';
+      : params.get('q') || '') || defaultQuery;
   const news = useQuery({
-    queryKey: ['news', query],
+    queryKey: ['news', query, language],
     queryFn: ({ signal }) =>
       readJson<{ articles: NewsItem[]; stale?: boolean; error?: string; source?: string }>(
-        `/api/news?q=${encodeURIComponent(query)}`,
+        `/api/news?q=${encodeURIComponent(query)}&language=${language}`,
         signal,
       ),
     staleTime: 180_000,
@@ -79,7 +91,8 @@ export default function NewsFeed() {
     .filter((s) => !personal || s.related.length > 0 || s.matchingTopics.length > 0)
     .sort((a, b) =>
       personal
-        ? b.related.length - a.related.length
+        ? b.related.length - a.related.length ||
+          Date.parse(b.article.publishedAt) - Date.parse(a.article.publishedAt)
         : Date.parse(b.article.publishedAt) - Date.parse(a.article.publishedAt),
     );
   const saveTopics = async (next: string[]) => {
@@ -100,37 +113,42 @@ export default function NewsFeed() {
     }
   };
   return (
-    <div className="space-y-6">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Separate the signal</p>
-          <h1>News terminal</h1>
-          <p className="text-sm text-text-dim">
+    <I18n.div className="space-y-6">
+      <I18n.div className="section-heading">
+        <I18n.div>
+          <I18n.p className="eyebrow">Separate the signal</I18n.p>
+          <I18n.h1>News terminal</I18n.h1>
+          <I18n.p className="text-sm text-text-dim">
             Original reporting, organized around your holdings and interests.
-          </p>
-        </div>
-        <button
+          </I18n.p>
+        </I18n.div>
+        <I18n.button
           className={`secondary-button ${personal ? 'text-accent' : ''}`}
           aria-pressed={personal}
-          onClick={() => setPersonal(!personal)}
+          onClick={() => {
+            setPersonal(!personal);
+            setVisibleCount(12);
+          }}
         >
           {personal ? 'Portfolio relevant' : 'All stories'}
-        </button>
-      </div>
-      <form
+        </I18n.button>
+      </I18n.div>
+      <I18n.form
         className="flex gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           const submitted = String(new FormData(e.currentTarget).get('q') || '').trim();
           searchEdited.current = false;
           setSearch(submitted);
+          setPersonal(false);
+          setVisibleCount(12);
           if (submitted) setParams({ q: submitted });
           else navigate('/news');
         }}
       >
-        <label className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-border-accent bg-surface px-4">
+        <I18n.label className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-border-accent bg-surface px-4">
           <Search size={16} className="text-text-dim" />
-          <input
+          <I18n.input
             className="w-full bg-transparent py-3 text-sm outline-none"
             aria-label="Search financial news"
             name="q"
@@ -142,46 +160,50 @@ export default function NewsFeed() {
               setSearch(e.target.value);
             }}
           />
-        </label>
-        <button className="primary-button">Search</button>
-      </form>
-      <div className="flex flex-wrap gap-1">
+        </I18n.label>
+        <I18n.button className="primary-button">Search</I18n.button>
+      </I18n.form>
+      <I18n.div className="flex flex-wrap gap-1">
         {categories.map((c) => (
-          <button
-            className={`chart-control ${query === (c === 'Latest' ? 'finance markets' : c.toLowerCase()) ? 'active' : ''}`}
+          <I18n.button
+            className={`chart-control ${!personal && query === categoryQuery(c) ? 'active' : ''}`}
             key={c}
             onClick={() => {
               searchEdited.current = false;
               setSearch('');
-              setParams({ q: c === 'Latest' ? 'finance markets' : c.toLowerCase() });
+              setPersonal(false);
+              setVisibleCount(12);
+              setParams({ q: categoryQuery(c) });
             }}
           >
             {c}
-          </button>
+          </I18n.button>
         ))}
-      </div>
-      <section className="terminal-panel flex flex-wrap items-center gap-2 p-3">
-        <span className="mr-2 text-xs text-text-dim">Following</span>
+      </I18n.div>
+      <I18n.section className="terminal-panel flex flex-wrap items-center gap-2 p-3">
+        <I18n.span className="mr-2 text-xs text-text-dim">Following</I18n.span>
         {topics.map((t) => (
-          <span className="quiet-chip" key={t}>
-            <button
+          <I18n.span className="quiet-chip" key={t}>
+            <I18n.button
+              data-i18n="off"
               onClick={() => {
                 searchEdited.current = false;
+                setPersonal(false);
                 setParams({ q: t });
               }}
             >
               {t}
-            </button>
-            <button
+            </I18n.button>
+            <I18n.button
               aria-label={`Unfollow ${t}`}
               disabled={topicBusy}
               onClick={() => void saveTopics(topics.filter((v) => v !== t))}
             >
               ×
-            </button>
-          </span>
+            </I18n.button>
+          </I18n.span>
         ))}
-        <form
+        <I18n.form
           className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
@@ -200,7 +222,7 @@ export default function NewsFeed() {
             });
           }}
         >
-          <input
+          <I18n.input
             className="terminal-input !py-1.5"
             placeholder="Ticker or topic"
             aria-label="Follow a news topic"
@@ -209,11 +231,11 @@ export default function NewsFeed() {
             onChange={(e) => setTopic(e.target.value)}
             required
           />
-          <button className="chart-control" disabled={topicBusy}>
+          <I18n.button className="chart-control" disabled={topicBusy}>
             ＋ Follow
-          </button>
-        </form>
-      </section>
+          </I18n.button>
+        </I18n.form>
+      </I18n.section>
       {(status ||
         assets.error ||
         lists.error ||
@@ -221,7 +243,7 @@ export default function NewsFeed() {
         news.error ||
         news.data?.error ||
         news.data?.stale) && (
-        <p className="status-message" role="status">
+        <I18n.p className="status-message" role="status">
           {status ||
             assets.error ||
             lists.error ||
@@ -229,14 +251,26 @@ export default function NewsFeed() {
             (news.error
               ? 'News is temporarily unavailable.'
               : news.data?.error || 'Showing cached stories. Check the publication timestamp.')}
-        </p>
+        </I18n.p>
       )}
-      <section className="terminal-panel divide-y divide-border-accent">
-        {stories.map(({ article, related, matchingTopics }) => (
-          <article key={article.url} className="flex gap-5 p-5">
-            <div className="hidden shrink-0 sm:block">
+      <I18n.section className="terminal-panel divide-y divide-border-accent">
+        <I18n.div className="flex justify-end p-3">
+          <I18n.button
+            className="chart-control"
+            disabled={news.isFetching}
+            onClick={() => void news.refetch()}
+          >
+            {news.isFetching ? 'Refreshing news…' : 'Refresh news'}
+          </I18n.button>
+        </I18n.div>
+        {stories.slice(0, visibleCount).map(({ article, related, matchingTopics }) => (
+          <I18n.article key={article.url} className="flex gap-5 p-5">
+            <I18n.div className="hidden shrink-0 sm:block">
               {article.urlToImage ? (
-                <img
+                <I18n.img
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
                   src={article.urlToImage}
                   alt=""
                   loading="lazy"
@@ -244,20 +278,23 @@ export default function NewsFeed() {
                   className="h-24 w-36 rounded-md object-cover"
                 />
               ) : (
-                <div className="flex h-24 w-36 items-center justify-center rounded-md bg-bg text-text-dim">
+                <I18n.div className="flex h-24 w-36 items-center justify-center rounded-md bg-bg text-text-dim">
                   <Newspaper size={28} />
-                </div>
+                </I18n.div>
               )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="mb-2 flex flex-wrap gap-3 text-[11px] text-text-dim">
-                <strong className="text-accent">{article.source.name}</strong>
-                <time dateTime={article.publishedAt}>
-                  {new Date(article.publishedAt).toLocaleString()}
-                </time>
-                <span>{article.provider}</span>
-              </div>
-              <a
+            </I18n.div>
+            <I18n.div className="min-w-0 flex-1">
+              <I18n.div className="mb-2 flex flex-wrap gap-3 text-[11px] text-text-dim">
+                <I18n.strong data-i18n="off" className="text-accent">
+                  {article.source.name}
+                </I18n.strong>
+                <I18n.time dateTime={article.publishedAt}>
+                  {new Date(article.publishedAt).toLocaleString(locale)}
+                </I18n.time>
+                <I18n.span>{article.provider}</I18n.span>
+              </I18n.div>
+              <I18n.a
+                data-i18n="off"
                 className="text-lg font-semibold leading-snug hover:text-accent"
                 href={article.url}
                 target="_blank"
@@ -265,39 +302,50 @@ export default function NewsFeed() {
               >
                 {article.title}
                 <ExternalLink className="ml-2 inline" size={13} />
-              </a>
+              </I18n.a>
               {article.description && (
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-text-dim">
+                <I18n.p
+                  data-i18n="off"
+                  className="mt-2 line-clamp-2 text-sm leading-6 text-text-dim"
+                >
                   {article.description}
-                </p>
+                </I18n.p>
               )}
               {related.length > 0 && (
-                <p className="mt-3 text-xs text-accent">
+                <I18n.p className="mt-3 text-xs text-accent">
                   Why this matters to you: mentions {related.map((a) => a.symbol).join(', ')} from
                   your portfolio or watchlists.{' '}
-                  <span className="text-text-dim">
+                  <I18n.span className="text-text-dim">
                     Rule-based relevance · original source above
-                  </span>
-                </p>
+                  </I18n.span>
+                </I18n.p>
               )}
               {matchingTopics.length > 0 && (
-                <p className="mt-2 text-xs text-text-dim">
+                <I18n.p className="mt-2 text-xs text-text-dim">
                   Matches followed topics: {matchingTopics.join(', ')} · Rule-based relevance
-                </p>
+                </I18n.p>
               )}
-            </div>
-          </article>
+            </I18n.div>
+          </I18n.article>
         ))}
         {!stories.length && (
-          <div className="empty-state">
+          <I18n.div className="empty-state">
             {news.isPending
               ? 'Loading reports…'
               : personal
                 ? 'No stories in this feed mention your followed assets. Search a ticker to find more.'
                 : 'No verified reports are available for this query.'}
-          </div>
+          </I18n.div>
         )}
-      </section>
-    </div>
+      </I18n.section>
+      {stories.length > visibleCount && (
+        <I18n.button
+          className="secondary-button"
+          onClick={() => setVisibleCount((count) => count + 12)}
+        >
+          Load more news
+        </I18n.button>
+      )}
+    </I18n.div>
   );
 }

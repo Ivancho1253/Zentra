@@ -26,6 +26,11 @@ export const watchlistSchema = z.object({
   assets: z.array(z.object({ symbol, name: z.string().max(200), type })).max(40),
 });
 const schemas: Record<string, z.ZodType> = {
+  wallets: z.object({
+    address: z.string().min(32).max(66),
+    ecosystem: z.enum(['evm', 'solana', 'sui']),
+    updatedAt: z.string(),
+  }),
   favorites: z.object({ symbol, name: z.string().max(200).default(''), type }),
   assets: assetSchema,
   watchlists: watchlistSchema,

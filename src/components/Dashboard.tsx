@@ -1,3 +1,5 @@
+import { useLanguage } from '../contexts/LanguageContext';
+import { I18n, UiText } from './Localized';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -23,40 +25,43 @@ const benchmarks = [
   { symbol: 'BTC', name: 'Bitcoin', type: 'crypto' },
   { symbol: 'ETH', name: 'Ethereum', type: 'crypto' },
 ];
-const money = (value: number) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(value);
+const moneyBase = (value: number, locale = 'en-US') =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(value);
 function MarketRow({ asset }: { asset: { symbol: string; name: string; type: string } }) {
+  const { locale } = useLanguage();
   const quote = useQuote(asset.symbol, asset.type),
     data = quote.data;
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-border-accent px-4 py-3 last:border-0">
+    <I18n.div className="grid grid-cols-[1fr_auto] gap-2 border-b border-border-accent px-4 py-3 last:border-0">
       <Link
         className="text-sm font-semibold"
         to={`/market/${asset.type === 'crypto' ? 'cryptos' : asset.type === 'index' ? 'indices' : 'stocks'}/${encodeURIComponent(asset.symbol)}`}
       >
-        {asset.symbol}
-        <span className="ml-2 text-xs font-normal text-text-dim">{asset.name}</span>
+        <UiText>{asset.symbol}</UiText>
+        <I18n.span className="ml-2 text-xs font-normal text-text-dim">{asset.name}</I18n.span>
       </Link>
-      <span className="font-mono text-sm">
+      <I18n.span className="font-mono text-sm">
         {data?.price
-          ? new Intl.NumberFormat(undefined, {
+          ? new Intl.NumberFormat(locale, {
               style: 'currency',
               currency: data.currency,
               maximumFractionDigits: 6,
             }).format(Number(data.price))
           : '—'}
-      </span>
+      </I18n.span>
       <DataProvenance quote={data} />
-      <span
+      <I18n.span
         className={`text-right font-mono text-xs ${Number(data?.change) < 0 ? 'text-loss' : 'text-accent'}`}
       >
         {data?.change == null ? '—' : `${Number(data.change).toFixed(2)}%`}
-      </span>
-    </div>
+      </I18n.span>
+    </I18n.div>
   );
 }
 
 export default function Dashboard() {
+  const money = (value: number) => moneyBase(value, locale);
+  const { locale } = useLanguage();
   const assets = useUserCollection<Asset>('assets'),
     favorites = useUserCollection<{
       id: string;
@@ -98,12 +103,19 @@ export default function Dashboard() {
       ...lists.data.flatMap((l) => l.assets.map((a) => a.symbol)),
     ]),
   ];
-  const newsQuery = followed.slice(0, 3).join(' OR ') || 'finance markets';
+  const { language } = useLanguage();
+  const newsQuery =
+    followed.slice(0, 3).join(' OR ') ||
+    (language === 'es'
+      ? 'finanzas mercados'
+      : language === 'pt'
+        ? 'finanças mercados'
+        : 'finance markets');
   const news = useQuery({
-    queryKey: ['news', newsQuery],
+    queryKey: ['news', newsQuery, language],
     queryFn: ({ signal }) =>
       readJson<{ articles: NewsItem[]; error?: string; stale?: boolean }>(
-        `/api/news?q=${encodeURIComponent(newsQuery)}`,
+        `/api/news?q=${encodeURIComponent(newsQuery)}&language=${language}`,
         signal,
       ),
     staleTime: 180_000,
@@ -135,25 +147,25 @@ export default function Dashboard() {
     metrics.holdings.some((h) => h.isEstimated) ||
     positions.some((a) => a.currency && a.currency !== 'USD');
   return (
-    <div className="space-y-6">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Your financial world, in focus</p>
-          <h1>The bigger picture.</h1>
-          <p className="text-sm text-text-dim">
+    <I18n.div className="space-y-6">
+      <I18n.div className="section-heading">
+        <I18n.div>
+          <I18n.p className="eyebrow">Your financial world, in focus</I18n.p>
+          <I18n.h1>The bigger picture.</I18n.h1>
+          <I18n.p className="text-sm text-text-dim">
             A personal view of your capital, markets and information.
-          </p>
-        </div>
+          </I18n.p>
+        </I18n.div>
         <Link className="primary-button" to="/transactions">
-          ＋ Register transaction
+          <UiText>＋ Register transaction</UiText>
         </Link>
-      </div>
+      </I18n.div>
       {(assets.error || lists.error || snapshots.error || accounts.error) && (
-        <p className="status-message" role="status">
+        <I18n.p className="status-message" role="status">
           {assets.error || lists.error || snapshots.error || accounts.error}
-        </p>
+        </I18n.p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <I18n.div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
             label: 'USD holdings value',
@@ -177,33 +189,35 @@ export default function Dashboard() {
             description: 'Recorded USD cost, including purchase fees.',
           },
         ].map((s) => (
-          <section className="terminal-panel p-5" key={s.label}>
-            <p className="eyebrow" title={s.description}>
+          <I18n.section className="terminal-panel p-5" key={s.label}>
+            <I18n.p className="eyebrow" title={s.description}>
               {s.label} ⓘ
-            </p>
-            <p className="mt-3 font-mono text-2xl">{assets.loading ? '—' : money(s.value)}</p>
-          </section>
+            </I18n.p>
+            <I18n.p className="mt-3 font-mono text-2xl">
+              {assets.loading ? '—' : money(s.value)}
+            </I18n.p>
+          </I18n.section>
         ))}
-      </div>
+      </I18n.div>
       {incomplete && (
-        <p className="status-message">
+        <I18n.p className="status-message">
           Totals include marked cost estimates where quotes are unavailable. Non-USD holdings are
           excluded.{' '}
           <Link className="text-accent" to="/analytics">
-            Open FX-aware analytics →
+            <UiText>Open FX-aware analytics →</UiText>
           </Link>
-        </p>
+        </I18n.p>
       )}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-        <section className="terminal-panel min-w-0">
-          <div className="flex flex-wrap justify-between gap-2 border-b border-border-accent p-4">
-            <h2 className="font-semibold">Recorded portfolio value · USD</h2>
+      <I18n.div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
+        <I18n.section className="terminal-panel min-w-0">
+          <I18n.div className="flex flex-wrap justify-between gap-2 border-b border-border-accent p-4">
+            <I18n.h2 className="font-semibold">Recorded portfolio value · USD</I18n.h2>
             <Link className="text-xs text-accent" to="/portfolio">
-              View history →
+              <UiText>View history →</UiText>
             </Link>
-          </div>
+          </I18n.div>
           {history.length > 1 ? (
-            <div className="h-72 p-4">
+            <I18n.div className="h-72 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={history}>
                   <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={35} />
@@ -218,134 +232,148 @@ export default function Dashboard() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
+            </I18n.div>
           ) : (
-            <div className="empty-state h-72">
+            <I18n.div className="empty-state h-72">
               {positions.length
                 ? 'History starts after two saved daily valuations. No synthetic performance curve is displayed.'
                 : 'Register or import holdings to start your portfolio history.'}
-            </div>
+            </I18n.div>
           )}
-          <p className="border-t border-border-accent p-4 text-xs text-text-dim">
+          <I18n.p className="border-t border-border-accent p-4 text-xs text-text-dim">
             Saved valuations may include marked estimates. Value changes include transactions; this
             is not a cash-flow-adjusted return.
-          </p>
-        </section>
-        <section className="terminal-panel min-w-0">
-          <div className="flex justify-between border-b border-border-accent p-4">
-            <h2 className="font-semibold">{watchlist?.name || 'Your watchlist'}</h2>
+          </I18n.p>
+        </I18n.section>
+        <I18n.section className="terminal-panel min-w-0">
+          <I18n.div className="flex justify-between border-b border-border-accent p-4">
+            <I18n.h2
+              className="font-semibold"
+              data-i18n={watchlist && 'id' in watchlist ? 'off' : undefined}
+            >
+              {watchlist?.name || 'Your watchlist'}
+            </I18n.h2>
             <Link className="text-xs text-accent" to="/watchlists">
-              Manage →
+              <UiText>Manage →</UiText>
             </Link>
-          </div>
+          </I18n.div>
           {watchlist?.assets.length ? (
             watchlist.assets
               .slice(0, 4)
               .map((a) => <MarketRow key={`${a.type}:${a.symbol}`} asset={a} />)
           ) : (
-            <div className="empty-state">Create a watchlist to follow stocks and crypto.</div>
+            <I18n.div className="empty-state">
+              Create a watchlist to follow stocks and crypto.
+            </I18n.div>
           )}
-          <div className="border-t border-border-accent p-4">
-            <p className="eyebrow mb-2">Daily brief</p>
-            <p className="text-sm leading-6">
+          <I18n.div className="border-t border-border-accent p-4">
+            <I18n.p className="eyebrow mb-2">Daily brief</I18n.p>
+            <I18n.p className="text-sm leading-6">
               {positions.length} open positions · {lists.data.length} watchlists.{' '}
               {movers[0]
                 ? `${movers[0].symbol} has the largest observed daily move: ${Number(movers[0].change).toFixed(2)}%.`
                 : 'No verified daily movements are available.'}
-            </p>
+            </I18n.p>
             <Link className="mt-3 inline-block text-xs text-accent" to="/briefing">
-              Open sourced briefing →
+              <UiText>Open sourced briefing →</UiText>
             </Link>
-          </div>
-        </section>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="terminal-panel">
-          <div className="border-b border-border-accent p-4">
-            <h2 className="font-semibold">Market overview</h2>
-          </div>
+          </I18n.div>
+        </I18n.section>
+      </I18n.div>
+      <I18n.div className="grid gap-6 lg:grid-cols-2">
+        <I18n.section className="terminal-panel">
+          <I18n.div className="border-b border-border-accent p-4">
+            <I18n.h2 className="font-semibold">Market overview</I18n.h2>
+          </I18n.div>
           {benchmarks.map((a) => (
             <MarketRow key={a.symbol} asset={a} />
           ))}
-        </section>
-        <section className="terminal-panel">
-          <div className="flex justify-between border-b border-border-accent p-4">
-            <h2 className="font-semibold">Portfolio movers</h2>
+        </I18n.section>
+        <I18n.section className="terminal-panel">
+          <I18n.div className="flex justify-between border-b border-border-accent p-4">
+            <I18n.h2 className="font-semibold">Portfolio movers</I18n.h2>
             <Link className="text-xs text-accent" to="/market">
-              Explore markets →
+              <UiText>Explore markets →</UiText>
             </Link>
-          </div>
+          </I18n.div>
           {movers.map((a) => (
             <MarketRow key={a.symbol} asset={a} />
           ))}
           {!movers.length && (
-            <div className="empty-state">
+            <I18n.div className="empty-state">
               {quotes.some((q) => q.isPending)
                 ? 'Loading quotes…'
                 : 'Verified daily movements will appear here.'}
-            </div>
+            </I18n.div>
           )}
-        </section>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="terminal-panel">
-          <div className="flex justify-between border-b border-border-accent p-4">
-            <h2 className="font-semibold">Followed-asset news</h2>
+        </I18n.section>
+      </I18n.div>
+      <I18n.div className="grid gap-6 lg:grid-cols-2">
+        <I18n.section className="terminal-panel">
+          <I18n.div className="flex justify-between border-b border-border-accent p-4">
+            <I18n.h2 className="font-semibold">Followed-asset news</I18n.h2>
             <Link className="text-xs text-accent" to="/news">
-              News terminal →
+              <UiText>News terminal →</UiText>
             </Link>
-          </div>
+          </I18n.div>
           {news.data?.articles.slice(0, 4).map((a) => (
-            <article className="border-b border-border-accent p-4 last:border-0" key={a.url}>
-              <p className="mb-1 text-xs text-text-dim">
-                {a.source.name} · {new Date(a.publishedAt).toLocaleString()}
+            <I18n.article className="border-b border-border-accent p-4 last:border-0" key={a.url}>
+              <I18n.p className="mb-1 text-xs text-text-dim">
+                <I18n.span data-i18n="off">{a.source.name}</I18n.span> ·{' '}
+                {new Date(a.publishedAt).toLocaleString(locale)}
                 {news.data?.stale ? ' · Stale cache' : ''}
-              </p>
-              <a
+              </I18n.p>
+              <I18n.a
+                data-i18n="off"
                 className="text-sm font-semibold hover:text-accent"
                 href={a.url}
                 target="_blank"
                 rel="noreferrer"
               >
                 {a.title} ↗
-              </a>
-            </article>
+              </I18n.a>
+            </I18n.article>
           ))}
           {!news.data?.articles.length && (
-            <div className="empty-state">
+            <I18n.div className="empty-state">
               {news.isPending
                 ? 'Loading reporting…'
                 : 'Verified reporting is currently unavailable.'}
-            </div>
+            </I18n.div>
           )}
-        </section>
-        <section className="terminal-panel">
-          <div className="flex justify-between border-b border-border-accent p-4">
-            <h2 className="font-semibold">Social intelligence</h2>
+        </I18n.section>
+        <I18n.section className="terminal-panel">
+          <I18n.div className="flex justify-between border-b border-border-accent p-4">
+            <I18n.h2 className="font-semibold">Social intelligence</I18n.h2>
             <Link className="text-xs text-accent" to="/social">
-              Manage sources →
+              <UiText>Manage sources →</UiText>
             </Link>
-          </div>
+          </I18n.div>
           {social.data?.posts.slice(0, 3).map((p) => (
-            <article key={p.id} className="border-b border-border-accent p-4 last:border-0">
-              <p className="mb-2 text-xs text-text-dim">
-                @{p.username} · {new Date(p.publishedAt).toLocaleString()} · {p.provider}
-              </p>
-              <a className="line-clamp-3 text-sm" href={p.url} target="_blank" rel="noreferrer">
+            <I18n.article key={p.id} className="border-b border-border-accent p-4 last:border-0">
+              <I18n.p className="mb-2 text-xs text-text-dim">
+                @{p.username} · {new Date(p.publishedAt).toLocaleString(locale)} · {p.provider}
+              </I18n.p>
+              <I18n.a
+                className="line-clamp-3 text-sm"
+                href={p.url}
+                target="_blank"
+                rel="noreferrer"
+              >
                 {p.text}
-              </a>
-            </article>
+              </I18n.a>
+            </I18n.article>
           ))}
           {!social.data?.posts.length && (
-            <div className="empty-state">
+            <I18n.div className="empty-state">
               {monitored
                 ? social.data?.message || 'Official X posts are currently unavailable.'
                 : 'Add monitored X accounts to personalize this feed.'}
-            </div>
+            </I18n.div>
           )}
-        </section>
-      </div>
+        </I18n.section>
+      </I18n.div>
       <UpcomingEvents symbols={followed} />
-    </div>
+    </I18n.div>
   );
 }

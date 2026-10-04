@@ -5,6 +5,12 @@ import readXlsxFile from 'read-excel-file/node';
 import { z } from 'zod';
 import { parseDecimalAmount, structuredPortfolioExtract } from '../services/importParser';
 import { config } from '../config';
+import {
+  extractReceipt,
+  enrichReceipt,
+  validReceiptImage,
+  ReceiptQuotaError,
+} from '../services/receiptService';
 
 type ImportedAsset = {
   symbol?: string;
@@ -21,6 +27,8 @@ type ImportedAsset = {
 };
 
 type RegisterAiImportRoutesOptions = {
+  receiptExtractor?: typeof extractReceipt;
+  receiptEnricher?: typeof enrichReceipt;
   extractJsonObject: (rawText: string) => unknown;
   heuristicPortfolioExtract: (text: string) => ImportedAsset[];
 };
@@ -70,6 +78,28 @@ export function registerAiImportRoutes(
         assets: [],
       };
       const isImage = mimeType.startsWith('image/');
+      if (isImage) {
+        if (!validReceiptImage(buffer, mimeType))
+          return res.status(400).json({ error: 'Choose a valid PNG, JPEG or WebP image.' });
+        if (!apiKey && !options.receiptExtractor)
+          return res.status(503).json({
+            error: 'Image recognition needs a configured AI service. Import CSV or XLSX instead.',
+          });
+        try {
+          const extracted = await (options.receiptExtractor || extractReceipt)(
+            fileBase64,
+            mimeType,
+          );
+          const assets = await (options.receiptEnricher || enrichReceipt)(extracted);
+          return res.json({ assets, source: 'gemini', requiresReview: true });
+        } catch (error) {
+          if (error instanceof ReceiptQuotaError)
+            return res.status(429).json({ error: error.message });
+          return res
+            .status(503)
+            .json({ error: 'Image recognition is unavailable. Retry or import CSV or XLSX.' });
+        }
+      }
 
       if (
         mimeType.includes('spreadsheet') ||
@@ -161,7 +191,7 @@ export function registerAiImportRoutes(
       }
 
       try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey, httpOptions: { timeout: 30_000 } });
         const prompt = `You are an investment portfolio extraction engine. Read the provided ${isImage ? 'screenshot/image with OCR' : 'document text/table'} and detect visible portfolio positions, orders, transactions, or holdings.
 
 Return only valid JSON, no markdown, no commentary.
@@ -196,7 +226,7 @@ Rules:
 - If unsure, still return the symbol with null quantity or averagePrice and a low confidence note.`;
 
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: process.env.AI_MODEL || 'gemini-3.5-flash-lite',
           config: {
             responseMimeType: 'application/json',
           },

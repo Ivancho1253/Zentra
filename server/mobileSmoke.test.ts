@@ -315,7 +315,9 @@ describe.skipIf(!baseUrl)('browser journeys', () => {
         await page.getByLabel('Asset', { exact: true }).fill('AAPL');
         await page.getByLabel('Native currency price', { exact: true }).fill('100');
         await page.getByRole('button', { name: 'Save alert', exact: true }).click();
-        await expect.poll(() => page.getByRole('status').innerText()).toContain('Alert saved');
+        await expect
+          .poll(() => page.locator('main').getByRole('status').innerText())
+          .toContain('Alert saved');
         await page.getByTitle('Pause alert', { exact: true }).click();
         await page.getByTitle('Resume alert', { exact: true }).waitFor();
         await page.getByTitle('Resume alert', { exact: true }).click();
