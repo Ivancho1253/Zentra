@@ -1,5 +1,6 @@
 import type express from 'express';
 import { marketList } from '../services/marketService';
+import { sp500Metadata } from '../../shared/catalog';
 export function registerMarketListRoutes(app: express.Express) {
   for (const type of ['stock', 'crypto'] as const) {
     app.get(`/api/market/${type === 'stock' ? 'stocks' : 'cryptos'}`, async (_req, res) => {
@@ -10,6 +11,8 @@ export function registerMarketListRoutes(app: express.Express) {
         fallback: !data.some((q) => q.price),
         stale: data.some((q) => q.stale),
         updatedAt: new Date().toISOString(),
+        coverage: { total: data.length, priced: data.filter((quote) => quote.price).length },
+        ...(type === 'stock' ? { constituents: sp500Metadata } : {}),
       });
     });
   }

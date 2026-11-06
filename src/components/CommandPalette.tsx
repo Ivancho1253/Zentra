@@ -11,6 +11,7 @@ import type { Asset } from '../types';
 const pages = [
   { name: 'Dashboard', path: '/' },
   { name: 'Portfolio', path: '/portfolio' },
+  { name: 'Zentra Charts', path: '/charts' },
   { name: 'Watchlists', path: '/watchlists' },
   { name: 'Register transaction', path: '/transactions' },
   { name: 'Portfolio analytics', path: '/analytics' },

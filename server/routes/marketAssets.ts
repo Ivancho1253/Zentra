@@ -2,6 +2,7 @@ import type express from 'express';
 import { z } from 'zod';
 import { topGainers } from '../../shared/marketMovers';
 import { getQuote, marketList } from '../services/marketService';
+import { getFundamentals } from '../services/fundamentalsService';
 export const symbolSchema = z
   .string()
   .trim()
@@ -11,6 +12,13 @@ export const symbolSchema = z
   .transform((s) => s.toUpperCase());
 export const assetTypeSchema = z.enum(['stock', 'crypto', 'etf', 'index', 'forex']);
 export function registerMarketAssetRoutes(app: express.Express) {
+  app.get('/api/market/fundamentals', async (req, res) => {
+    const symbol = symbolSchema.safeParse(req.query.symbol),
+      type = assetTypeSchema.safeParse(req.query.type || 'stock');
+    if (!symbol.success || !type.success)
+      return res.status(400).json({ error: 'Valid symbol and asset type required' });
+    res.json(await getFundamentals(symbol.data, type.data));
+  });
   app.get('/api/market/asset', async (req, res) => {
     const symbol = symbolSchema.safeParse(req.query.symbol),
       type = assetTypeSchema.safeParse(req.query.type || 'stock');

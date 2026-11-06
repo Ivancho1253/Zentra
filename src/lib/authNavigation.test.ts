@@ -5,6 +5,10 @@ describe('post-login navigation', () => {
   it('returns to a requested account section, including its filters', () => {
     expect(postLoginPath({ from: '/watchlists?list=tech' })).toBe('/watchlists?list=tech');
     expect(postLoginPath({ from: '/market/stocks/AAPL' })).toBe('/market/stocks/AAPL');
+    expect(postLoginPath({ from: '/portfolio/transactions?add=1' })).toBe(
+      '/portfolio/transactions?add=1',
+    );
+    expect(postLoginPath({ from: '/intelligence/news?q=NVDA' })).toBe('/intelligence/news?q=NVDA');
   });
   it('rejects external and malformed redirect destinations', () => {
     for (const from of [

@@ -35,6 +35,27 @@ describe('API endpoints', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Invalid range');
   });
+  it('validates independent candle intervals and backwards history cursors', async () => {
+    const app = await createApp({ includeFrontend: false });
+    for (const query of [
+      { interval: '2h' },
+      { interval: ['1h', '1d'] },
+      { before: '-1' },
+      { before: String(Date.now() + 86400000) },
+    ]) {
+      const response = await request(app)
+        .get('/api/market/history')
+        .query({ symbol: 'AAPL', type: 'stock', range: 'MAX', ...query });
+      expect(response.status).toBe(400);
+    }
+    for (const interval of ['1h', '4h', '1d', '1w', '1mo']) {
+      const response = await request(app)
+        .get('/api/market/history')
+        .query({ symbol: 'AAPL', type: 'stock', range: 'MAX', interval });
+      expect(response.status).toBe(200);
+      expect(response.body.interval).toBe(interval);
+    }
+  });
 
   it('protects private AI endpoints with Firebase auth', async () => {
     const app = await createApp({ includeFrontend: false });

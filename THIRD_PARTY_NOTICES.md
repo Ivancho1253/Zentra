@@ -1,10 +1,6 @@
 # Third-party notices
 
-TradingView Lightweight Charts™ is used under the Apache License 2.0.
-Copyright 2023 TradingView, Inc. The chart displays its attribution logo and
-a link to [TradingView](https://www.tradingview.com/).
-The installed distribution includes its full license at
-`node_modules/lightweight-charts/LICENSE`.
+Zentra Charts uses an original Canvas renderer maintained in this repository.
 
 FX attribution is displayed alongside rates: [ExchangeRate-API](https://www.exchangerate-api.com/).
 Provider access does not grant redistribution or commercial display rights.

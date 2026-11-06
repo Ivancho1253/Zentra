@@ -110,6 +110,7 @@ describe.skipIf(!baseUrl)('browser journeys', () => {
       const browser = await chromium.launch({ headless: true });
       try {
         const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+        page.setDefaultTimeout(12_000);
         const errors: string[] = [];
         page.on('pageerror', (error) => errors.push(error.message));
         await page.goto(`${baseUrl}/watchlists`);
@@ -204,33 +205,39 @@ describe.skipIf(!baseUrl)('browser journeys', () => {
         await page.getByRole('article', { name: 'AAPL market card', exact: true }).waitFor();
         await page.getByLabel('Add AAPL to favorites', { exact: true }).click();
         await page.getByLabel('Remove AAPL from favorites', { exact: true }).waitFor();
-        await page.getByRole('button', { name: 'favorites', exact: true }).click();
+        await page.getByRole('button', { name: 'Favorites', exact: true }).click();
         await page.getByRole('article', { name: 'AAPL market card', exact: true }).waitFor();
         // Saved assets outside the discovery catalog must remain visible and removable.
         await page.goto(`${baseUrl}/market/stocks/ZZZQ`);
         await page.getByLabel('Add ZZZQ to favorites', { exact: true }).click();
         await page.getByLabel('Remove ZZZQ from favorites', { exact: true }).waitFor();
         await page.goto(`${baseUrl}/market`);
-        await page.getByRole('button', { name: 'favorites', exact: true }).click();
+        await page.getByRole('button', { name: 'Favorites', exact: true }).click();
         await page.getByRole('article', { name: 'ZZZQ market card', exact: true }).waitFor();
         await page.getByLabel('Remove ZZZQ from favorites', { exact: true }).click();
         await expect
           .poll(() => page.getByRole('article', { name: 'ZZZQ market card', exact: true }).count())
           .toBe(0);
         await page.getByRole('button', { name: 'Heat Map', exact: true }).click();
-        await page.getByLabel('Heat map weighting').selectOption('moves');
-        await page.locator('main a[title^="AAPL "]').waitFor();
-        await page.getByTitle('Zoom in', { exact: true }).click();
-        await page.getByTitle('Reset view', { exact: true }).click();
-        await page.locator('main a[title^="AAPL "]').click();
-        await page.waitForURL(`${baseUrl}/market/stocks/AAPL`);
-        await page.getByRole('button', { name: 'Line', exact: true }).click();
-        await page.getByRole('button', { name: 'SMA 20', exact: true }).click();
+        await page.getByLabel('Heat map sizing').selectOption('equal');
+        await page.getByRole('button', { name: /^AAPL / }).waitFor();
+        await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+        await page.getByRole('button', { name: 'Reset view', exact: true }).click();
+        await page.getByRole('button', { name: /^AAPL / }).click();
+        await page.waitForURL(`${baseUrl}/charts?symbol=AAPL&type=stock`);
+        await page.getByRole('combobox', { name: 'Chart style', exact: true }).selectOption('line');
+        await page.getByRole('button', { name: 'Indicators', exact: true }).click();
+        await page.getByRole('checkbox', { name: 'SMA', exact: true }).check();
+        await page.getByRole('button', { name: 'Close indicators', exact: true }).click();
         await page.getByRole('button', { name: '1W', exact: true }).click();
         expect(
           await page.getByRole('button', { name: '1W', exact: true }).getAttribute('aria-pressed'),
         ).toBe('true');
-        await page.getByRole('button', { name: 'Candles', exact: true }).click();
+        await page
+          .getByRole('combobox', { name: 'Chart style', exact: true })
+          .selectOption('candle');
+        await page.goto(`${baseUrl}/market/stocks/AAPL`);
+        await page.getByRole('heading', { level: 1 }).waitFor();
         await page.getByLabel('Remove AAPL from favorites', { exact: true }).click();
         await page.getByLabel('Add AAPL to favorites', { exact: true }).waitFor();
         await page.getByLabel('Add AAPL to favorites', { exact: true }).click();
@@ -400,7 +407,7 @@ describe.skipIf(!baseUrl)('browser journeys', () => {
               source: 'Isolated test fixture',
               data: [
                 demoQuotes[0],
-                ...Array.from({ length: 11 }, (_, index) => ({
+                ...Array.from({ length: 23 }, (_, index) => ({
                   ...demoQuotes[0],
                   symbol: `QA${index}`,
                   name: 'Isolated test asset',

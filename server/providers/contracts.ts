@@ -4,6 +4,7 @@ import type {
   Currency,
   FXRate,
   HistoryRange,
+  HistoryInterval,
   MarketHistory,
   NewsItem,
   SocialPost,
@@ -11,7 +12,13 @@ import type {
 export interface MarketDataProvider {
   readonly name: string;
   quote(symbol: string, type: AssetType): Promise<AssetQuote>;
-  history(symbol: string, type: AssetType, range: HistoryRange): Promise<MarketHistory>;
+  history(
+    symbol: string,
+    type: AssetType,
+    range: HistoryRange,
+    interval?: HistoryInterval,
+    before?: number,
+  ): Promise<MarketHistory>;
 }
 export interface CryptoDataProvider {
   readonly name: string;

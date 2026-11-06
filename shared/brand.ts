@@ -3,6 +3,6 @@ export const brand = Object.freeze({
   tagline: 'See what others miss.',
   description:
     'Turn market noise into useful information. Stocks, crypto and intelligence organized around your portfolio.',
-  themeColor: '#101416',
+  themeColor: '#131722',
   icon: '/icon.svg',
 });

@@ -1,4 +1,21 @@
-export const catalog: { symbol: string; name: string; type: 'stock' | 'crypto' }[] = [
+import sp500 from './data/sp500.json';
+import type { AssetType } from './domain';
+
+export interface CatalogAsset {
+  symbol: string;
+  name: string;
+  type: 'stock' | 'crypto';
+  sector?: string;
+  indexWeight?: number;
+  isSp500?: boolean;
+}
+export const sp500Metadata = {
+  asOf: sp500.asOf,
+  source: sp500.source,
+  sectorSource: sp500.sectorSource,
+  listings: sp500.assets.length,
+};
+const additionalCatalog: CatalogAsset[] = [
   { symbol: 'NVDA', type: 'stock', name: 'NVIDIA Corporation' },
   { symbol: 'GOOGL', type: 'stock', name: 'Alphabet Inc.' },
   { symbol: 'GOOG', type: 'stock', name: 'Alphabet Inc.' },
@@ -106,4 +123,116 @@ export const catalog: { symbol: string; name: string; type: 'stock' | 'crypto' }
   { symbol: 'BNB', type: 'crypto', name: 'BNB' },
   { symbol: 'XRP', type: 'crypto', name: 'XRP' },
   { symbol: 'ADA', type: 'crypto', name: 'Cardano' },
+  { symbol: 'DOGE', type: 'crypto', name: 'Dogecoin' },
+  { symbol: 'TRX', type: 'crypto', name: 'TRON' },
+  { symbol: 'LINK', type: 'crypto', name: 'Chainlink' },
+  { symbol: 'AVAX', type: 'crypto', name: 'Avalanche' },
+  { symbol: 'SUI', type: 'crypto', name: 'Sui' },
+  { symbol: 'XLM', type: 'crypto', name: 'Stellar' },
+  { symbol: 'LTC', type: 'crypto', name: 'Litecoin' },
+  { symbol: 'BCH', type: 'crypto', name: 'Bitcoin Cash' },
+  { symbol: 'HBAR', type: 'crypto', name: 'Hedera' },
+  { symbol: 'DOT', type: 'crypto', name: 'Polkadot' },
+  { symbol: 'TON', type: 'crypto', name: 'Toncoin' },
+  { symbol: 'UNI', type: 'crypto', name: 'Uniswap' },
+  { symbol: 'AAVE', type: 'crypto', name: 'Aave' },
+  { symbol: 'NEAR', type: 'crypto', name: 'NEAR Protocol' },
+  { symbol: 'ICP', type: 'crypto', name: 'Internet Computer' },
+  { symbol: 'APT', type: 'crypto', name: 'Aptos' },
+  { symbol: 'ARB', type: 'crypto', name: 'Arbitrum' },
+  { symbol: 'OP', type: 'crypto', name: 'Optimism' },
+  { symbol: 'ATOM', type: 'crypto', name: 'Cosmos' },
+  { symbol: 'FIL', type: 'crypto', name: 'Filecoin' },
+  { symbol: 'INJ', type: 'crypto', name: 'Injective' },
+  { symbol: 'RENDER', type: 'crypto', name: 'Render' },
+  { symbol: 'ETC', type: 'crypto', name: 'Ethereum Classic' },
+  { symbol: 'XMR', type: 'crypto', name: 'Monero' },
+  { symbol: 'ALGO', type: 'crypto', name: 'Algorand' },
+  { symbol: 'VET', type: 'crypto', name: 'VeChain' },
+  { symbol: 'FET', type: 'crypto', name: 'Artificial Superintelligence Alliance' },
+  { symbol: 'GRT', type: 'crypto', name: 'The Graph' },
+  { symbol: 'MKR', type: 'crypto', name: 'Maker' },
+  { symbol: 'SHIB', type: 'crypto', name: 'Shiba Inu' },
+  { symbol: 'PEPE', type: 'crypto', name: 'Pepe' },
+  { symbol: 'BONK', type: 'crypto', name: 'Bonk' },
+  { symbol: 'WIF', type: 'crypto', name: 'dogwifhat' },
+  { symbol: 'RAY', type: 'crypto', name: 'Raydium' },
+  { symbol: 'JUP', type: 'crypto', name: 'Jupiter' },
+];
+
+const originalNames = new Map(additionalCatalog.map((asset) => [asset.symbol, asset.name]));
+export const catalog: CatalogAsset[] = [
+  ...sp500.assets.map((asset) => ({
+    ...asset,
+    name: originalNames.get(asset.symbol) || asset.name,
+    type: 'stock' as const,
+    isSp500: true,
+  })),
+  ...additionalCatalog.filter(
+    (asset) =>
+      asset.type === 'crypto' || !sp500.assets.some((member) => member.symbol === asset.symbol),
+  ),
+];
+
+export const chartAssets: { symbol: string; name: string; type: AssetType }[] = [
+  ...catalog,
+  ...[
+    ['SPY', 'SPDR S&P 500 ETF'],
+    ['IVV', 'iShares Core S&P 500 ETF'],
+    ['VOO', 'Vanguard S&P 500 ETF'],
+    ['QQQ', 'Invesco QQQ'],
+    ['IWM', 'iShares Russell 2000 ETF'],
+    ['DIA', 'SPDR Dow Jones Industrial Average ETF'],
+    ['VTI', 'Vanguard Total Stock Market ETF'],
+    ['VT', 'Vanguard Total World Stock ETF'],
+    ['VEA', 'Vanguard Developed Markets ETF'],
+    ['VWO', 'Vanguard Emerging Markets ETF'],
+    ['EEM', 'iShares MSCI Emerging Markets ETF'],
+    ['EFA', 'iShares MSCI EAFE ETF'],
+    ['XLK', 'Technology Select Sector SPDR'],
+    ['XLF', 'Financial Select Sector SPDR'],
+    ['XLE', 'Energy Select Sector SPDR'],
+    ['XLV', 'Health Care Select Sector SPDR'],
+    ['XLI', 'Industrial Select Sector SPDR'],
+    ['XLY', 'Consumer Discretionary Select Sector SPDR'],
+    ['XLP', 'Consumer Staples Select Sector SPDR'],
+    ['XLU', 'Utilities Select Sector SPDR'],
+    ['XLRE', 'Real Estate Select Sector SPDR'],
+    ['XLC', 'Communication Services Select Sector SPDR'],
+    ['XLB', 'Materials Select Sector SPDR'],
+    ['GLD', 'SPDR Gold Shares'],
+    ['SLV', 'iShares Silver Trust'],
+    ['TLT', 'iShares 20+ Year Treasury Bond ETF'],
+    ['IEF', 'iShares 7–10 Year Treasury Bond ETF'],
+    ['BND', 'Vanguard Total Bond Market ETF'],
+    ['AGG', 'iShares Core U.S. Aggregate Bond ETF'],
+    ['HYG', 'iShares iBoxx High Yield Corporate Bond ETF'],
+    ['LQD', 'iShares Investment Grade Corporate Bond ETF'],
+  ].map(([symbol, name]) => ({ symbol, name, type: 'etf' as const })),
+  ...[
+    ['^GSPC', 'S&P 500'],
+    ['^IXIC', 'Nasdaq Composite'],
+    ['^DJI', 'Dow Jones Industrial Average'],
+    ['^RUT', 'Russell 2000'],
+    ['^VIX', 'CBOE Volatility Index'],
+    ['^FTSE', 'FTSE 100'],
+    ['^GDAXI', 'DAX'],
+    ['^FCHI', 'CAC 40'],
+    ['^N225', 'Nikkei 225'],
+    ['^HSI', 'Hang Seng'],
+    ['^BVSP', 'Bovespa'],
+    ['^MERV', 'S&P Merval'],
+  ].map(([symbol, name]) => ({ symbol, name, type: 'index' as const })),
+  ...[
+    ['EURUSD=X', 'EUR / USD'],
+    ['GBPUSD=X', 'GBP / USD'],
+    ['JPY=X', 'USD / JPY'],
+    ['AUDUSD=X', 'AUD / USD'],
+    ['CAD=X', 'USD / CAD'],
+    ['CHF=X', 'USD / CHF'],
+    ['NZDUSD=X', 'NZD / USD'],
+    ['EURGBP=X', 'EUR / GBP'],
+    ['EURJPY=X', 'EUR / JPY'],
+    ['BRL=X', 'USD / BRL'],
+  ].map(([symbol, name]) => ({ symbol, name, type: 'forex' as const })),
 ];

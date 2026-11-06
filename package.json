@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src server shared scripts server.ts vite.config.ts vitest.config.ts eslint.config.js docs README.md THIRD_PARTY_NOTICES.md package.json tsconfig.json firebase.json firestore.indexes.json .github/workflows/ci.yml",
     "format:check": "prettier --check src server shared scripts server.ts vite.config.ts vitest.config.ts eslint.config.js docs README.md THIRD_PARTY_NOTICES.md package.json tsconfig.json firebase.json firestore.indexes.json .github/workflows/ci.yml",
-    "firebase:prepare-deploy": "node scripts/firebase-deploy-config.mjs"
+    "firebase:prepare-deploy": "node scripts/firebase-deploy-config.mjs",
+    "markets:update-catalog": "node scripts/update-market-catalog.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -39,7 +40,6 @@
     "firebase-admin": "^13.10.0",
     "helmet": "^8.2.0",
     "jose": "^6.2.3",
-    "lightweight-charts": "^5.2.1",
     "lucide-react": "^0.546.0",
     "mammoth": "^1.12.0",
     "motion": "^12.23.24",

@@ -17,6 +17,7 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const Portfolio = lazy(() => import('./components/Portfolio'));
 const NewsFeed = lazy(() => import('./components/NewsFeed'));
 const MarketExplorer = lazy(() => import('./components/MarketExplorer'));
+const ChartsWorkspace = lazy(() => import('./components/ChartsWorkspace'));
 const AssetDetail = lazy(() => import('./components/AssetDetail'));
 const Alerts = lazy(() => import('./components/Alerts'));
 const Risk = lazy(() => import('./components/Risk'));
@@ -62,6 +63,11 @@ function AppLoader({ label = `Loading ${brand.name}...` }: { label?: string }) {
       </I18n.div>
     </div>
   );
+}
+
+function SectionRedirect({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}${location.hash}`} replace />;
 }
 
 export default function App() {
@@ -127,6 +133,7 @@ export default function App() {
             <Routes>
               <Route path="/demo" element={<DemoTerminal />} />
               <Route path="/landing" element={<LandingPage />} />
+              <Route path="/charts" element={<ChartsWorkspace user={user} />} />
               {!user ? (
                 <>
                   <Route path="/" element={<LandingPage />} />
@@ -135,9 +142,11 @@ export default function App() {
                   <Route path="/security" element={<Security />} />
                   <Route path="/pricing" element={<Pricing />} />
                   <Route path="/terms" element={<Terms />} />
-                  {accountPaths.map((path) => (
-                    <Route key={path} path={path} element={<AuthRedirect />} />
-                  ))}
+                  {accountPaths
+                    .filter((path) => path !== '/charts')
+                    .map((path) => (
+                      <Route key={path} path={path} element={<AuthRedirect />} />
+                    ))}
                   <Route path="*" element={<Navigate to="/" />} />
                 </>
               ) : (
@@ -152,14 +161,38 @@ export default function App() {
                     <Route path="/portfolio" element={<Portfolio />} />
                     <Route path="/market" element={<MarketExplorer />} />
                     <Route path="/market/:type/:symbol" element={<AssetDetail />} />
-                    <Route path="/alerts" element={<Alerts />} />
-                    <Route path="/risk" element={<Risk />} />
-                    <Route path="/briefing" element={<Briefing />} />
-                    <Route path="/news" element={<NewsFeed />} />
-                    <Route path="/watchlists" element={<Watchlists />} />
-                    <Route path="/transactions" element={<TransactionLedger />} />
-                    <Route path="/social" element={<SocialIntelligence />} />
-                    <Route path="/analytics" element={<PortfolioAnalytics />} />
+                    <Route path="/market/alerts" element={<Alerts />} />
+                    <Route path="/market/watchlists" element={<Watchlists />} />
+                    <Route path="/portfolio/risk" element={<Risk />} />
+                    <Route path="/portfolio/transactions" element={<TransactionLedger />} />
+                    <Route path="/portfolio/analytics" element={<PortfolioAnalytics />} />
+                    <Route path="/intelligence/news" element={<NewsFeed />} />
+                    <Route path="/intelligence/briefing" element={<Briefing />} />
+                    <Route path="/intelligence/social" element={<SocialIntelligence />} />
+                    <Route
+                      path="/intelligence"
+                      element={<SectionRedirect to="/intelligence/news" />}
+                    />
+                    <Route path="/alerts" element={<SectionRedirect to="/market/alerts" />} />
+                    <Route
+                      path="/watchlists"
+                      element={<SectionRedirect to="/market/watchlists" />}
+                    />
+                    <Route path="/risk" element={<SectionRedirect to="/portfolio/risk" />} />
+                    <Route
+                      path="/transactions"
+                      element={<SectionRedirect to="/portfolio/transactions" />}
+                    />
+                    <Route
+                      path="/analytics"
+                      element={<SectionRedirect to="/portfolio/analytics" />}
+                    />
+                    <Route path="/news" element={<SectionRedirect to="/intelligence/news" />} />
+                    <Route
+                      path="/briefing"
+                      element={<SectionRedirect to="/intelligence/briefing" />}
+                    />
+                    <Route path="/social" element={<SectionRedirect to="/intelligence/social" />} />
                     <Route path="/help" element={<Help />} />
                     <Route path="/info" element={<Info />} />
                     <Route path="*" element={<Navigate to="/" />} />

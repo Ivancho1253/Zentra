@@ -216,9 +216,7 @@ describe.skipIf(!baseUrl || process.env.E2E_FIREBASE_EMULATORS !== 'true')(
           await page.getByRole('button', { name: new RegExp(option) }).click();
           await expect.poll(async () => page.locator('html').getAttribute('lang')).toBe(language);
           for (const path of [...accountRoutes, ...publicRoutes]) {
-            if (accountRoutes.includes(path))
-              await page.locator(`aside a[href="${path}"]`).first().click();
-            else await page.goto(`${baseUrl}${path}`);
+            await page.goto(`${baseUrl}${path}`);
             const heading = page.getByRole('heading', { level: 1 }).first();
             await heading.waitFor();
             const label = await heading.innerText();
@@ -244,7 +242,6 @@ describe.skipIf(!baseUrl || process.env.E2E_FIREBASE_EMULATORS !== 'true')(
           }),
         ).toBe(true);
         await more.click();
-        await page.locator('a[href="/risk"]').last().waitFor();
         const infoLink = page.locator('a[href="/info"]').last();
         expect(
           await infoLink.evaluate((element) => {

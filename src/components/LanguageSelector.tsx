@@ -38,18 +38,18 @@ export default function LanguageSelector() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-xl border border-border-accent bg-surface px-3 py-2 text-[11px] font-bold uppercase tracking-normal text-text-main transition-all hover:border-accent hover:text-accent"
+        className="flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-text-dim transition-colors hover:bg-surface hover:text-text-main"
         title={text('Change language')}
         aria-label={text('Change language')}
         aria-expanded={isOpen}
       >
-        <Globe className="h-4 w-4 text-accent" />
+        <Globe className="h-4 w-4" />
         <span>{currentLang?.short}</span>
         <ChevronDown className={cn('h-3 w-3 transition-transform', isOpen && 'rotate-180')} />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-[100] mt-2 w-40 overflow-hidden rounded-xl border border-border-accent bg-surface shadow-2xl backdrop-blur-xl">
+        <div className="absolute right-0 top-full z-[100] mt-2 w-40 overflow-hidden rounded-md border border-border-accent bg-surface p-1 shadow-lg">
           {languages.map((lang) => (
             <button
               key={lang.code}
@@ -58,7 +58,7 @@ export default function LanguageSelector() {
                 setIsOpen(false);
               }}
               className={cn(
-                'flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-normal transition-all hover:bg-accent/10',
+                'flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-xs font-medium transition-colors hover:bg-accent/10',
                 language === lang.code ? 'bg-accent/5 text-accent' : 'text-text-dim',
               )}
             >

@@ -2,6 +2,7 @@ export type AssetType = 'stock' | 'etf' | 'crypto' | 'index' | 'forex';
 export type Currency = 'USD' | 'EUR' | 'ARS' | 'GBP';
 export type DataStatus = 'realtime' | 'delayed' | 'unknown' | 'stale' | 'unavailable' | 'demo';
 export type HistoryRange = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | '5Y' | 'MAX';
+export type HistoryInterval = '1h' | '4h' | '1d' | '1w' | '1mo';
 export interface AssetQuote {
   symbol: string;
   name: string;
@@ -28,6 +29,9 @@ export interface AssetQuote {
   stale: boolean;
   fallback: boolean;
   marketStatus: 'open' | 'closed' | 'unknown';
+  sector?: string;
+  isSp500?: boolean;
+  indexWeight?: number;
 }
 export interface HistoricalCandle {
   timestamp: number;
@@ -41,6 +45,11 @@ export interface MarketHistory {
   symbol: string;
   type: AssetType;
   range: HistoryRange;
+  interval?: HistoryInterval;
+  coverage?: 'available' | 'limited' | 'partial';
+  firstAvailableAt?: string;
+  nextBefore?: number | null;
+  aggregation?: 'session-4h' | 'utc-4h';
   provider: string;
   source: string;
   currency: string;

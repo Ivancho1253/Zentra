@@ -63,7 +63,11 @@ try {
       'run',
       ...(process.env.E2E_FEATURE_ONLY === 'true'
         ? ['server/featureFlows.test.ts']
-        : ['server/mobileSmoke.test.ts', 'server/featureFlows.test.ts']),
+        : [
+            'server/mobileSmoke.test.ts',
+            'server/featureFlows.test.ts',
+            'server/marketWorkspace.test.ts',
+          ]),
     ],
     { env, windowsHide: true, stdio: 'inherit' },
   );
